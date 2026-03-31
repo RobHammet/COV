@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"\\\\.import$\")",
+      "Bash(grep -v \"\\\\.uid$\")",
+      "Bash(python3 -c \":*)",
+      "Bash(identify /home/rob/Documents/dev/Godot/COV/game/art/cel_overlay.png)"
+    ]
+  }
+}

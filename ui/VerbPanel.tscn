@@ -1,0 +1,76 @@
+[gd_scene format=3 uid="uid://b8ik4wh3b25sa"]
+
+[ext_resource type="Texture2D" uid="uid://l7er64w0pxw7" path="res://game/art/eye-closed.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://851k4k0gs6iu" path="res://game/art/eye-open.png" id="2"]
+[ext_resource type="Script" uid="uid://cpy68ojtuoxt2" path="res://ui/VerbPanel.cs" id="3"]
+[ext_resource type="Texture2D" uid="uid://d4lmgkoh7hcna" path="res://game/art/usebtn1.png" id="4_bgoig"]
+[ext_resource type="Texture2D" uid="uid://bqcrkb3svfpqw" path="res://game/art/talkbtn2.png" id="5_3nohm"]
+[ext_resource type="Texture2D" uid="uid://du6emrqaolnlf" path="res://game/art/walkbtn1.png" id="6_3husp"]
+[ext_resource type="Texture2D" uid="uid://ewkaubdygcn0" path="res://game/art/itembtn1.png" id="7_1erp3"]
+
+[node name="VerbPanel" type="Control" unique_id=1773831606]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3")
+
+[node name="VerbPanel_Node2D" type="Node2D" parent="." unique_id=1900996608]
+
+[node name="Polygon2D" type="Polygon2D" parent="VerbPanel_Node2D" unique_id=480904728]
+visible = false
+position = Vector2(0, -4.0571427)
+scale = Vector2(1.0130814, 1.0571429)
+polygon = PackedVector2Array(1, 1, 367.19653, 6.6756754, 369.1707, 75.72973, 0, 71)
+
+[node name="LookButton" type="TextureButton" parent="VerbPanel_Node2D" unique_id=1358878067]
+light_mask = 0
+offset_left = 2.0
+offset_top = 1.0
+offset_right = 84.0
+offset_bottom = 65.0
+texture_normal = ExtResource("1")
+texture_hover = ExtResource("2")
+
+[node name="UseButton" type="TextureButton" parent="VerbPanel_Node2D" unique_id=1255776193]
+light_mask = 0
+offset_left = 85.0
+offset_top = 1.0
+offset_right = 167.0
+offset_bottom = 65.0
+texture_normal = ExtResource("4_bgoig")
+texture_hover = ExtResource("4_bgoig")
+
+[node name="TalkButton" type="TextureButton" parent="VerbPanel_Node2D" unique_id=1230775483]
+light_mask = 0
+offset_left = 154.0
+offset_top = 2.0
+offset_right = 236.0
+offset_bottom = 66.0
+texture_normal = ExtResource("5_3nohm")
+texture_hover = ExtResource("5_3nohm")
+
+[node name="WalkButton" type="TextureButton" parent="VerbPanel_Node2D" unique_id=526495066]
+light_mask = 0
+offset_left = 222.0
+offset_top = 2.0
+offset_right = 304.0
+offset_bottom = 66.0
+texture_normal = ExtResource("6_3husp")
+texture_hover = ExtResource("6_3husp")
+
+[node name="ItemButton" type="TextureButton" parent="VerbPanel_Node2D" unique_id=1538351056]
+light_mask = 0
+offset_left = 295.0
+offset_top = -1.0
+offset_right = 377.0
+offset_bottom = 63.0
+texture_normal = ExtResource("7_1erp3")
+
+[connection signal="pressed" from="VerbPanel_Node2D/LookButton" to="." method="_on_LookButton_pressed"]
+[connection signal="pressed" from="VerbPanel_Node2D/UseButton" to="." method="_on_use_button_pressed"]
+[connection signal="pressed" from="VerbPanel_Node2D/TalkButton" to="." method="_on_talk_button_pressed"]
+[connection signal="pressed" from="VerbPanel_Node2D/WalkButton" to="." method="_on_walk_button_pressed"]
+[connection signal="pressed" from="VerbPanel_Node2D/ItemButton" to="." method="_on_item_button_pressed"]

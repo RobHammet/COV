@@ -1,0 +1,85 @@
+[gd_scene load_steps=11 format=3 uid="uid://gktsetbi8ml0"]
+
+[ext_resource type="Script" path="res://game/scenes/entryway/entryway.cs" id="1_ev3vt"]
+[ext_resource type="Texture2D" uid="uid://cqjmvvgof78hl" path="res://game/art/entryway_darkmap.png" id="2_3aq3i"]
+[ext_resource type="Texture2D" uid="uid://dxsebvx8oawuh" path="res://game/art/entryway.png" id="2_47dve"]
+[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="3_sotew"]
+[ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="4_7jta6"]
+[ext_resource type="Material" uid="uid://5k4ulos2ygp1" path="res://shaders/materials/toonred_mat.tres" id="5_yqv7b"]
+[ext_resource type="Script" path="res://game/scenes/entryway/table.cs" id="7_2j5w2"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1vtu2"]
+size = Vector2(714, 119)
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_a0nhy"]
+vertices = PackedVector2Array(637, 497, 700, 570, -2, 589, 491, 504, 409.777, 443.606, 437, 444, 174, 505, 6, 494, 269, 392, 376, 395)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 5, 3, 2, 6), PackedInt32Array(2, 7, 6), PackedInt32Array(4, 6, 8, 9)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(376, 395, 409.777, 443.606, 437, 444, 491, 504, 637, 497, 700, 570, -2, 589, 6, 494, 174, 505, 269, 392)])
+source_geometry_group_name = &"navigation_polygon_source_group"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1w8pk"]
+size = Vector2(1153, 648)
+
+[node name="entryway" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+script = ExtResource("1_ev3vt")
+displayName = "ENTRYWAY"
+darkMap = ExtResource("2_3aq3i")
+parallaxSprites = []
+
+[node name="background" type="Sprite2D" parent="."]
+texture = ExtResource("2_47dve")
+offset = Vector2(320, 240)
+
+[node name="into_the_house" type="Area2D" parent="."]
+position = Vector2(585.312, 284.104)
+gravity_point_center = Vector2(1, 1)
+gravity_direction = Vector2(1, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="into_the_house"]
+z_index = 1
+position = Vector2(-241.312, 246.396)
+shape = SubResource("RectangleShape2D_1vtu2")
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_a0nhy")
+
+[node name="ScalerStick" type="Line2D" parent="."]
+visible = false
+points = PackedVector2Array(169, 82, 325, 296, 429, 442)
+width = 4.0
+
+[node name="Character" parent="." instance=ExtResource("3_sotew")]
+material = ExtResource("5_yqv7b")
+position = Vector2(351, 464)
+character_speed = 85.0
+startingScaleAsBaseline = false
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+visible = false
+position = Vector2(323, 224)
+scale = Vector2(0.5, 0.7)
+energy = 5.22
+texture = ExtResource("4_7jta6")
+texture_scale = 7.03
+
+[node name="table" type="Node2D" parent="." groups=["things"]]
+script = ExtResource("7_2j5w2")
+displayName = "table"
+lookText = PackedStringArray("IT\'S A SIDE TABLE.")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="table"]
+polygon = PackedVector2Array(528, 285, 623, 309, 635, 488, 500, 491, 441, 435, 436, 285)
+
+[node name="InteractPoint" type="Node2D" parent="table"]
+position = Vector2(416, 459)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+modulate = Color(1, 0, 0, 1)
+self_modulate = Color(1, 0, 0, 1)
+position = Vector2(577, 324)
+
+[node name="CameraClamp" type="CollisionShape2D" parent="."]
+position = Vector2(576, 324)
+shape = SubResource("RectangleShape2D_1w8pk")
+
+[connection signal="body_entered" from="into_the_house" to="." method="_on_into_the_house_body_entered"]

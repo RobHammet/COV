@@ -1,0 +1,6 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://bi1k0idfsxvgt"]
+
+[ext_resource type="Shader" path="res://shaders/black_shadows.gdshader" id="1_ju2fx"]
+
+[resource]
+shader = ExtResource("1_ju2fx")

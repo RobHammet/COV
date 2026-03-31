@@ -1,0 +1,164 @@
+{
+  "start": "Intro",
+  "nodes": {
+    "Intro": {
+      "next": "Main",
+      "content": [
+        { "action": "look_at", "actor": "character", "target": "someguy" },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "speaker": "character", "text": "HEY THERE!" },
+        { "speaker": "someguy",   "text": "..." },
+        { "action": "wait", "seconds": 0.8 },
+        { "speaker": "someguy",   "text": "WHAT DO YOU WANT?" },
+        { "speaker": "character", "text": "JUST BEING NEIGHBOURLY." },
+        { "speaker": "character", "text": "HE DOESN'T SEEM THE NEIGHBOURLY TYPE.", "thought": true }
+      ]
+    },
+    "Main": {
+      "content": [
+        { "choices": [
+            { "id": "JACKETS",  "label": "JACKETS" },
+            { "id": "WORK",     "label": "WORK" },
+            { "id": "HOUSE",    "label": "HOUSE", "condition": "talkedAboutTree" },
+            { "id": "CANDLE",   "label": "THAT CANDLE", "condition": "talkedAboutTree" },
+            { "id": "BYE",      "label": "BYE" }
+        ]}
+      ]
+    },
+    "JACKETS": {
+      "next": "Main",
+      "content": [
+        { "action": "move",    "actor": "character", "target": "someguy" },
+        { "action": "look_at", "actor": "character", "target": "someguy" },
+        { "speaker": "character", "text": "I'M SELLING THESE FINE LEATHER JACKETS!" },
+        { "speaker": "someguy",   "text": "JACKETS?!" },
+        { "action": "wait", "seconds": 0.6 },
+        { "speaker": "someguy",   "text": "THAT'S RIDICULOUS!" },
+        { "action": "look_at", "actor": "someguy",   "target": "pole" },
+        { "action": "narrate", "text": "THE FARMER SQUINTS INTO THE DISTANCE, UNCONVINCED." },
+        { "speaker": "character", "text": "HE'S RIGHT. IT IS RIDICULOUS.", "thought": true },
+        { "action": "move",    "actor": "character", "target": "candle" },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "action": "set_flag", "name": "talkedAboutJackets", "value": "true" },
+        { "action": "hide",    "choice": "JACKETS" }
+      ]
+    },
+    "WORK": {
+      "next": "Main",
+      "content": [
+        { "action": "look_at", "actor": "character", "target": "someguy" },
+        { "speaker": "character", "text": "I'M LOOKING FOR WORK. YOU GOT ANYTHING?" },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "speaker": "someguy",   "text": "DEPENDS WHAT YOU CAN DO, BUCKAROO." },
+        { "action": "wait", "seconds": 0.4 },
+        { "speaker": "someguy",   "text": "ARE YOU HANDY?" },
+        { "speaker": "character", "text": "I CAN BE." },
+        { "action": "look_at", "actor": "someguy",   "target": "pole" },
+        { "action": "narrate", "text": "HE CHEWS ON SOMETHING THAT ISN'T THERE." },
+        { "action": "wait", "seconds": 0.7 },
+        { "speaker": "someguy",   "text": "HMMM... THERE IS A TREE I NEED FELLED." },
+        { "action": "move",    "actor": "someguy",   "target": "pole" },
+        { "speaker": "someguy",   "text": "BIG OAK. BEEN BLOCKING MY VIEW FOR TWENTY YEARS." },
+        { "action": "look_at", "actor": "someguy",   "target": "house" },
+        { "action": "narrate", "text": "HE GESTURES VAGUELY TOWARD THE TREELINE." },
+        { "action": "think",   "actor": "character", "text": "A TREE. THAT'LL DO. FOR NOW." },
+        { "action": "move",    "actor": "someguy",   "target": "character" },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "action": "narrate", "text": "A CROW LANDS ON THE FENCE POST AND REGARDS YOU BOTH." },
+        { "action": "set_flag", "name": "talkedAboutTree", "value": "true" }
+      ]
+    },
+    "HOUSE": {
+      "condition": "talkedAboutTree",
+      "next": "HOUSE2",
+      "content": [
+        { "action": "move",    "actor": "character", "target": "house" },
+        { "action": "look_at", "actor": "character", "target": "house" },
+        { "speaker": "character", "text": "IS THAT YOUR HOUSE UP THERE?" },
+        { "action": "look_at", "actor": "someguy",   "target": "house" },
+        { "action": "wait", "seconds": 0.5 },
+        { "speaker": "someguy",   "text": "IT SURE IS. YOU [b]BETCHA[/b]!" },
+        { "action": "narrate", "text": "HE PUFFS OUT HIS CHEST A LITTLE." },
+        { "action": "move",    "actor": "character", "target": "someguy" },
+        { "action": "look_at", "actor": "someguy",   "target": "character" }
+      ]
+    },
+    "HOUSE2": {
+      "content": [
+        { "choices": [
+            { "id": "LOOKS_NICE",     "label": "LOOKS NICE" },
+            { "id": "NEED_REPAIRS",   "label": "NEED REPAIRS" },
+            { "id": "SOMETHING_ELSE", "label": "SOMETHING ELSE" }
+        ]}
+      ]
+    },
+    "LOOKS_NICE": {
+      "next": "HOUSE2",
+      "content": [
+        { "action": "move",    "actor": "character", "target": "house" },
+        { "action": "look_at", "actor": "character", "target": "house" },
+        { "speaker": "character", "text": "THE HOUSE IS VERY NICE-LOOKING..." },
+        { "speaker": "character", "text": "AND I BET IT'S FULL OF ANTIQUES...", "thought": true },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "speaker": "someguy",   "text": "THANKS, YES. SHE'S A BEAUT." },
+        { "action": "speak",   "actor": "someguy",   "text": "BEEN IN THE FAMILY SIXTY YEARS." },
+        { "action": "move",    "actor": "character", "target": "someguy" },
+        { "action": "think",   "actor": "character", "text": "COULD FENCE THE ANTIQUES. RETIRE EARLY." },
+        { "action": "narrate", "text": "THE AFTERNOON LIGHT CATCHES THE WEATHERVANE ON THE ROOF." }
+      ]
+    },
+    "NEED_REPAIRS": {
+      "next": "HOUSE2",
+      "content": [
+        { "speaker": "character", "text": "NEED ANY REPAIR WORK DONE UP THERE?" },
+        { "action": "look_at", "actor": "someguy",   "target": "house" },
+        { "action": "wait", "seconds": 0.6 },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "speaker": "someguy",   "text": "MAYBE SO, MAYBE SO..." },
+        { "action": "move",    "actor": "someguy",   "target": "pole" },
+        { "speaker": "someguy",   "text": "ROOF'S BEEN LEAKING SINCE THE STORM." },
+        { "action": "think",   "actor": "character", "text": "HE'S HIDING SOMETHING. OR JUST EMBARRASSED." },
+        { "action": "narrate", "text": "HE DOESN'T MEET YOUR EYES." },
+        { "action": "move",    "actor": "someguy",   "target": "character" }
+      ]
+    },
+    "SOMETHING_ELSE": {
+      "next": "Main",
+      "content": [
+        { "speaker": "character", "text": "LET'S TALK ABOUT SOMETHING ELSE." },
+        { "speaker": "someguy",   "text": "HAPPY TO." }
+      ]
+    },
+    "CANDLE": {
+      "condition": "talkedAboutTree",
+      "next": "Main",
+      "content": [
+        { "action": "move",    "actor": "character", "target": "candle" },
+        { "action": "look_at", "actor": "character", "target": "candle" },
+        { "speaker": "character", "text": "HEY, WHAT'S THIS CANDLE DOING OUT HERE?" },
+        { "action": "look_at", "actor": "someguy",   "target": "candle" },
+        { "action": "wait", "seconds": 0.5 },
+        { "speaker": "someguy",   "text": "OH, THAT." },
+        { "action": "narrate", "text": "HE SHIFTS HIS WEIGHT SLIGHTLY." },
+        { "speaker": "someguy",   "text": "KEEPS THE BIRDS OFF THE FENCE." },
+        { "speaker": "character", "text": "THAT'S NOT HOW ANY OF THIS WORKS.", "thought": true },
+        { "action": "move",    "actor": "character", "target": "someguy" },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "action": "set_flag", "name": "talkedAboutCandle", "value": "true" },
+        { "action": "hide",    "choice": "CANDLE" }
+      ]
+    },
+    "BYE": {
+      "content": [
+        { "speaker": "character", "text": "THANKS FOR YOUR TIME." },
+        { "action": "look_at", "actor": "someguy",   "target": "character" },
+        { "speaker": "someguy",   "text": "VERY WELL. SEE YA 'ROUND, [b]SKIP[/b]!" },
+        { "action": "narrate", "text": "HE TURNS BACK TO HIS FENCE WITHOUT ANOTHER WORD." },
+        { "action": "look_at", "actor": "someguy",   "target": "pole" },
+        { "action": "move",    "actor": "someguy",   "target": "pole" },
+        { "action": "speak",   "actor": "someguy",   "text": "DON'T BE A STRANGER." },
+        { "action": "move",    "actor": "character", "target": "candle" }
+      ]
+    }
+  }
+}

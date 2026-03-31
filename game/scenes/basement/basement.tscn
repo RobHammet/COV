@@ -1,0 +1,83 @@
+[gd_scene load_steps=9 format=3 uid="uid://c8dl4p6njcv5i"]
+
+[ext_resource type="Script" path="res://game/scenes/basement/basement.cs" id="1_87u6t"]
+[ext_resource type="Texture2D" uid="uid://b3m86biv7vpoq" path="res://game/art/basement.png" id="2_kpb38"]
+[ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="3_bjhx0"]
+[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="4_rxldb"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_fqu61"]
+vertices = PackedVector2Array(791, 627, 984, 676, -360, 681, -157, 567, 626, 468, 512, 468, 506, 457, -132, 340, 569, 252, 623, 281)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 0, 3, 5), PackedInt32Array(6, 5, 3, 7), PackedInt32Array(6, 7, 8, 9)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(518, 458, 630, 459, 795.968, 617.922, 1063, 686, -400, 692, -166, 561, -142, 332, 572, 242, 638, 278)])
+source_geometry_group_name = &"navigation_polygon_source_group"
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cvolg"]
+size = Vector2(108, 107)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4jr3t"]
+size = Vector2(1643, 917)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_stomx"]
+size = Vector2(1153, 648)
+
+[node name="Basement" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+script = ExtResource("1_87u6t")
+displayName = "basement"
+parallaxSprites = []
+
+[node name="background" type="Sprite2D" parent="."]
+position = Vector2(317, 241)
+texture = ExtResource("2_kpb38")
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_fqu61")
+
+[node name="ScalerStick" type="Line2D" parent="."]
+visible = false
+points = PackedVector2Array(50, -114, 110, -24, 464, 485)
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+visible = false
+visibility_layer = 0
+position = Vector2(815, -95)
+color = Color(0.435294, 0.752941, 0.721569, 1)
+energy = 9.18
+texture = ExtResource("3_bjhx0")
+texture_scale = 0.17
+height = 395.0
+
+[node name="exit_to_sittingroom" type="Area2D" parent="."]
+position = Vector2(393, 248)
+input_pickable = false
+gravity_point_center = Vector2(1, 1)
+gravity_direction = Vector2(1, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_sittingroom"]
+z_index = 1
+position = Vector2(234, 207.5)
+shape = SubResource("RectangleShape2D_cvolg")
+
+[node name="Character" parent="." instance=ExtResource("4_rxldb")]
+y_sort_enabled = true
+position = Vector2(631, 557)
+Facing = 4
+character_speed = 85.0
+startingScaleAsBaseline = false
+
+[node name="Camera2D" type="Camera2D" parent="."]
+modulate = Color(1, 0, 0, 1)
+self_modulate = Color(1, 0, 0, 1)
+position = Vector2(559, 102)
+
+[node name="CameraClamp" type="CollisionShape2D" parent="."]
+position = Vector2(313.5, 242.5)
+shape = SubResource("RectangleShape2D_4jr3t")
+
+[node name="Camera2D2" type="Camera2D" parent="."]
+modulate = Color(1, 0, 0, 1)
+self_modulate = Color(1, 0, 0, 1)
+position = Vector2(577, 324)
+
+[node name="CameraClamp2" type="CollisionShape2D" parent="."]
+position = Vector2(576, 324)
+shape = SubResource("RectangleShape2D_stomx")

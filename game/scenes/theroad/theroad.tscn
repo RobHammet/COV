@@ -1,0 +1,194 @@
+[gd_scene format=3 uid="uid://dq6j1wrrf8vq2"]
+
+[ext_resource type="Script" uid="uid://b72m4kaa1dcsw" path="res://game/scenes/theroad/theroad.cs" id="2"]
+[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="3"]
+[ext_resource type="Texture2D" uid="uid://c1xg7g2xu8up2" path="res://game/art/hwy86prettycolors.png" id="4"]
+[ext_resource type="Script" uid="uid://b1avab6sb7hef" path="res://game/scenes/theroad/candle.cs" id="5"]
+[ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="6"]
+[ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7"]
+[ext_resource type="Texture2D" uid="uid://dcygbwi0aw4ja" path="res://game/art/candle_sprite-Sheet.png" id="8"]
+[ext_resource type="Material" uid="uid://safyatrerxbt" path="res://shaders/materials/spriteframe_shader_mat.tres" id="8_jfnsk"]
+[ext_resource type="Texture2D" uid="uid://cohljo4bigmjt" path="res://game/art/candle/candle_sprite1.png" id="9_wikll"]
+[ext_resource type="PackedScene" uid="uid://4vtqd6qa57n1" path="res://game/NPC/someguy.tscn" id="10_gjxlk"]
+[ext_resource type="Script" uid="uid://bpqx6yex8dhy2" path="res://game/NPC/someguy.cs" id="10_x4sgq"]
+[ext_resource type="Script" uid="uid://c0ll22lbmwuto" path="res://ui/DialogTree.cs" id="12_ki331"]
+
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(105, 58)
+
+[sub_resource type="Animation" id="3"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0]
+}
+
+[sub_resource type="Animation" id="4"]
+resource_name = "burn"
+length = 0.8
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2, 0.4, 0.6),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_inqan"]
+_data = {
+&"RESET": SubResource("3"),
+&"burn": SubResource("4")
+}
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_nayev"]
+vertices = PackedVector2Array(632, 345, 402, 338, 491, 336, 936, 351, 814, 352, 924, 352, 966, 361, 966, 360, 1097, 421, 929, 366, 936, 352, 302, 624, 262, 450, 815, 464, 1139, 635, 870, 406)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 0, 3, 5), PackedInt32Array(6, 7, 8), PackedInt32Array(9, 5, 3, 10), PackedInt32Array(11, 12, 13, 14), PackedInt32Array(6, 8, 14, 13, 15, 9), PackedInt32Array(9, 10, 6)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(329, 346, 329, 330, 491, 326, 939, 342, 969, 351, 1107, 415, 1152, 646, 294, 634, 250, 440, 811, 454, 864, 398, 917, 362, 814, 362, 632, 355)])
+source_geometry_group_name = &"navigation_polygon_source_group"
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_0ignm"]
+diffuse_texture = ExtResource("9_wikll")
+normal_texture = ExtResource("9_wikll")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3bukr"]
+size = Vector2(1153, 648)
+
+[node name="theroad" type="Node2D" unique_id=1613044435 node_paths=PackedStringArray("parallaxSprites")]
+y_sort_enabled = true
+script = ExtResource("2")
+displayName = "theroad"
+parallaxSprites = []
+
+[node name="background" type="Sprite2D" parent="." unique_id=260995694]
+position = Vector2(-1, 0)
+scale = Vector2(1.80312, 1.35208)
+texture = ExtResource("4")
+offset = Vector2(320, 240)
+
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=249449249]
+visible = false
+position = Vector2(149, 178)
+scale = Vector2(0.245, 0.245)
+energy = 14.06
+texture = ExtResource("6")
+texture_scale = 0.32
+height = 417.0
+
+[node name="pole" type="Node2D" parent="." unique_id=1138120928 groups=["things"]]
+script = ExtResource("7")
+displayName = "pole"
+lookText = PackedStringArray("THAT\'S A [b]TALL[/b] TELEPHONE POLE!")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="pole" unique_id=1671936322]
+polygon = PackedVector2Array(679, 4, 695, 6, 679, 336, 659, 327)
+
+[node name="InteractPoint" type="Node2D" parent="pole" unique_id=1550536379]
+position = Vector2(838, 466)
+
+[node name="exit_to_house" type="Area2D" parent="." unique_id=1790095507]
+position = Vector2(812, 338)
+gravity_point_center = Vector2(1, 1)
+gravity_direction = Vector2(1, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_house" unique_id=319799139]
+z_index = 1
+shape = SubResource("2")
+
+[node name="Candle" type="Node2D" parent="." unique_id=1637498701]
+z_index = 1
+z_as_relative = false
+position = Vector2(1102, 460)
+script = ExtResource("5")
+displayName = "candle"
+castsShadow = true
+inventoryItemType = 2
+lookClosely = true
+
+[node name="Sprite2D" type="Sprite2D" parent="Candle" unique_id=1866251685]
+light_mask = 0
+position = Vector2(1.40002, -12.1)
+texture = ExtResource("8")
+hframes = 4
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Candle/Sprite2D" unique_id=1221663366]
+libraries/ = SubResource("AnimationLibrary_inqan")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Candle" unique_id=1498701244]
+scale = Vector2(0.848214, 1.16848)
+polygon = PackedVector2Array(1.17892, -17.9721, 14.1474, -3.42325, 1.17892, 2.56744, -15.3263, -3.42325)
+
+[node name="InteractPoint" type="Node2D" parent="Candle" unique_id=1097231327]
+position = Vector2(-36, 2)
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=562625500]
+navigation_polygon = SubResource("NavigationPolygon_nayev")
+
+[node name="ScalerStick" type="Line2D" parent="." unique_id=1677862880]
+visible = false
+points = PackedVector2Array(955, 326, 798, 449, 511, 680)
+
+[node name="house" type="Node2D" parent="." unique_id=1059648493]
+script = ExtResource("7")
+displayName = "house"
+lookClosely = true
+lookText = PackedStringArray("THERE IS AN OLD HOUSE IN THE DISTANCE..", "MAYBE I SHOULD GO TAKE A CLOSER LOOK.")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="house" unique_id=78556102]
+polygon = PackedVector2Array(401, 300, 403, 336, 332, 329, 336, 296)
+
+[node name="InteractPoint" type="Node2D" parent="house" unique_id=1984360920]
+position = Vector2(387, 460)
+
+[node name="framsprit" type="Sprite2D" parent="." unique_id=774793482]
+visible = false
+z_index = 4
+material = ExtResource("8_jfnsk")
+position = Vector2(584, 353)
+texture = SubResource("CanvasTexture_0ignm")
+
+[node name="Character" parent="." unique_id=129544303 instance=ExtResource("3")]
+position = Vector2(1015, 570)
+Facing = 4
+character_speed = 85.0
+displayName = "ego"
+startingScaleAsBaseline = false
+
+[node name="someguy" parent="." unique_id=1779810606 instance=ExtResource("10_gjxlk")]
+position = Vector2(489, 508)
+script = ExtResource("10_x4sgq")
+dialogColor = Color(1, 0.886275, 0.223529, 1)
+Facing = 4
+character_speed = 85.0
+castsShadow = true
+lookClosely = false
+lookText = PackedStringArray("HE SEEMS FAMILIAR...")
+startingScaleAsBaseline = false
+
+[node name="ChatWithFarmer" type="Node2D" parent="." unique_id=1977570458]
+script = ExtResource("12_ki331")
+dialogFile = "game/data/dialogs/ChatWithFarmer.json"
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=73297095]
+modulate = Color(1, 0, 0, 1)
+self_modulate = Color(1, 0, 0, 1)
+position = Vector2(577, 324)
+
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=213966145]
+position = Vector2(576, 324)
+shape = SubResource("RectangleShape2D_3bukr")
+
+[connection signal="body_entered" from="exit_to_house" to="." method="_on_exit_to_house_body_entered"]

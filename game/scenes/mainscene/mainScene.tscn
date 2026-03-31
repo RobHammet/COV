@@ -1,0 +1,205 @@
+[gd_scene format=3 uid="uid://dfafh8o0gxnib"]
+
+[ext_resource type="Script" uid="uid://xf10pfaw8kt6" path="res://game/scenes/mainscene/MainScene.cs" id="1_2l4hu"]
+[ext_resource type="Shader" uid="uid://b7nksb82tvvlw" path="res://shaders/halftone.gdshader" id="2_iv7us"]
+[ext_resource type="PackedScene" uid="uid://dvps1fw2iy2x5" path="res://ui/OverlayScene.tscn" id="3"]
+[ext_resource type="PackedScene" uid="uid://b84ee338jtnq0" path="res://ui/title_splash.tscn" id="3_obykk"]
+[ext_resource type="Texture2D" uid="uid://p6cw75t3n0kx" path="res://game/art/cursors2.png" id="4"]
+[ext_resource type="Script" uid="uid://br8hygjje6e8i" path="res://ui/title_splash.cs" id="4_1dlpk"]
+[ext_resource type="AudioStream" uid="uid://b5winw2rqjr0p" path="res://game/audio/Hahahahahaha_creep.mp3" id="5_meruv"]
+[ext_resource type="Shader" uid="uid://de8n5ojo75oa3" path="res://shaders/blackwhiteshader.gdshader" id="6_0empv"]
+[ext_resource type="Script" uid="uid://cf7f7l4e3gopb" path="res://ui/Cursor.cs" id="8_apspx"]
+[ext_resource type="Texture2D" uid="uid://obw8hjgtwuym" path="res://game/art/items.png" id="9_wyabt"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2dqqq"]
+shader = ExtResource("2_iv7us")
+shader_parameter/radius_c = 0.2
+shader_parameter/radius_m = -0.3
+shader_parameter/radius_y = 0.0
+shader_parameter/radius_k = 0.785
+shader_parameter/frequency = 463.46
+
+[sub_resource type="Animation" id="4"]
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("../Camera2D:offset")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("../Camera2D:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(345, 265)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Black:modulate")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Color(1, 1, 1, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_2fxqo"]
+resource_name = "fadeinfromblack"
+length = 0.25
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Black:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_8wuom"]
+resource_name = "fadetoblack"
+length = 0.25
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Black:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.25),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1)]
+}
+
+[sub_resource type="Animation" id="6"]
+resource_name = "panright"
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("../Camera2D:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 1),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Vector2(345, 240), Vector2(970, 240)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_1sufb"]
+_data = {
+&"RESET": SubResource("4"),
+&"fadeinfromblack": SubResource("Animation_2fxqo"),
+&"fadetoblack": SubResource("Animation_8wuom"),
+&"panright": SubResource("6")
+}
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_qhce5"]
+shader = ExtResource("6_0empv")
+shader_parameter/white_cutoff = 0.775
+
+[node name="MainScene" type="Node2D" unique_id=1285218856]
+script = ExtResource("1_2l4hu")
+
+[node name="EventManager" type="Node" parent="." unique_id=1527263301]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1773533511]
+position = Vector2(345, 265)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="Camera2D" unique_id=1286740618]
+
+[node name="ColorRect" type="ColorRect" parent="Camera2D/CanvasLayer" unique_id=474647823]
+modulate = Color(0, 0, 0, 0.192157)
+self_modulate = Color(0, 0, 0, 0.164706)
+light_mask = 0
+z_as_relative = false
+material = SubResource("ShaderMaterial_2dqqq")
+anchors_preset = -1
+anchor_left = -0.78125
+anchor_top = -1.0787
+anchor_right = -0.78125
+anchor_bottom = -1.0787
+offset_left = -74.0
+offset_top = -70.0
+offset_right = 2080.0
+offset_bottom = 1379.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+metadata/_edit_use_anchors_ = true
+
+[node name="title_splash" parent="Camera2D/CanvasLayer" unique_id=1990951114 instance=ExtResource("3_obykk")]
+visible = false
+position = Vector2(-1, -2)
+script = ExtResource("4_1dlpk")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1053928725]
+root_node = NodePath("../CurrentSceneHolder")
+libraries/ = SubResource("AnimationLibrary_1sufb")
+
+[node name="CurrentSceneHolder" type="Node2D" parent="." unique_id=889024442]
+show_behind_parent = true
+
+[node name="Black" type="ColorRect" parent="CurrentSceneHolder" unique_id=1070895689]
+modulate = Color(1, 1, 1, 0)
+z_index = 4
+offset_left = 12.0
+offset_top = -3.0
+offset_right = 641.0
+offset_bottom = 463.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="OverlayScene" parent="CurrentSceneHolder" unique_id=1667698658 instance=ExtResource("3")]
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="CurrentSceneHolder" unique_id=1854494979]
+stream = ExtResource("5_meruv")
+volume_db = -32.907
+max_polyphony = 4
+
+[node name="NextSceneHolder" type="Node2D" parent="." unique_id=1793793240]
+position = Vector2(640, 0)
+
+[node name="Cursor" type="Sprite2D" parent="." unique_id=1968926030]
+light_mask = 0
+z_index = 1000
+material = SubResource("ShaderMaterial_qhce5")
+position = Vector2(-507, 324)
+scale = Vector2(0.75, 0.75)
+texture = ExtResource("4")
+centered = false
+offset = Vector2(32, 32)
+hframes = 6
+script = ExtResource("8_apspx")
+cursorTexture = ExtResource("4")
+cursorTextureSize = Vector2i(6, 1)
+itemTexture = ExtResource("9_wyabt")
+itemTextureSize = Vector2i(6, 6)
+
+[node name="DebugText" type="RichTextLabel" parent="." unique_id=2057632062]
+z_index = 10
+offset_left = 16.0
+offset_top = 4.0
+offset_right = 637.0
+offset_bottom = 647.0
+mouse_filter = 2
+text = "DEBUG TEXT"
+
+[connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]

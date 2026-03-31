@@ -1,0 +1,6 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://busm0tfxpwnu1"]
+
+[ext_resource type="Shader" path="res://game/character/obscure.gdshader" id="1_kt00m"]
+
+[resource]
+shader = ExtResource("1_kt00m")

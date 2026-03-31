@@ -1,0 +1,6 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://un1jstrus1ud"]
+
+[ext_resource type="Shader" path="res://shaders/toon.gdshader" id="1_db0y7"]
+
+[resource]
+shader = ExtResource("1_db0y7")

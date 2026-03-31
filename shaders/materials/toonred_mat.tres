@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://5k4ulos2ygp1"]
+
+[ext_resource type="Shader" path="res://shaders/toon_shader.gdshader" id="1_vw27m"]
+
+[resource]
+shader = ExtResource("1_vw27m")
+shader_parameter/dark_threshold = null
+shader_parameter/light_strength = null
+shader_parameter/light_direction = null
+shader_parameter/is_flipped = false

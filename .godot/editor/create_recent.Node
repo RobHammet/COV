@@ -1,0 +1,14 @@
+CollisionShape2D
+Polygon2D
+SubViewport
+SubViewportContainer
+Camera2D
+Sprite2D
+Node2D
+CollisionPolygon2D
+NavigationRegion2D
+ParallaxBackground
+ParallaxLayer
+AnimationPlayer
+ColorRect
+DialogLine

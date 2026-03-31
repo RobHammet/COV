@@ -1,0 +1,4 @@
+[things]
+"kitchen": if kitchenlight "IT'S THE KITCHEN.|IT'S STILL THE KITCHEN." else "IT'S TOO DARK."
+"painting": "WHAT A [b]BEAUTIFUL[/b] LANDSCAPE... IT SEEMS TO BE SOMEWHERE IN FRANCE.",
+ "window":  "THESE GIANT WINDOWS ARE [b]GREAT[/b] FOR SUN... BUT THEY CAN BE TROUBLE IN [wave]STORMY[/wave] WEATHER."

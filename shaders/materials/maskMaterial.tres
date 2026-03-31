@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3 uid="uid://xakls1rjw0br"]
+
+[ext_resource type="Shader" path="res://shaders/mask.gdshader" id="1_y2dkm"]
+[ext_resource type="Texture2D" uid="uid://jgxafb2pg7yf" path="res://game/art/kitchen5.png" id="2_cbidx"]
+
+[resource]
+shader = ExtResource("1_y2dkm")
+shader_parameter/scale = Vector2(0.927, 0.905)
+shader_parameter/offset = Vector2(-0.033, -0.055)
+shader_parameter/brightness = 0.082
+shader_parameter/contrast = 1.0
+shader_parameter/saturation = 0.85
+shader_parameter/use_texture = ExtResource("2_cbidx")

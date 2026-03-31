@@ -1,0 +1,237 @@
+[gd_scene load_steps=23 format=3 uid="uid://dhh0nbs4d6bck"]
+
+[ext_resource type="Script" path="res://game/scenes/sittingroom/sittingroom.cs" id="2"]
+[ext_resource type="Texture2D" uid="uid://7d1uboubm22j" path="res://game/art/sittingroom2_darkmap.png" id="2_rs8dn"]
+[ext_resource type="Texture2D" uid="uid://bt0cigc10ky81" path="res://game/art/sittingroom2.png" id="4"]
+[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="6"]
+[ext_resource type="Script" path="res://framework/thing.cs" id="7"]
+[ext_resource type="Texture2D" uid="uid://sjq1367wkxgi" path="res://game/art/keynormal.png" id="7_ad6xd"]
+[ext_resource type="Shader" path="res://shaders/light_and_shadows_shader.gdshader" id="7_eq2w1"]
+[ext_resource type="Texture2D" uid="uid://7sed04dnkjm2" path="res://game/art/key.png" id="8"]
+[ext_resource type="Texture2D" uid="uid://b5yifu5pmulyl" path="res://game/art/bearalpha.png" id="9"]
+[ext_resource type="Texture2D" uid="uid://c4xmqwnpumqpu" path="res://game/art/bearnormal2.png" id="9_rb0sk"]
+[ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="10_g5oap"]
+[ext_resource type="Script" path="res://game/scenes/sittingroom/key.cs" id="11"]
+[ext_resource type="Script" path="res://game/scenes/sittingroom/shadertest.cs" id="13_hy0su"]
+[ext_resource type="Texture2D" uid="uid://d6kbec8y3rr" path="res://game/art/circle_normal3.png" id="14_n4ufk"]
+[ext_resource type="Texture2D" uid="uid://dxxx0vgehpigb" path="res://game/art/circle.png" id="15_4rv4h"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wmpee"]
+shader = ExtResource("7_eq2w1")
+shader_parameter/dark_threshold = 0.01
+shader_parameter/light_strength = 0.625
+shader_parameter/light_direction = Vector3(0.615, -32.425, 4.105)
+shader_parameter/is_flipped = false
+shader_parameter/overall_dark = 1.0
+shader_parameter/maintain_light = 0.0
+shader_parameter/sprite_texture = ExtResource("8")
+shader_parameter/normal_map = ExtResource("7_ad6xd")
+
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(101, 72)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hukdb"]
+shader = ExtResource("7_eq2w1")
+shader_parameter/dark_threshold = 0.1
+shader_parameter/light_strength = 1.0
+shader_parameter/light_direction = Vector3(-4.68, -4.45, 6.16)
+shader_parameter/is_flipped = false
+shader_parameter/overall_dark = 1.0
+shader_parameter/maintain_light = 0.58
+shader_parameter/sprite_texture = ExtResource("9")
+shader_parameter/normal_map = ExtResource("9_rb0sk")
+
+[sub_resource type="CanvasTexture" id="CanvasTexture_en2pt"]
+diffuse_texture = ExtResource("9")
+normal_texture = ExtResource("9_rb0sk")
+
+[sub_resource type="NavigationPolygon" id="1"]
+vertices = PackedVector2Array(627, 339, 638, 482, 3, 479, 13, 434, 53, 393, 545, 306, 538, 278, 194, 343, 78, 8, 158, 4, 241, 326, 375, 218, 345, 228, 307, 198, 266, 247, 267, 204, 243, 252)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4, 5), PackedInt32Array(6, 5, 4, 7), PackedInt32Array(8, 9, 7, 4), PackedInt32Array(6, 7, 10), PackedInt32Array(11, 6, 10, 12), PackedInt32Array(13, 12, 10, 14), PackedInt32Array(14, 15, 13), PackedInt32Array(16, 14, 10)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(266, 247, 267, 204, 307, 198, 345, 228, 375, 218, 538, 278, 545, 306, 627, 339, 638, 482, 3, 479, 13, 434, 53, 393, 78, 8, 158, 4, 194, 343, 241, 326, 243, 252)])
+source_geometry_group_name = &"navigation_polygon_source_group"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_0hbfy"]
+shader = ExtResource("7_eq2w1")
+shader_parameter/dark_threshold = 0.1
+shader_parameter/light_strength = 0.0
+shader_parameter/light_direction = null
+shader_parameter/is_flipped = false
+shader_parameter/overall_dark = 1.0
+shader_parameter/maintain_light = 0.0
+shader_parameter/sprite_texture = ExtResource("15_4rv4h")
+shader_parameter/normal_map = ExtResource("14_n4ufk")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5fa15"]
+size = Vector2(1153, 648)
+
+[node name="sittingroom" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+z_as_relative = false
+y_sort_enabled = true
+script = ExtResource("2")
+darkMap = ExtResource("2_rs8dn")
+parallaxSprites = []
+
+[node name="background" type="Sprite2D" parent="."]
+texture = ExtResource("4")
+offset = Vector2(320, 240)
+
+[node name="window" type="Node2D" parent="." groups=["things"]]
+position = Vector2(454, 213)
+script = ExtResource("7")
+displayName = "window"
+lookClosely = true
+lookText = PackedStringArray("THESE GIANT WINDOWS ARE [b]GREAT[/b] FOR SUN... BUT THEY CAN BE TROUBLE IN [wave]STORMY[/wave] WEATHER.")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="window"]
+polygon = PackedVector2Array(-39, -168, 49, -188, 50, 4, -40, -22)
+
+[node name="kitchen" type="Node2D" parent="." groups=["things"]]
+position = Vector2(295, 228)
+script = ExtResource("7")
+displayName = "kitchen"
+lookText = PackedStringArray("IT\'S THE KITCHEN.", "I DON\'T KNOW WHAT ELSE TO SAY. IT\'S STILL THE KITCHEN.")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="kitchen"]
+polygon = PackedVector2Array(-48, -151, 40, -145, 42, -7, -43, 7)
+
+[node name="painting" type="Node2D" parent="." groups=["things"]]
+position = Vector2(560, 132)
+script = ExtResource("7")
+displayName = "painting"
+lookText = PackedStringArray("WHAT A [b]BEAUTIFUL[/b] LANDSCAPE... IT SEEMS TO BE SOMEWHERE IN FRANCE.")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="painting"]
+polygon = PackedVector2Array(-25, -41, 27, -45, 29, 9, -22, 6)
+
+[node name="InteractPoint" type="Node2D" parent="painting"]
+position = Vector2(-61, 149)
+
+[node name="key" type="Node2D" parent="." groups=["things"]]
+position = Vector2(575, 231)
+script = ExtResource("11")
+displayName = "key"
+inventoryItemType = 1
+lookClosely = true
+lookText = PackedStringArray("IT\'S A BIG, BRASS KEY.")
+
+[node name="InteractPoint" type="Node2D" parent="key"]
+position = Vector2(-39, 71)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="key"]
+polygon = PackedVector2Array(-1, -18, 16, -9, 12, -3, -13, -12)
+
+[node name="Sprite2D" type="Sprite2D" parent="key"]
+material = SubResource("ShaderMaterial_wmpee")
+position = Vector2(3, -10)
+texture = ExtResource("8")
+
+[node name="exit_to_thekitchen" type="Area2D" parent="."]
+position = Vector2(291, 184)
+input_pickable = false
+gravity_point_center = Vector2(1, 1)
+gravity_direction = Vector2(1, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_thekitchen"]
+z_index = 1
+position = Vector2(-6, 7)
+shape = SubResource("2")
+
+[node name="teddy" type="Node2D" parent="."]
+z_index = 1
+z_as_relative = false
+position = Vector2(315, 392)
+script = ExtResource("7")
+displayName = "teddy"
+castsShadow = true
+lookText = PackedStringArray("IT\'S A TEDDY BEAR.")
+startingScaleAsBaseline = false
+
+[node name="Sprite2D" type="Sprite2D" parent="teddy"]
+modulate = Color(0.760784, 0.760784, 0.760784, 1)
+z_index = 1
+z_as_relative = false
+material = SubResource("ShaderMaterial_hukdb")
+position = Vector2(-3, -24)
+rotation = -0.155334
+scale = Vector2(0.08, 0.08)
+texture = SubResource("CanvasTexture_en2pt")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="teddy"]
+polygon = PackedVector2Array(-28, -50, 10, -54, 22, -2, -24, 10)
+
+[node name="InteractPoint" type="Node2D" parent="teddy"]
+position = Vector2(5, 21)
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("1")
+
+[node name="ScalerStick" type="Line2D" parent="."]
+visible = false
+points = PackedVector2Array(179, 81, 364, 290, 544, 479)
+width = 4.0
+
+[node name="Character" parent="." instance=ExtResource("6")]
+position = Vector2(435, 411)
+character_speed = 85.0
+startingScaleAsBaseline = false
+
+[node name="creepy_flashlight" type="PointLight2D" parent="."]
+visible = false
+position = Vector2(276, 290)
+energy = 5.65
+texture = ExtResource("10_g5oap")
+texture_scale = 1.23
+height = 15.0
+
+[node name="FreezeScaleRegion" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(69, 6, 164, -4, 198, 315, 45, 346)
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+visible = false
+position = Vector2(611, 114)
+energy = 9.25
+texture = ExtResource("10_g5oap")
+texture_scale = 0.48
+
+[node name="shadertest" type="Node2D" parent="."]
+z_index = 1
+z_as_relative = false
+position = Vector2(472, 337)
+script = ExtResource("13_hy0su")
+displayName = "ball"
+castsShadow = true
+
+[node name="Sprite2D" type="Sprite2D" parent="shadertest"]
+z_index = 1
+z_as_relative = false
+material = SubResource("ShaderMaterial_0hbfy")
+position = Vector2(-1, -34)
+scale = Vector2(0.065, 0.065)
+texture = ExtResource("15_4rv4h")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="shadertest"]
+polygon = PackedVector2Array(27, -57, 29, -16, -2, -1, -27, -18, -28, -59, -2, -67)
+
+[node name="exit_to_upstairs" type="Area2D" parent="."]
+position = Vector2(291, 184)
+input_pickable = false
+gravity_point_center = Vector2(1, 1)
+gravity_direction = Vector2(1, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_upstairs"]
+z_index = 1
+position = Vector2(-172.5, -143)
+shape = SubResource("2")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+modulate = Color(1, 0, 0, 1)
+self_modulate = Color(1, 0, 0, 1)
+position = Vector2(577, 324)
+
+[node name="CameraClamp" type="CollisionShape2D" parent="."]
+position = Vector2(576, 324)
+shape = SubResource("RectangleShape2D_5fa15")
+
+[connection signal="body_entered" from="exit_to_thekitchen" to="." method="_on_exit_to_thekitchen_body_entered"]
+[connection signal="body_entered" from="exit_to_upstairs" to="." method="_on_exit_to_upstairs_body_entered"]

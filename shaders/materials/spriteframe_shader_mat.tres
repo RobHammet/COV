@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3 uid="uid://safyatrerxbt"]
+
+[ext_resource type="Shader" path="res://shaders/framsprit.gdshader" id="1_h046x"]
+[ext_resource type="Texture2D" uid="uid://dcygbwi0aw4ja" path="res://game/art/candle_sprite-Sheet.png" id="2_h3tun"]
+
+[resource]
+shader = ExtResource("1_h046x")
+shader_parameter/num_frames = 4
+shader_parameter/animation_speed = 5.795
+shader_parameter/spritesheet = ExtResource("2_h3tun")

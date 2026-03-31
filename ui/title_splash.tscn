@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3 uid="uid://b84ee338jtnq0"]
+
+[ext_resource type="Texture2D" uid="uid://cxpmiapsj3pc7" path="res://game/art/creepovision_logo.png" id="1_gbh83"]
+
+[node name="title_splash" type="Node2D"]
+
+[node name="ColorRect" type="ColorRect" parent="."]
+offset_left = -546.0
+offset_top = -446.0
+offset_right = 3452.0
+offset_bottom = 2282.0
+color = Color(0.184314, 0.184314, 0.184314, 1)
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(561, 307)
+texture = ExtResource("1_gbh83")

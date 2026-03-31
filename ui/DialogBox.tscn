@@ -1,0 +1,103 @@
+[gd_scene load_steps=10 format=3 uid="uid://c3u5i288ojhu0"]
+
+[ext_resource type="Theme" uid="uid://bjwck7dxyl6dt" path="res://fonts/comic_theme.tres" id="1"]
+[ext_resource type="Script" path="res://ui/DialogBox.cs" id="2"]
+[ext_resource type="AudioStream" uid="uid://cceoit25bsynt" path="res://game/audio/blip3.wav" id="3"]
+[ext_resource type="Texture2D" uid="uid://bqeypmsy1yroq" path="res://game/art/speechbubble1.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://iqyofq6s6g38" path="res://game/art/narrationbubble1.png" id="5"]
+[ext_resource type="Texture2D" uid="uid://v5cicvq4edsf" path="res://game/art/thoughtBubble.png" id="5_4a7ax"]
+[ext_resource type="Script" path="res://ui/DB_SpeechBubbleTail.cs" id="6_2agrc"]
+[ext_resource type="Script" path="res://ui/DialogChoices.cs" id="8_y7j7e"]
+[ext_resource type="Texture2D" uid="uid://ddmtut5ukobmp" path="res://game/art/thoughtBubbleTrail.png" id="9_mtyx3"]
+
+[node name="DialogBox" type="Control"]
+light_mask = 0
+z_index = 4
+use_parent_material = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -536.0
+offset_bottom = -376.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("2")
+textSpeed = 30.0
+dialogColor = Color(1, 1, 1, 1)
+maxWidth = 350
+
+[node name="DB_TextTimer" type="Timer" parent="."]
+wait_time = 0.05
+autostart = true
+
+[node name="DB_AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3")
+volume_db = -22.315
+pitch_scale = 0.78
+
+[node name="DB_Text" type="RichTextLabel" parent="."]
+light_mask = 0
+z_index = 6
+z_as_relative = false
+clip_contents = false
+custom_minimum_size = Vector2(256, 32)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = 130.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("1")
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+
+[node name="DB_NarrationBubble" type="NinePatchRect" parent="DB_Text"]
+visible = false
+z_index = 5
+z_as_relative = false
+layout_mode = 0
+offset_right = 279.0
+offset_bottom = 168.0
+texture = ExtResource("5")
+
+[node name="DB_ThoughtBubble" type="NinePatchRect" parent="DB_Text"]
+visible = false
+z_index = 5
+z_as_relative = false
+layout_mode = 0
+offset_right = 279.0
+offset_bottom = 168.0
+texture = ExtResource("5_4a7ax")
+
+[node name="DB_SpeechBubble" type="NinePatchRect" parent="DB_Text"]
+visible = false
+z_index = 5
+z_as_relative = false
+layout_mode = 0
+offset_right = 284.0
+offset_bottom = 167.0
+texture = ExtResource("4")
+
+[node name="DB_SpeechBubbleTail" type="Polygon2D" parent="DB_Text/DB_SpeechBubble"]
+light_mask = 0
+polygon = PackedVector2Array(37, -31, 58, 33, 81, -30)
+script = ExtResource("6_2agrc")
+
+[node name="DialogChoices" type="VBoxContainer" parent="DB_Text"]
+layout_mode = 0
+offset_right = 242.0
+offset_bottom = 71.0
+mouse_filter = 2
+script = ExtResource("8_y7j7e")
+
+[node name="ThoughtBubbleTrail" type="Sprite2D" parent="."]
+visible = false
+texture = ExtResource("9_mtyx3")
+
+[connection signal="timeout" from="DB_TextTimer" to="." method="_on_DB_TextTimer_timeout"]

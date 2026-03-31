@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://cw88ejpibrtcb"]
+
+[ext_resource type="Shader" path="res://shaders/halftone.gdshader" id="1"]
+
+[resource]
+shader = ExtResource("1")
+shader_parameter/radius_c = 1.775
+shader_parameter/radius_m = 1.475
+shader_parameter/radius_y = 1.655
+shader_parameter/radius_k = 2.225
+shader_parameter/frequency = 200.0
