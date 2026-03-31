@@ -49,3 +49,4 @@
 /home/rob/Documents/dev/Godot/COV/.godot/mono/temp/obj/Debug/COV.pdb
 /home/rob/Documents/dev/Godot/COV/.godot/mono/temp/obj/Debug/COV.genruntimeconfig.cache
 /home/rob/Documents/dev/Godot/COV/.godot/mono/temp/obj/Debug/ref/COV.dll
+/home/rob/Documents/dev/Godot/COV/.godot/mono/temp/obj/Debug/COV.sourcelink.json

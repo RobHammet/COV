@@ -1,0 +1,19 @@
+{
+  "from_theporch": {
+    "charStartPos": [351, 450],
+    "charStartDir": "down",
+    "sequence": [
+      { "action": "move", "actor": "character", "to": [351, 490] }
+    ]
+  },
+  "from_barnfront": {
+    "charStartPos": [947, 671],
+    "charStartDir": "left"
+  },
+  "from_tree": {
+    "charStartPos": [306, 706],
+    "charStartDir": "down"
+  },
+  "from_theroad": {},
+  "default": {}
+}

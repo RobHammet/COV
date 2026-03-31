@@ -643,6 +643,18 @@ public partial class scene_script : Node2D
                     queue.AddEventAddFlag(new Globals.SceneFlag(scene.Name, name, v));
                     break;
                 }
+                case "change_facing": {
+                    NPC actor = ResolveNPCInScene(obj["actor"].GetValue<string>(), scene);
+                    if (actor != null)
+                        queue.AddEventChangeFacing(actor, obj["direction"].GetValue<string>() switch
+                        {
+                            "up"    => NPC.Direction.up,
+                            "left"  => NPC.Direction.left,
+                            "right" => NPC.Direction.right,
+                            _       => NPC.Direction.down,
+                        });
+                    break;
+                }
                 case "wait": {
                     float seconds = obj["seconds"]?.GetValue<float>() ?? 1f;
                     queue.AddEventWait(seconds);

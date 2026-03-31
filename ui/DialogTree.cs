@@ -229,6 +229,19 @@ public partial class DialogTree : Node2D
                                 actor.ChangeFacingToLookAt(target);
                             break;
                         }
+                        case "change_facing": {
+                            // Instant: actor turns to face an absolute direction.
+                            NPC actor = ResolveNPC(obj["actor"].GetValue<string>());
+                            if (actor != null)
+                                actor.ChangeFacing(obj["direction"].GetValue<string>() switch
+                                {
+                                    "up"    => NPC.Direction.up,
+                                    "left"  => NPC.Direction.left,
+                                    "right" => NPC.Direction.right,
+                                    _       => NPC.Direction.down,
+                                });
+                            break;
+                        }
                         case "play_animation": {
                             // Instant: animation starts and dialog continues immediately.
                             NPC actor = ResolveNPC(obj["actor"].GetValue<string>());

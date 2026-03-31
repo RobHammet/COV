@@ -1,0 +1,22 @@
+{
+  "from_entryway": {
+    "charStartPos": [-22, 433],
+    "charStartDir": "right",
+    "sequence": [
+      { "action": "look_at", "actor": "character", "target": "character" },
+      { "action": "move", "actor": "character", "to": [118, 415] }
+    ]
+  },
+  "from_upstairs": {
+    "charStartPos": [128, 128],
+    "charStartDir": "down",
+    "sequence": [
+      { "action": "move", "actor": "character", "to": [150, 360] }
+    ]
+  },
+  "from_kitchen": {
+    "charStartPos": [310, 240],
+    "charStartDir": "down"
+  },
+  "default": {}
+}

@@ -16,5 +16,3 @@ res://ui/VerbPanel.cs
 res://ui/OverlayScene.cs
 res://game/scenes/mainscene/MainScene.cs
 res://data/Globals.cs
-res://game/scenes/mainscene/mainScene.tscn
-res://shaders/light_and_shadows_shader.gdshader
