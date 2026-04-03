@@ -1,0 +1,23 @@
+{
+  "areas": {
+    "exit_to_sittingroom": { "move_into": [{ "action": "exit", "destination": "sittingroom", "arrive_dir": "right", "arrive_area": "exit_to_basement" }] }
+  },
+  "things": {
+    "table": {
+      "look": [
+        { "action": "speak", "actor": "ego", "text": "IT LOOKS LIKE AN OLD WORKBENCH." }
+      ],
+      "use": [
+        { "action": "move",          "actor": "ego", "target": "table", "strict": true },
+        { "action": "wait",          "seconds": 1.5 },
+        { "action": "think",         "actor": "ego", "text": "I DON'T KNOW MY WAY AROUND A WORK TABLE..." },
+        { "action": "wait",          "seconds": 0.8 },
+        { "action": "change_facing", "actor": "ego", "direction": "right" },
+        { "action": "speak",         "actor": "ego", "text": "FORGET IT." },
+        { "action": "wait",          "seconds": 0.8 },
+        { "action": "narrate",       "text": "THE HOUSE WAS VERY QUIET." }
+      ]
+    }
+  },
+  "default": {}
+}

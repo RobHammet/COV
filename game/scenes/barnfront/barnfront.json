@@ -1,0 +1,7 @@
+{
+  "areas": {
+    "exit_to_housefront":   { "move_into": [{ "action": "exit", "destination": "housefront",   "arrive_dir": "down", "arrive_area": "exit_to_barnfront"    }] },
+    "exit_to_barninterior": { "move_into": [{ "action": "exit", "destination": "barninterior", "arrive_dir": "down", "arrive_area": "exit_to_barnfront"    }] }
+  },
+  "default": {}
+}

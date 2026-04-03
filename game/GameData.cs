@@ -18,6 +18,15 @@ static class GameInteractionDefaults
 }
 
 // ---------------------------------------------------------------------------
+// GameConfig — swap EgoScene to change the player character.
+// Any NPC scene can be the ego; no special class required.
+// ---------------------------------------------------------------------------
+public static class GameConfig
+{
+    public static string EgoScene = "res://game/character/Character.tscn";
+}
+
+// ---------------------------------------------------------------------------
 // Scenes — all room scene paths as constants.
 // Use these in ChangeSceneToFile() calls:
 //   mainScene.ChangeSceneToFile(Scenes.KITCHEN);
@@ -35,6 +44,25 @@ public static class Scenes
     public const string UPSTAIRS     = "res://game/scenes/upstairs/upstairs.tscn";
     public const string TREE         = "res://game/scenes/tree/tree.tscn";
     public const string BASEMENT     = "res://game/scenes/basement/basement.tscn";
+
+    private static readonly System.Collections.Generic.Dictionary<string, string> _byName = new()
+    {
+        { "theroad",      THEROAD      },
+        { "kitchen",      KITCHEN      },
+        { "sittingroom",  SITTINGROOM  },
+        { "entryway",     ENTRYWAY     },
+        { "theporch",     THEPORCH     },
+        { "housefront",   HOUSEFRONT   },
+        { "barnfront",    BARNFRONT    },
+        { "barninterior", BARNINTERIOR },
+        { "upstairs",     UPSTAIRS     },
+        { "tree",         TREE         },
+        { "basement",     BASEMENT     },
+    };
+
+    // Accepts either a short display name ("kitchen") or a full res:// path.
+    public static string Resolve(string nameOrPath) =>
+        _byName.TryGetValue(nameOrPath.ToLowerInvariant(), out var path) ? path : nameOrPath;
 }
 
 // ---------------------------------------------------------------------------

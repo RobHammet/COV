@@ -1,10 +1,10 @@
-[gd_scene load_steps=9 format=3 uid="uid://cf1q08vo0bw4q"]
+[gd_scene format=3 uid="uid://cf1q08vo0bw4q"]
 
-[ext_resource type="Script" path="res://game/scenes/tree/tree.cs" id="1_q1img"]
-[ext_resource type="Texture2D" uid="uid://c2o4cj3mqs2ps" path="res://game/art/tree.png" id="2_f1bi8"]
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_q1img"]
+[ext_resource type="Texture2D" uid="uid://c2o4cj3mqs2ps" path="res://game/scenes/tree/tree.png" id="2_f1bi8"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="3_q8vu4"]
-[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="4_hfv6o"]
-[ext_resource type="Script" path="res://game/scenes/tree/treething.cs" id="5_mfev6"]
+[ext_resource type="Script" uid="uid://ca44amv4g84w7" path="res://game/scenes/tree/treething.cs" id="5_mfev6"]
+[ext_resource type="Script" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_2y616"]
 vertices = PackedVector2Array(1029, 700, -401, 711, -378, 443, 151, 528, 443, 443, 1040, 432, 437, 528, 109, 438, 271, 534, 272, 534)
@@ -18,23 +18,23 @@ size = Vector2(126, 396)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rr6uj"]
 size = Vector2(1433, 917)
 
-[node name="Tree" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+[node name="Tree" type="Node2D" unique_id=608336034 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1_q1img")
 displayName = "tree"
 parallaxSprites = []
 
-[node name="background" type="Sprite2D" parent="."]
+[node name="background" type="Sprite2D" parent="." unique_id=283232955]
 position = Vector2(317, 241)
 texture = ExtResource("2_f1bi8")
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=559955188]
 navigation_polygon = SubResource("NavigationPolygon_2y616")
 
-[node name="ScalerStick" type="Line2D" parent="."]
-visible = false
+[node name="ScalerStick" type="Line2D" parent="." unique_id=1715839807]
+script = ExtResource("ScalerStick_cs")
 points = PackedVector2Array(86, -93, 416, 261, 799, 644)
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=973383126]
 visible = false
 visibility_layer = 0
 position = Vector2(257, 19)
@@ -44,41 +44,29 @@ texture = ExtResource("3_q8vu4")
 texture_scale = 0.17
 height = 460.0
 
-[node name="exit_to_housefront" type="Area2D" parent="."]
-position = Vector2(843, 410)
-input_pickable = false
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_housefront"]
+[node name="exit_to_housefront" type="CollisionShape2D" parent="." unique_id=1293547286]
 z_index = 1
-position = Vector2(132, 142)
+position = Vector2(975, 552)
 shape = SubResource("RectangleShape2D_k5ffg")
 
-[node name="Character" parent="." instance=ExtResource("4_hfv6o")]
-y_sort_enabled = true
-position = Vector2(685, 557)
-Facing = 4
-character_speed = 85.0
-startingScaleAsBaseline = false
-
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1687195389]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(451, 108)
 
-[node name="CameraClamp" type="CollisionShape2D" parent="."]
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=873364046]
 position = Vector2(316.5, 239.5)
 shape = SubResource("RectangleShape2D_rr6uj")
 
-[node name="tree" type="Node2D" parent="."]
+[node name="tree" type="Node2D" parent="." unique_id=584962683]
 script = ExtResource("5_mfev6")
 displayName = "tree"
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="tree"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="tree" unique_id=1831134240]
 polygon = PackedVector2Array(240, -216, 228, 390, 156, 480, 204, 474, 198, 516, 300, 492, 348, 522, 390, 480, 414, 480, 360, 360, 366, -222)
 
-[node name="InteractPoint" type="Node2D" parent="tree"]
+[node name="InteractPoint" type="Node2D" parent="tree" unique_id=1984633834]
 position = Vector2(120, 486)
 
-[connection signal="body_entered" from="exit_to_housefront" to="." method="_on_exit_to_housefront_body_entered"]
+[node name="start_point" type="Node2D" parent="." unique_id=700106853]
+position = Vector2(903, 572)

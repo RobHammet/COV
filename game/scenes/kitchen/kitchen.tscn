@@ -1,15 +1,15 @@
-[gd_scene load_steps=14 format=3 uid="uid://cpx5qfyooxwqx"]
+[gd_scene format=3 uid="uid://cpx5qfyooxwqx"]
 
-[ext_resource type="Script" path="res://game/scenes/kitchen/kitchen.cs" id="1_b3wt6"]
-[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="2"]
-[ext_resource type="Texture2D" uid="uid://jgxafb2pg7yf" path="res://game/art/kitchen5.png" id="3"]
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_b3wt6"]
+[ext_resource type="Texture2D" uid="uid://jgxafb2pg7yf" path="res://game/scenes/kitchen/kitchen5.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="5_271cd"]
-[ext_resource type="Texture2D" uid="uid://r2do7357dbx8" path="res://game/art/counter.png" id="6_pyp1d"]
-[ext_resource type="Texture2D" uid="uid://dknikbba7etng" path="res://game/art/kitchenwall.png" id="7_cfi6m"]
-[ext_resource type="Texture2D" uid="uid://dyw72dcm60p4w" path="res://game/art/windowcounter.png" id="8_ihxgh"]
-[ext_resource type="Script" path="res://framework/thing.cs" id="9_cwtmn"]
-[ext_resource type="Script" path="res://game/scenes/kitchen/fridge.cs" id="10_5p8vf"]
-[ext_resource type="Texture2D" uid="uid://bvyfykl06jnqp" path="res://game/art/kitchen_windowlight.png" id="11_ninbp"]
+[ext_resource type="Texture2D" uid="uid://r2do7357dbx8" path="res://game/scenes/kitchen/counter.png" id="6_pyp1d"]
+[ext_resource type="Texture2D" uid="uid://dknikbba7etng" path="res://game/scenes/kitchen/kitchenwall.png" id="7_cfi6m"]
+[ext_resource type="Texture2D" uid="uid://dyw72dcm60p4w" path="res://game/scenes/kitchen/windowcounter.png" id="8_ihxgh"]
+[ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="9_cwtmn"]
+[ext_resource type="Script" uid="uid://1nr7d4q4pexg" path="res://game/scenes/kitchen/fridge.cs" id="10_5p8vf"]
+[ext_resource type="Texture2D" uid="uid://bvyfykl06jnqp" path="res://game/scenes/kitchen/kitchen_windowlight.png" id="11_ninbp"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="NavigationPolygon" id="1"]
 vertices = PackedVector2Array(459, 354, 544, 440, 594, 540, 158, 490, 215, 368, 303, 272, 62, 416, 142, 371, 578, 267, 581, 300, 487, 291, 445, 269, 433, 298, 310, 264, 322, 252, 352, 241, 251, 265, 246, 257, 270, 244, 271, 259, 291, 257, 426, 243)
@@ -18,31 +18,34 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(270, 244, 322, 252, 352
 source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_stmn1"]
-size = Vector2(92, 120)
+size = Vector2(133, 45)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_s8kqb"]
 size = Vector2(1153, 648)
 
-[node name="kitchen" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+[node name="kitchen" type="Node2D" unique_id=717813220 node_paths=PackedStringArray("parallaxSprites")]
 z_index = 1
 y_sort_enabled = true
 script = ExtResource("1_b3wt6")
 displayName = "kitchen"
 parallaxSprites = []
 
-[node name="background" type="Sprite2D" parent="."]
+[node name="background" type="Sprite2D" parent="." unique_id=750092156]
 y_sort_enabled = true
 position = Vector2(321, 241)
 texture = ExtResource("3")
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=1102922880]
 navigation_polygon = SubResource("1")
 
-[node name="ScalerStick" type="Line2D" parent="."]
-visible = false
-points = PackedVector2Array(322, 46, 442, 266, 549, 445)
+[node name="ScalerStick" type="Line2D" parent="." unique_id=1790567804]
+z_index = 2
+points = PackedVector2Array(332, 84, 463, 300, 569, 468)
+default_color = Color(1, 1, 1, 0)
+script = ExtResource("ScalerStick_cs")
+ScaleMultiplier = 1.14
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1191032244]
 visible = false
 visibility_layer = 0
 position = Vector2(48, 106)
@@ -52,23 +55,11 @@ texture = ExtResource("5_271cd")
 texture_scale = 0.17
 height = 395.0
 
-[node name="exit_to_thesittingroom" type="Area2D" parent="."]
-position = Vector2(585.312, 284.104)
-input_pickable = false
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_thesittingroom"]
-z_index = 1
-position = Vector2(-29.312, -35.104)
+[node name="exit_to_sittingroom" type="CollisionShape2D" parent="." unique_id=991538453]
+position = Vector2(535.5, 286.5)
 shape = SubResource("RectangleShape2D_stmn1")
 
-[node name="Character" parent="." instance=ExtResource("2")]
-y_sort_enabled = true
-position = Vector2(395, 316)
-startingScaleAsBaseline = false
-
-[node name="windowcounter" type="Sprite2D" parent="."]
+[node name="windowcounter" type="Sprite2D" parent="." unique_id=1989204280]
 z_index = 1
 y_sort_enabled = true
 position = Vector2(1, 270)
@@ -76,7 +67,7 @@ texture = ExtResource("8_ihxgh")
 centered = false
 offset = Vector2(0, -269)
 
-[node name="kitchenwall" type="Sprite2D" parent="."]
+[node name="kitchenwall" type="Sprite2D" parent="." unique_id=134520419]
 z_index = 1
 y_sort_enabled = true
 position = Vector2(1, 310)
@@ -84,14 +75,14 @@ texture = ExtResource("7_cfi6m")
 centered = false
 offset = Vector2(0, -310)
 
-[node name="counter" type="Sprite2D" parent="."]
+[node name="counter" type="Sprite2D" parent="." unique_id=520241017]
 z_index = 1
 y_sort_enabled = true
 position = Vector2(321, 675)
 texture = ExtResource("6_pyp1d")
 offset = Vector2(0, -434)
 
-[node name="window" type="Node2D" parent="."]
+[node name="window" type="Node2D" parent="." unique_id=1502555519]
 z_index = 1
 y_sort_enabled = true
 script = ExtResource("9_cwtmn")
@@ -99,39 +90,40 @@ displayName = "window"
 lookClosely = true
 lookText = PackedStringArray("WHAT\'S GOING ON OUT THERE?")
 
-[node name="InteractPoint" type="Node2D" parent="window"]
+[node name="InteractPoint" type="Node2D" parent="window" unique_id=219087374]
 position = Vector2(282, 254)
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="window"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="window" unique_id=1053816598]
 polygon = PackedVector2Array(209, 21, 248, 49, 247, 179, 208, 182)
 
-[node name="fridge" type="Node2D" parent="."]
+[node name="fridge" type="Node2D" parent="." unique_id=357654267]
 z_index = 1
 y_sort_enabled = true
 script = ExtResource("10_5p8vf")
 displayName = "fridge"
 lookText = PackedStringArray("ONE OF THOSE FANCY LOCKABLE FRIDGES...")
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="fridge"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="fridge" unique_id=439234950]
 polygon = PackedVector2Array(3, 70, 48, 58, 131, 86, 134, 336, 2, 308)
 
-[node name="InteractPoint" type="Node2D" parent="fridge"]
+[node name="InteractPoint" type="Node2D" parent="fridge" unique_id=804840389]
 position = Vector2(193, 395)
 
-[node name="windowLight" type="PointLight2D" parent="."]
+[node name="windowLight" type="PointLight2D" parent="." unique_id=1341030225]
 visible = false
 position = Vector2(320, 241)
 energy = 1.28
 blend_mode = 2
 texture = ExtResource("11_ninbp")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1635794295]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
-[node name="CameraClamp" type="CollisionShape2D" parent="."]
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1088566937]
 position = Vector2(576, 324)
 shape = SubResource("RectangleShape2D_s8kqb")
 
-[connection signal="body_entered" from="exit_to_thesittingroom" to="." method="_on_exit_to_thesittingroom_body_entered"]
+[node name="start_point" type="Node2D" parent="." unique_id=216677850]
+position = Vector2(417, 288)

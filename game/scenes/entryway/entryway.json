@@ -1,0 +1,7 @@
+{
+  "areas": {
+    "exit_to_sittingroom": { "move_into": [{ "action": "exit", "destination": "sittingroom", "arrive_dir": "right", "arrive_area": "exit_to_entryway" }] },
+    "exit_to_theporch":    { "move_into": [{ "action": "exit", "destination": "theporch",    "arrive_dir": "down",  "arrive_area": "exit_to_entryway"  }] }
+  },
+  "default": {}
+}

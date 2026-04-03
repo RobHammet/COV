@@ -20,7 +20,7 @@ public partial class DialogChoices : VBoxContainer
 	public override void _Process(double delta)
 	{
 		
-		Vector2 mousePos = GetViewport().GetMousePosition();
+		Vector2 mousePos = GetGlobalMousePosition();
 		foreach (RichTextLabel choice in choices) {
 			if (choice.GetGlobalRect().HasPoint(mousePos)) {
 				_on_dialog_choice_mouse_entered(Int16.Parse(choice.Name));

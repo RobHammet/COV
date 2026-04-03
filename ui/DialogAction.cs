@@ -38,7 +38,7 @@ public partial class DialogAction : Node
     [Export] public string animationToPlay;
     public scene_script ParentScene;
 
-    [Export] public Character.Direction NewFacing;
+    [Export] public NPC.Direction NewFacing;
 
     [Export] public thing interactThing;
     public InventoryItem.ItemType itemType;

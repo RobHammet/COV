@@ -13,7 +13,7 @@ public partial class treething : thing
 	// {
 	// }
 
-	public override bool SpecificUse(Character character, EventSequence eventSequence) {
+	public override bool SpecificUse(NPC character, EventSequence eventSequence) {
 		
 	
 		// if ((bool)parentScene.GetFlag("keyTaken").Value == true) {
@@ -34,9 +34,9 @@ public partial class treething : thing
 		switch (item) {
 			case InventoryItem.ItemType.axe:
 				if ((bool)parentScene.GetFlag("talkedAboutTree").Value == true) {
-					parentScene.eventQueue.AddEventSpeak(parentScene.character, "YAY! I CHOPPED IT WITH AN AXE!");					
+					parentScene.eventQueue.AddEventSpeak(parentScene.ego, "YAY! I CHOPPED IT WITH AN AXE!");					
 				} else {
-					parentScene.eventQueue.AddEventSpeak(parentScene.character, "I DON'T HAVE A REASON TO DO THAT RIGHT NOW.");
+					parentScene.eventQueue.AddEventSpeak(parentScene.ego, "I DON'T HAVE A REASON TO DO THAT RIGHT NOW.");
 				}
 				return true;
 				break;

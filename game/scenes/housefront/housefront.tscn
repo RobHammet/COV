@@ -1,18 +1,19 @@
-[gd_scene load_steps=12 format=3 uid="uid://r4j2jkdj5ltu"]
+[gd_scene format=3 uid="uid://r4j2jkdj5ltu"]
 
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="1"]
-[ext_resource type="Texture2D" uid="uid://de11w5i10qg6f" path="res://game/art/frontyard_dm.png" id="2_70i1g"]
-[ext_resource type="Texture2D" uid="uid://dqsp5vydy7rwe" path="res://game/art/frontyard_bg.png" id="2_k67if"]
-[ext_resource type="Texture2D" uid="uid://c6pngwoo5h61p" path="res://game/art/frontyard_fg.png" id="3_a4s3h"]
-[ext_resource type="Texture2D" uid="uid://d1d7hjtkni2sl" path="res://game/art/frontyard_mg.png" id="3_fwecl"]
-[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="4"]
-[ext_resource type="Script" path="res://game/scenes/housefront/housefront.cs" id="5"]
+[ext_resource type="Texture2D" uid="uid://de11w5i10qg6f" path="res://game/scenes/housefront/frontyard_dm.png" id="2_70i1g"]
+[ext_resource type="Texture2D" uid="uid://dqsp5vydy7rwe" path="res://game/scenes/housefront/frontyard_bg.png" id="2_k67if"]
+[ext_resource type="Texture2D" uid="uid://c6pngwoo5h61p" path="res://game/scenes/housefront/frontyard_fg.png" id="3_a4s3h"]
+[ext_resource type="Texture2D" uid="uid://d1d7hjtkni2sl" path="res://game/scenes/housefront/frontyard_mg.png" id="3_fwecl"]
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="5"]
+[ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="8_6m603"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="RectangleShape2D" id="2"]
-size = Vector2(67.5, 47.5)
+size = Vector2(67.5, 28)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ajp8a"]
-size = Vector2(296, 84)
+size = Vector2(48, 70)
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_bel86"]
 vertices = PackedVector2Array(323, 451, 302, 370, 341, 368, 362, 452, 628, 459, 1027, 459, 1018, 689, -379, 695, 614, 455, -390, 444, 614, 454, 121, 415)
@@ -23,88 +24,91 @@ source_geometry_group_name = &"navigation_polygon_source_group"
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dib47"]
 size = Vector2(1437, 928)
 
-[node name="housefront" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ik1yn"]
+size = Vector2(198, 107)
+
+[node name="housefront" type="Node2D" unique_id=1046056451 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("5")
 displayName = "housefront"
 darkMap = ExtResource("2_70i1g")
 parallaxSprites = [NodePath("mg"), NodePath("fg")]
 
-[node name="exit_to_porch" type="Area2D" parent="."]
-position = Vector2(704, 587)
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_porch"]
+[node name="exit_to_theporch" type="CollisionShape2D" parent="." unique_id=476657589]
 z_index = 1
-position = Vector2(13.25, -7.75)
+position = Vector2(717.25, 596)
 shape = SubResource("2")
 
-[node name="ScalerStick" type="Line2D" parent="."]
+[node name="ScalerStick" type="Line2D" parent="." unique_id=1112353534]
+z_index = 3
 position = Vector2(736, 475)
-points = PackedVector2Array(-1039, -571, -420, -194, 423, 317)
+points = PackedVector2Array(-192, 97, 198, 265, 619, 422)
 width = 4.0
+default_color = Color(1, 1, 1, 0)
+script = ExtResource("ScalerStick_cs")
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
-position = Vector2(388, 97)
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1068127406]
+position = Vector2(16, 252)
 scale = Vector2(0.5, 0.499999)
 energy = 13.98
 texture = ExtResource("1")
 texture_scale = 0.25
 height = 440.0
 
-[node name="FreezeScaleRegion" type="CollisionPolygon2D" parent="."]
+[node name="FreezeScaleRegion" type="CollisionPolygon2D" parent="." unique_id=1856406252]
 position = Vector2(718, 466)
 polygon = PackedVector2Array(-89, 104, 69, 104, 42, 196, -6, 196)
 
-[node name="exit_to_barn" type="Area2D" parent="."]
-position = Vector2(718, 466)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_barn"]
-position = Vector2(389, 194.5)
+[node name="exit_to_barnfront" type="CollisionShape2D" parent="." unique_id=1616855040]
+position = Vector2(1078, 677.5)
 shape = SubResource("RectangleShape2D_ajp8a")
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=688681486]
 position = Vector2(395, 226.1)
 navigation_polygon = SubResource("NavigationPolygon_bel86")
 
-[node name="background" type="Sprite2D" parent="."]
+[node name="background" type="Sprite2D" parent="." unique_id=1935962562]
 z_as_relative = false
 position = Vector2(718, 466)
 texture = ExtResource("2_k67if")
 
-[node name="Character" parent="." instance=ExtResource("4")]
-modulate = Color(0.172549, 0.172549, 0.172549, 1)
-z_index = 2
-position = Vector2(1220, 867)
-character_speed = 85.0
-
-[node name="mg" type="Sprite2D" parent="."]
+[node name="mg" type="Sprite2D" parent="." unique_id=387207148]
 z_as_relative = false
 position = Vector2(718, 466)
 texture = ExtResource("3_fwecl")
 
-[node name="fg" type="Sprite2D" parent="."]
+[node name="fg" type="Sprite2D" parent="." unique_id=536091857]
 z_index = 5
 z_as_relative = false
 position = Vector2(694, 574)
 texture = ExtResource("3_a4s3h")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=451504199]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(742, 328)
 
-[node name="CameraClamp" type="CollisionShape2D" parent="."]
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1041973976]
 position = Vector2(718.5, 467)
 shape = SubResource("RectangleShape2D_dib47")
 
-[node name="exit_to_tree" type="Area2D" parent="."]
-position = Vector2(718, 466)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_tree"]
-position = Vector2(-563, 188)
+[node name="exit_to_tree" type="CollisionShape2D" parent="." unique_id=1403829295]
+position = Vector2(24, 694)
 shape = SubResource("RectangleShape2D_ajp8a")
 
-[connection signal="body_entered" from="exit_to_porch" to="." method="_on_exit_to_porch_body_entered"]
-[connection signal="body_entered" from="exit_to_barn" to="." method="_on_exit_to_barn_body_entered"]
-[connection signal="body_entered" from="exit_to_tree" to="." method="_on_exit_to_tree_body_entered"]
+[node name="exit_to_theroad" type="CollisionShape2D" parent="." unique_id=1156848344]
+position = Vector2(1334, 875.5)
+shape = SubResource("RectangleShape2D_ik1yn")
+
+[node name="door" type="Node2D" parent="." unique_id=1514018522]
+script = ExtResource("8_6m603")
+displayName = "door"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="door" unique_id=1444818701]
+position = Vector2(673, 477)
+polygon = PackedVector2Array(13, 11, 66, 13, 70, 103, 14, 103)
+
+[node name="InteractPoint" type="Node2D" parent="door" unique_id=1697426193]
+position = Vector2(723, 599)
+
+[node name="start_point" type="Node2D" parent="." unique_id=1642209655]
+position = Vector2(1042, 860)

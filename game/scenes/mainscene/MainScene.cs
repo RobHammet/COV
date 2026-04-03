@@ -32,6 +32,7 @@
 //   before capturing so neither appears in panel thumbnails.
 
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
@@ -64,6 +65,11 @@ public partial class MainScene : Node2D
 
     private Globals.InteractModes _previousInteractMode = Globals.InteractModes.walk;
 
+    // Offset derived from CelBorderEdge — how far the viewable area's top-left is
+    // from the viewport origin. Applied as Camera2D.Offset so the rendered view shifts
+    // without affecting any world-space coordinates (nav, clicks, movement targets).
+    private Vector2 _celBorderOffset;
+
     // ---------------------------------------------------------------------------
     // Comic page state.
     //
@@ -81,7 +87,8 @@ public partial class MainScene : Node2D
     public  int             CurrentPanelIndex => _currentPanelIndex;
     private ImageTexture[] _panelTextures     = new ImageTexture[6];
 
-    private const float PANEL_GUTTER   = 18f;
+    private const float PANEL_GUTTER_H = 8f;   // horizontal gap between panels
+    private const float PANEL_GUTTER_V = 18f;  // vertical gap between panels
     private const float PAGE_SCALE_OUT = 0.88f;
 
     // Placeholder fill colors for unseen panels.
@@ -134,6 +141,15 @@ public partial class MainScene : Node2D
         currentSceneHolder.RemoveChild(overlayScene);
         AddChild(overlayScene);
         overlayScene.Layer = 10;
+
+        // Shift the camera view so scene content starts at the CelBorderEdge inner
+        // boundary. Camera2D.Offset displaces what the camera renders in screen space
+        // without touching world-space coordinates, so click detection, nav mesh, and
+        // character movement are all unaffected.
+        // Negated: Camera2D.Offset moves what the camera *looks at*, so a positive X
+        // offset shifts rendered content left. We negate to shift content right/down.
+        _celBorderOffset = -overlayScene.GetInnerRect().Position;
+        ApplyCelBorderOffset(currentScene);
 
         // MainScene has a Camera2D for legacy AnimationPlayer/CanvasLayer reasons,
         // but per-scene cameras handle all actual rendering. Disable it permanently
@@ -194,8 +210,8 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     public void ChangeSceneToFile(
         string roomPath,
-        string entryPoint             = "default",
-        TransitionType transitionType = TransitionType.NextPanel)
+        scene_script.ArrivalData arrival = default,
+        TransitionType transitionType    = TransitionType.NextPanel)
     {
         if (isInTransition) return;
         isInTransition = true;
@@ -203,13 +219,13 @@ public partial class MainScene : Node2D
         switch (transitionType)
         {
             case TransitionType.NextPanel:
-                NextPanelTransition(roomPath, entryPoint);
+                NextPanelTransition(roomPath, arrival);
                 break;
             case TransitionType.PageTurn:
-                PageTurnTransition(roomPath, entryPoint);
+                PageTurnTransition(roomPath, arrival);
                 break;
             default:
-                FadeTransition(roomPath, entryPoint);
+                FadeTransition(roomPath, arrival);
                 break;
         }
     }
@@ -225,14 +241,14 @@ public partial class MainScene : Node2D
     // NOTE: _currentPanelIndex is NOT reset here on escalation — PageTurnTransition
     // reads it to save the screenshot to the correct panel slot (5).
     // ---------------------------------------------------------------------------
-    private async void NextPanelTransition(string roomPath, string entryPoint)
+    private async void NextPanelTransition(string roomPath, scene_script.ArrivalData arrival)
     {
         int fromIndex = _currentPanelIndex;
         int toIndex   = (fromIndex + 1) % 6;
 
         if (fromIndex == 5)
         {
-            PageTurnTransition(roomPath, entryPoint);
+            PageTurnTransition(roomPath, arrival);
             return;
         }
 
@@ -244,7 +260,7 @@ public partial class MainScene : Node2D
         // 2. Instantiate the next scene into an offscreen SubViewport, capture
         //    the thumbnail from there, then move the same instance to nextSceneHolder.
         //    One _Ready() call = one consistent random/flag state, never visible.
-        PrepareNextScene(roomPath, entryPoint);
+        PrepareNextScene(roomPath, arrival);
         _panelTextures[toIndex] = await CaptureNextSceneThumbnail();
 
         // 3. Build the 6-panel page overlay, starting zoomed into fromIndex.
@@ -252,7 +268,7 @@ public partial class MainScene : Node2D
         AddChild(overlay);
         overlay.AddChild(new ColorRect
         {
-            Color    = new Color(0.96f, 0.93f, 0.82f),
+            Color    = Colors.White,
             Size     = vp,
             Position = Vector2.Zero,
         });
@@ -265,13 +281,13 @@ public partial class MainScene : Node2D
         page.Scale    = new Vector2(zoomIn, zoomIn);
         page.Position = ContainerPosForPanel(fromIndex, panelSize, zoomIn, vp);
 
-        // 4. Zoom out — ease-in so it feels like the camera is being pulled back.
+        // 4. Zoom out — ease-in-out for a smooth pull-back, not a whip.
         float dur      = RandomisedDuration(0.50f);
         Tween tweenOut = CreateTween().SetParallel(true);
         tweenOut.TweenProperty(page, "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), dur)
-            .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
         tweenOut.TweenProperty(page, "position", ContainerPosForFullPage(vp), dur)
-            .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
         await ToSignal(tweenOut, Tween.SignalName.Finished);
 
         // 5. Pause — vary the beat length so it never feels mechanical.
@@ -279,13 +295,13 @@ public partial class MainScene : Node2D
         pause.TweenInterval(RandomisedDuration(0.22f, 0.20f));
         await ToSignal(pause, Tween.SignalName.Finished);
 
-        // 6. Zoom in — ease-out with slight overshoot (TransitionType.Back).
+        // 6. Zoom in — cubic ease-out, no overshoot.
         dur = RandomisedDuration(0.45f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(page, "scale",    new Vector2(zoomIn, zoomIn), dur)
-            .SetEase(Tween.EaseType.Out).SetTrans(RandomZoomInCurve());
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         tweenIn.TweenProperty(page, "position", ContainerPosForPanel(toIndex, panelSize, zoomIn, vp), dur)
-            .SetEase(Tween.EaseType.Out).SetTrans(RandomZoomInCurve());
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         await ToSignal(tweenIn, Tween.SignalName.Finished);
 
         // 7. Finalise.
@@ -299,7 +315,7 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     // PageTurn transition — full comic page curl.
     // ---------------------------------------------------------------------------
-    private async void PageTurnTransition(string roomPath, string entryPoint)
+    private async void PageTurnTransition(string roomPath, scene_script.ArrivalData arrival)
     {
         Vector2 vp = GetViewportRect().Size;
 
@@ -307,7 +323,7 @@ public partial class MainScene : Node2D
         _panelTextures[_currentPanelIndex] = await CaptureViewportClean();
 
         // 2. Instantiate into SubViewport, capture thumbnail, move to nextSceneHolder.
-        PrepareNextScene(roomPath, entryPoint);
+        PrepareNextScene(roomPath, arrival);
         ImageTexture nextTex = await CaptureNextSceneThumbnail();
 
         // 3. Build the 6-panel page overlay, zoomed into the current panel.
@@ -315,7 +331,7 @@ public partial class MainScene : Node2D
         AddChild(pageOverlay);
         pageOverlay.AddChild(new ColorRect
         {
-            Color    = new Color(0.96f, 0.93f, 0.82f),
+            Color    = Colors.White,
             Size     = vp,
             Position = Vector2.Zero,
         });
@@ -328,13 +344,13 @@ public partial class MainScene : Node2D
         page.Scale    = new Vector2(zoomIn, zoomIn);
         page.Position = ContainerPosForPanel(_currentPanelIndex, panelSize, zoomIn, vp);
 
-        // 4. Zoom out to reveal the full page.
+        // 4. Zoom out to reveal the full page — ease-in-out, not a whip.
         float dur      = RandomisedDuration(0.40f);
         Tween tweenOut = CreateTween().SetParallel(true);
         tweenOut.TweenProperty(page, "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), dur)
-            .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
         tweenOut.TweenProperty(page, "position", ContainerPosForFullPage(vp), dur)
-            .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
         await ToSignal(tweenOut, Tween.SignalName.Finished);
 
         Tween prePagePause = CreateTween();
@@ -355,7 +371,7 @@ public partial class MainScene : Node2D
         AddChild(newPageOverlay);
         newPageOverlay.AddChild(new ColorRect
         {
-            Color    = new Color(0.96f, 0.93f, 0.82f),
+            Color    = Colors.White,
             Size     = vp,
             Position = Vector2.Zero,
         });
@@ -399,13 +415,13 @@ public partial class MainScene : Node2D
         postPagePause.TweenInterval(RandomisedDuration(0.50f, 0.10f));
         await ToSignal(postPagePause, Tween.SignalName.Finished);
 
-        // 9. Zoom into panel 0.
+        // 9. Zoom into panel 0 — cubic ease-out, no overshoot.
         dur = RandomisedDuration(0.45f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(newPage, "scale",    new Vector2(newZoomIn, newZoomIn), dur)
-            .SetEase(Tween.EaseType.Out).SetTrans(RandomZoomInCurve());
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         tweenIn.TweenProperty(newPage, "position", ContainerPosForPanel(0, panelSize, newZoomIn, vp), dur)
-            .SetEase(Tween.EaseType.Out).SetTrans(RandomZoomInCurve());
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         await ToSignal(tweenIn, Tween.SignalName.Finished);
 
         // 10. Finalise.
@@ -418,9 +434,9 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     // Fade-to-black transition.
     // ---------------------------------------------------------------------------
-    private void FadeTransition(string roomPath, string entryPoint)
+    private void FadeTransition(string roomPath, scene_script.ArrivalData arrival)
     {
-        PrepareNextScene(roomPath, entryPoint);
+        PrepareNextScene(roomPath, arrival);
         MoveNextSceneToHolder();
         GetNode<AnimationPlayer>("AnimationPlayer").Play("fadetoblack");
     }
@@ -446,7 +462,7 @@ public partial class MainScene : Node2D
     // scene node into nextSceneHolder. One _Ready() call, never visible on screen.
     private SubViewport _stagingViewport;
 
-    private void PrepareNextScene(string roomPath, string entryPoint = "default")
+    private void PrepareNextScene(string roomPath, scene_script.ArrivalData arrival = default)
     {
         Vector2 vp = GetViewportRect().Size;
 
@@ -464,14 +480,14 @@ public partial class MainScene : Node2D
         _stagingViewport.AddChild(newSceneNode);
         nextScene = (scene_script)newSceneNode;
 
-        ApplyEntryPoint(nextScene, roomPath, entryPoint);
+        ApplyArrival(nextScene, arrival);
 
         // For camera-following scenes: snap the camera to the character's start
         // position (clamped), set the SubViewport CanvasTransform to match so the
         // thumbnail renders the correct view, then prime parallax to match.
-        if (nextScene.hasCameraControl && nextScene.camera != null && nextScene.character != null)
+        if (nextScene.hasCameraControl && nextScene.camera != null && nextScene.ego != null)
         {
-            Vector2 snapped = nextScene.character.Position;
+            Vector2 snapped = nextScene.ego.Position;
 
             if (nextScene.cameraClamp != null)
             {
@@ -483,44 +499,52 @@ public partial class MainScene : Node2D
             }
 
             nextScene.camera.Position = snapped;
-            _stagingViewport.CanvasTransform = new Transform2D(0f, vp / 2f - snapped);
+            nextScene.camera.Offset   = _celBorderOffset;
+            // Camera2D canvas translation = vp/2 - (camera.Position + camera.Offset)
+            _stagingViewport.CanvasTransform = new Transform2D(0f, vp / 2f - snapped - _celBorderOffset);
             PrimeParallax(nextScene);
         }
 
         nextScene.SuspendSceneInput();
     }
 
-    private void ApplyEntryPoint(scene_script scene, string roomPath, string entryPoint)
+    private void ApplyArrival(scene_script scene, scene_script.ArrivalData arrival)
     {
-        // Auto-derive JSON path from scene file name (e.g. "entryway.tscn" → "game/data/scenes/entryway.json").
-        // The [Export] entryScriptFile on the scene takes priority if set.
-        string basename  = System.IO.Path.GetFileNameWithoutExtension(roomPath);
-        string relative  = !string.IsNullOrEmpty(scene.entryScriptFile)
-            ? scene.entryScriptFile
-            : $"game/data/scenes/{basename}.json";
-        string jsonPath  = $"res://{relative}";
-
-        if (!FileAccess.FileExists(jsonPath)) return;
-
-        var doc = JsonNode.Parse(FileAccess.GetFileAsString(jsonPath))?.AsObject();
-        if (doc == null) return;
-
-        // Fall back to "default" if the named entry point doesn't exist.
-        var ep = doc[entryPoint]?.AsObject() ?? doc["default"]?.AsObject();
-        if (ep == null) return;
-
-        var character = scene.character ?? scene.GetNodeOrNull<Character>("Character");
+        var character = scene.ego;
         if (character == null) return;
 
-        if (ep.ContainsKey("charStartPos"))
+        // Resolve arrive_area: use explicit value or auto-detect from destination exits.
+        string areaName = arrival.Area ?? "";
+        if (string.IsNullOrEmpty(areaName) && !string.IsNullOrEmpty(arrival.SourceName))
         {
-            var arr = ep["charStartPos"].AsArray();
-            character.Position = new Vector2(arr[0].GetValue<float>(), arr[1].GetValue<float>());
+            var exits = scene._sceneData?["exits"]?.AsObject();
+            if (exits != null)
+            {
+                foreach (var kv in exits)
+                {
+                    string exitDest = kv.Value?["destination"]?.GetValue<string>() ?? "";
+                    if (string.Equals(exitDest, arrival.SourceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        areaName = kv.Key;
+                        break;
+                    }
+                }
+            }
         }
 
-        if (ep.ContainsKey("charStartDir"))
+        // Place character at the centre of the arrive zone.
+        CollisionShape2D arriveShape = null;
+        if (!string.IsNullOrEmpty(areaName))
         {
-            character.ChangeFacing(ep["charStartDir"].GetValue<string>() switch
+            arriveShape = scene.GetNodeOrNull<CollisionShape2D>(areaName);
+            if (arriveShape != null)
+                character.Position = arriveShape.Position;
+        }
+
+        // Set facing direction.
+        if (!string.IsNullOrEmpty(arrival.Dir))
+        {
+            character.ChangeFacing(arrival.Dir switch
             {
                 "up"    => NPC.Direction.up,
                 "down"  => NPC.Direction.down,
@@ -530,10 +554,26 @@ public partial class MainScene : Node2D
             });
         }
 
-        if (ep.ContainsKey("sequence"))
+        // Store the walk target on the scene; UnsuspendSceneInput fires it after the
+        // transition completes so the walk is visible to the player, not pre-run in staging.
+        if (arrival.Walk && arriveShape?.Shape is RectangleShape2D rect && !string.IsNullOrEmpty(arrival.Dir))
+        {
+            Vector2 center = arriveShape.Position;
+            Vector2 half   = rect.Size / 2f;
+            const float margin = 20f;
+            scene._arrivalWalkTarget = arrival.Dir switch
+            {
+                "right" => new Vector2(center.X + half.X + margin, center.Y),
+                "left"  => new Vector2(center.X - half.X - margin, center.Y),
+                "up"    => new Vector2(center.X, center.Y - half.Y - margin),
+                "down"  => new Vector2(center.X, center.Y + half.Y + margin),
+                _       => null,
+            };
+        }
+        else if (arrival.Sequence != null)
         {
             var seq = new EventSequence(scene);
-            scene_script.PopulateEventQueue(seq, ep["sequence"].AsArray(), scene);
+            scene_script.PopulateEventQueue(seq, arrival.Sequence, scene);
             scene.eventQueue = seq;
         }
     }
@@ -569,8 +609,16 @@ public partial class MainScene : Node2D
             currentScene.camera.MakeCurrent();
         }
 
+        ApplyCelBorderOffset(currentScene);
+
         // Prime parallax so the first live frame matches the thumbnail.
         PrimeParallax(currentScene);
+    }
+
+    private void ApplyCelBorderOffset(scene_script scene)
+    {
+        if (scene?.camera != null)
+            scene.camera.Offset = _celBorderOffset;
     }
 
     // PrimeParallax — applies the parallax offset for every parallax sprite
@@ -590,8 +638,8 @@ public partial class MainScene : Node2D
 
     // CellSize — the grid slot each panel occupies (gutter-based, fills the page).
     private Vector2 CellSize(Vector2 vp) => new(
-        (vp.X - 3f * PANEL_GUTTER) / 2f,
-        (vp.Y - 4f * PANEL_GUTTER) / 3f
+        (vp.X - 3f * PANEL_GUTTER_H) / 2f,
+        (vp.Y - 4f * PANEL_GUTTER_V) / 3f
     );
 
     // PanelSize — the actual panel rect, aspect-ratio matched to the viewport,
@@ -611,8 +659,8 @@ public partial class MainScene : Node2D
     {
         Vector2 cell    = CellSize(vp);
         Vector2 cellPos = new(
-            PANEL_GUTTER + (index % 2) * (cell.X + PANEL_GUTTER),
-            PANEL_GUTTER + (index / 2) * (cell.Y + PANEL_GUTTER)
+            PANEL_GUTTER_H + (index % 2) * (cell.X + PANEL_GUTTER_H),
+            PANEL_GUTTER_V + (index / 2) * (cell.Y + PANEL_GUTTER_V)
         );
         return cellPos + (cell - panelSize) * 0.5f;
     }
@@ -703,7 +751,7 @@ public partial class MainScene : Node2D
 
         container.AddChild(new ColorRect
         {
-            Color    = new Color(0.96f, 0.93f, 0.82f),
+            Color    = Colors.White,
             Size     = vp,
             Position = Vector2.Zero,
         });
@@ -747,6 +795,26 @@ public partial class MainScene : Node2D
                     Position    = pos,
                     Size        = panelSize,
                 });
+        }
+
+        // Add halftone on top of all panels — matches the in-game screen effect.
+        var halftoneShader = GD.Load<Shader>("res://shaders/halftone.gdshader");
+        if (halftoneShader != null)
+        {
+            var mat = new ShaderMaterial { Shader = halftoneShader };
+            mat.SetShaderParameter("radius_c",  0.2f);
+            mat.SetShaderParameter("radius_m", -0.3f);
+            mat.SetShaderParameter("radius_y",  0.0f);
+            mat.SetShaderParameter("radius_k",  0.785f);
+            mat.SetShaderParameter("frequency", 463.46f);
+            container.AddChild(new ColorRect
+            {
+                Material    = mat,
+                Size        = vp,
+                Position    = Vector2.Zero,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Color       = Colors.Black,
+            });
         }
 
         return container;

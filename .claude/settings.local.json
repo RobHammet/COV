@@ -4,7 +4,8 @@
       "Bash(grep -v \"\\\\.import$\")",
       "Bash(grep -v \"\\\\.uid$\")",
       "Bash(python3 -c \":*)",
-      "Bash(identify /home/rob/Documents/dev/Godot/COV/game/art/cel_overlay.png)"
+      "Bash(identify /home/rob/Documents/dev/Godot/COV/game/art/cel_overlay.png)",
+      "Bash(grep -l \"arrive_dir\\\\|from_housefront\\\\|from_theporch\\\\|entry_point\" /home/rob/Documents/dev/Godot/COV/game/data/scenes/*.json)"
     ]
   }
 }

@@ -13,6 +13,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 
 public partial class thing : Node2D
 {
@@ -21,6 +22,7 @@ public partial class thing : Node2D
     [Export] public InventoryItem.ItemType inventoryItemType    = InventoryItem.ItemType.none;
     [Export] public bool                  lookClosely           = false;
     [Export] public string[]              lookText;
+    [Export] public string                interactionFile;
     [Export] public bool                  startingScaleAsBaseline = true;
     [Export] public bool                  isScaleFrozen         = false;
 
@@ -31,11 +33,14 @@ public partial class thing : Node2D
     public CollisionPolygon2D clickArea;
     public Vector2[]          clickPolygon;
     public scene_script       parentScene;
-    public Line2D             scalerStick;
+    public ScalerStick        scalerStick;
     public CollisionPolygon2D freezeScaleRegion;
     public float              originalScale;
     public float              max_for_normal1;
     public float              max_for_normal2;
+    // ScalerStick reference Y values in scene (parent) space.
+    // Cached once in _Ready so a positioned ScalerStick node works correctly.
+    private float             _scalerY0, _scalerY1, _scalerY2;
 
     public Vector2 interactPoint { get; set; } = Vector2.Zero;
     public Vector2 centerPoint   { get; set; } = Vector2.Zero;
@@ -51,13 +56,16 @@ public partial class thing : Node2D
     public static string[] UseFallbacks     = [];
     public static string[] UseItemFallbacks = [];
 
-    private Character character;
-    private Vector2   prevPos;
+    private NPC ego;
+    private Vector2    prevPos;
+    private Vector2    prevScale;
+    private JsonObject _interactionData;
 
     public override void _EnterTree()
     {
         base._EnterTree();
-        prevPos = Position;
+        prevPos   = Position;
+        prevScale = Scale;
     }
 
     public override void _Draw()
@@ -68,37 +76,41 @@ public partial class thing : Node2D
         {
             var pts = new Vector2[clickPolygon.Length + 1];
             for (int i = 0; i < clickPolygon.Length; i++)
-                pts[i] = clickPolygon[i] - Position;
-            pts[clickPolygon.Length] = clickPolygon[0] - Position;
+                pts[i] = (clickPolygon[i] - Position) / Scale;
+            pts[clickPolygon.Length] = (clickPolygon[0] - Position) / Scale;
             DrawPolyline(pts, Colors.Red, 2);
         }
-        DrawCircle(basePoint    - Position, 3, Colors.Blue);
-        DrawCircle(centerPoint  - Position, 5, Colors.Yellow);
-        DrawCircle(interactPoint - Position, 3, Colors.Cyan);
-        DrawLine(centerPoint - Position, interactPoint - Position, Colors.Cyan);
+        DrawCircle((basePoint     - Position) / Scale, 3, Colors.Blue);
+        DrawCircle((centerPoint   - Position) / Scale, 5, Colors.Yellow);
+        DrawCircle((interactPoint - Position) / Scale, 3, Colors.Cyan);
+        DrawLine((centerPoint - Position) / Scale, (interactPoint - Position) / Scale, Colors.Cyan);
     }
 
     public override void _Ready()
     {
-        parentScene = Owner as scene_script;
-        character   = parentScene?.character;
+        parentScene = (Owner as scene_script) ?? (GetParent() as scene_script);
+        ego   = parentScene?.ego;
 
         try { freezeScaleRegion = parentScene?.FindChild("FreezeScaleRegion") as CollisionPolygon2D; }
         catch { freezeScaleRegion = null; }
 
-        scalerStick = parentScene?.FindChild("ScalerStick") as Line2D;
+        scalerStick = parentScene?.FindChild("ScalerStick") as ScalerStick;
         if (scalerStick != null)
         {
-            max_for_normal1 = scalerStick.Points[1].Y - scalerStick.Points[0].Y;
-            max_for_normal2 = scalerStick.Points[2].Y - scalerStick.Points[1].Y;
+            float oy    = scalerStick.Position.Y;
+            _scalerY0   = oy + scalerStick.Points[0].Y;
+            _scalerY1   = oy + scalerStick.Points[1].Y;
+            _scalerY2   = oy + scalerStick.Points[2].Y;
+            max_for_normal1 = _scalerY1 - _scalerY0;
+            max_for_normal2 = _scalerY2 - _scalerY1;
         }
 
         if (startingScaleAsBaseline && scalerStick != null)
         {
-            if (Position.Y <= scalerStick.Points[1].Y)
-                originalScale = (Position.Y - scalerStick.Points[0].Y) / max_for_normal1;
+            if (Position.Y <= _scalerY1)
+                originalScale = 0.25f + 0.75f * (Position.Y - _scalerY0) / max_for_normal1;
             else
-                originalScale = (Position.Y - scalerStick.Points[1].Y) / max_for_normal2 + 1f;
+                originalScale = (Position.Y - _scalerY1) / max_for_normal2 + 1f;
             originalScale -= 1f;
         }
         else
@@ -124,6 +136,30 @@ public partial class thing : Node2D
 
         SetPoints();
 
+        // Check scene JSON first (things subsection), then fall back to:
+        //   1. interactionFile export (explicit path)
+        //   2. JSON co-located with the thing's own .tscn (e.g. NPC/someguy.json)
+        //   3. legacy game/data/things/{Name}.json
+        _interactionData = parentScene?._sceneData?["things"]?[Name]?.AsObject();
+        if (_interactionData == null)
+        {
+            string jsonPath;
+            if (!string.IsNullOrEmpty(interactionFile))
+            {
+                jsonPath = $"res://{interactionFile}";
+            }
+            else if (!string.IsNullOrEmpty(SceneFilePath))
+            {
+                jsonPath = SceneFilePath.Replace(".tscn", ".json");
+            }
+            else
+            {
+                jsonPath = $"res://game/data/things/{Name}.json";
+            }
+            if (FileAccess.FileExists(jsonPath))
+                _interactionData = JsonNode.Parse(FileAccess.GetFileAsString(jsonPath))?.AsObject();
+        }
+
         if (castsShadow && hasSprite)
         {
             shadow = new Sprite2D();
@@ -148,7 +184,7 @@ public partial class thing : Node2D
         clickArea = GetNode<CollisionPolygon2D>("CollisionPolygon2D");
         var newPoly = new Vector2[clickArea.Polygon.Length];
         for (int i = 0; i < clickArea.Polygon.Length; i++)
-            newPoly[i] = clickArea.Polygon[i] + Position;
+            newPoly[i] = (clickArea.Polygon[i] + clickArea.Position) * Scale + Position;
         clickPolygon = newPoly;
 
         float sumX = 0, sumY = 0, maxY = -100;
@@ -189,16 +225,18 @@ public partial class thing : Node2D
             if (!isScaleFrozen)
             {
                 float s;
-                if (Position.Y <= scalerStick.Points[1].Y)
-                    s = (Position.Y - scalerStick.Points[0].Y) / max_for_normal1;
+                if (Position.Y <= _scalerY1)
+                    s = 0.25f + 0.75f * (Position.Y - _scalerY0) / max_for_normal1;
                 else
-                    s = (Position.Y - scalerStick.Points[1].Y) / max_for_normal2 + 1f;
+                    s = (Position.Y - _scalerY1) / max_for_normal2 + 1f;
                 s -= originalScale;
+                if (!startingScaleAsBaseline)
+                    s *= scalerStick.ScaleMultiplier;
                 Scale = new Vector2(s, s);
             }
         }
 
-        if (Position != prevPos) OnMove();
+        if (Position != prevPos || Scale != prevScale) { prevScale = Scale; OnMove(); }
 
         if (castsShadow && shadow != null && sprite != null)
         {
@@ -228,17 +266,17 @@ public partial class thing : Node2D
     public void TryLook()
     {
         if (parentScene.eventQueue.isRunning) return;
-        character.StopWalking();
+        ego.StopWalking();
         if (lookClosely)
         {
-            parentScene.eventQueue.AddEventMove(character, interactPoint, _interruptable: true);
-            parentScene.eventQueue.AddEventChangeFacingToLookAt(character, this, _interruptable: true);
+            parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
+            parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
         }
         else
         {
-            parentScene.eventQueue.AddEventChangeFacingToLookAt(character, this, _interruptable: true);
+            parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
         }
-        bool handled = SpecificLook(character, parentScene.eventQueue);
+        bool handled = SpecificLook(ego, parentScene.eventQueue);
         if (!handled)
         {
             int  t           = lastLookTextRead + 1;
@@ -246,51 +284,75 @@ public partial class thing : Node2D
             if (hasLookText && t >= lookText.Length) t = 0;
             string text = hasLookText ? lookText[t] : $"IT'S A {displayName.ToUpper()}.";
             if (hasLookText) lastLookTextRead = t;
-            parentScene.eventQueue.AddEventThink(character, text);
+            parentScene.eventQueue.AddEventThink(ego, text);
         }
     }
 
     public void TryUse()
     {
-        parentScene.eventQueue.AddEventMove(character, interactPoint, _interruptable: true);
-        parentScene.eventQueue.AddEventChangeFacingToLookAt(character, this, _interruptable: true);
-        bool handled = SpecificUse(character, parentScene.eventQueue);
+        parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
+        parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        bool handled = SpecificUse(ego, parentScene.eventQueue);
         if (!handled && UseFallbacks.Length > 0)
         {
             var rng = new RandomNumberGenerator(); rng.Randomize();
-            parentScene.eventQueue.AddEventThink(character, UseFallbacks[(int)(rng.Randf() * UseFallbacks.Length)]);
+            parentScene.eventQueue.AddEventThink(ego, UseFallbacks[(int)(rng.Randf() * UseFallbacks.Length)]);
         }
     }
 
     public void TryTalk()
     {
-        parentScene.eventQueue.AddEventMove(character, interactPoint, _interruptable: true);
-        parentScene.eventQueue.AddEventChangeFacingToLookAt(character, this, _interruptable: true);
-        bool handled = SpecificTalk(character, parentScene.eventQueue);
+        parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
+        parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        bool handled = SpecificTalk(ego, parentScene.eventQueue);
         if (!handled && TalkFallbacks.Length > 0)
         {
             var rng = new RandomNumberGenerator(); rng.Randomize();
-            parentScene.eventQueue.AddEventSpeak(character, TalkFallbacks[(int)(rng.Randf() * TalkFallbacks.Length)], Vector2.Zero);
+            parentScene.eventQueue.AddEventSpeak(ego, TalkFallbacks[(int)(rng.Randf() * TalkFallbacks.Length)], Vector2.Zero);
         }
     }
 
     public void TryUseItem(InventoryItem.ItemType item)
     {
         if (item == InventoryItem.ItemType.none) return;
-        parentScene.eventQueue.AddEventMove(character, interactPoint, _interruptable: true);
-        parentScene.eventQueue.AddEventChangeFacingToLookAt(character, this, _interruptable: true);
+        parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
+        parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
         bool handled = SpecificUseItem(item);
         if (!handled && UseItemFallbacks.Length > 0)
         {
             var rng = new RandomNumberGenerator(); rng.Randomize();
-            parentScene.eventQueue.AddEventSpeak(character, UseItemFallbacks[(int)(rng.Randf() * UseItemFallbacks.Length)], Vector2.Zero);
+            parentScene.eventQueue.AddEventSpeak(ego, UseItemFallbacks[(int)(rng.Randf() * UseItemFallbacks.Length)], Vector2.Zero);
         }
     }
 
-    public virtual bool SpecificLook(Character character, EventSequence eventSequence)  => false;
-    public virtual bool SpecificUse(Character character, EventSequence eventSequence)   => false;
-    public virtual bool SpecificTalk(Character character, EventSequence eventSequence)  => false;
-    public virtual bool SpecificUseItem(InventoryItem.ItemType item)                    => false;
+    public virtual bool SpecificLook(NPC ego, EventSequence eventSequence)
+    {
+        if (_interactionData?.ContainsKey("look") != true) return false;
+        scene_script.PopulateEventQueue(eventSequence, _interactionData["look"].AsArray(), parentScene, this);
+        return true;
+    }
+
+    public virtual bool SpecificUse(NPC ego, EventSequence eventSequence)
+    {
+        if (_interactionData?.ContainsKey("use") != true) return false;
+        scene_script.PopulateEventQueue(eventSequence, _interactionData["use"].AsArray(), parentScene, this);
+        return true;
+    }
+
+    public virtual bool SpecificTalk(NPC ego, EventSequence eventSequence)
+    {
+        if (_interactionData?.ContainsKey("talk") != true) return false;
+        scene_script.PopulateEventQueue(eventSequence, _interactionData["talk"].AsArray(), parentScene, this);
+        return true;
+    }
+
+    public virtual bool SpecificUseItem(InventoryItem.ItemType item)
+    {
+        var useItem = _interactionData?["use_item"]?.AsObject();
+        if (useItem?.ContainsKey(item.ToString()) != true) return false;
+        scene_script.PopulateEventQueue(parentScene.eventQueue, useItem[item.ToString()].AsArray(), parentScene, this);
+        return true;
+    }
 
     public bool AddToInventory()
     {

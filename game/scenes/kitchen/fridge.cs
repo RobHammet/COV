@@ -13,7 +13,7 @@ public partial class fridge : thing
 	// {
 	// }
 
-	public override bool SpecificUse(Character character, EventSequence eventSequence) {
+	public override bool SpecificUse(NPC character, EventSequence eventSequence) {
 		
 	
 		// if ((bool)parentScene.GetFlag("keyTaken").Value == true) {
@@ -33,7 +33,7 @@ public partial class fridge : thing
 
 		switch (item) {
 			case InventoryItem.ItemType.key:
-				parentScene.eventQueue.AddEventSpeak(parentScene.character, "YAY! I OPENED IT WITH THE KEY!", new Vector2(0,0), true);
+				parentScene.eventQueue.AddEventSpeak(parentScene.ego, "YAY! I OPENED IT WITH THE KEY!", new Vector2(0,0), true);
 				return true;
 				break;
 			default:

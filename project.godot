@@ -29,6 +29,7 @@ Globals="*res://data/Globals.cs"
 [display]
 
 window/stretch/mode="viewport"
+window/stretch/aspect="keep_width"
 
 [dotnet]
 

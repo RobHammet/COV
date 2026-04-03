@@ -1,28 +1,31 @@
-[gd_scene load_steps=17 format=3 uid="uid://dffqlcofgb23x"]
+[gd_scene format=3 uid="uid://dffqlcofgb23x"]
 
-[ext_resource type="Script" path="res://game/scenes/theporch/theporch.cs" id="1"]
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="2"]
-[ext_resource type="Texture2D" uid="uid://c2ru180atln0g" path="res://game/art/porch_darkmap.png" id="2_dud0g"]
-[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="5"]
-[ext_resource type="Shader" path="res://shaders/light_and_shadows_shader.gdshader" id="5_bhwyr"]
-[ext_resource type="Texture2D" uid="uid://cmuqv2xhrkx15" path="res://game/art/porch.png" id="6"]
-[ext_resource type="Texture2D" uid="uid://bxoxv10xw30xx" path="res://game/art/door-Sheet-normal.png" id="6_tse8u"]
-[ext_resource type="Script" path="res://game/scenes/theporch/porch_door.cs" id="7"]
-[ext_resource type="Texture2D" uid="uid://tt0d41mt3mcx" path="res://game/art/door-Sheet.png" id="8"]
+[ext_resource type="Texture2D" uid="uid://c2ru180atln0g" path="res://game/scenes/theporch/porch_darkmap.png" id="2_dud0g"]
+[ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="5_bhwyr"]
+[ext_resource type="Texture2D" uid="uid://cmuqv2xhrkx15" path="res://game/scenes/theporch/porch.png" id="6"]
+[ext_resource type="Texture2D" uid="uid://bxoxv10xw30xx" path="res://game/scenes/theporch/door-Sheet-normal.png" id="6_tse8u"]
+[ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7"]
+[ext_resource type="Texture2D" uid="uid://tt0d41mt3mcx" path="res://game/scenes/theporch/door-Sheet.png" id="8"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(152, 52.448)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_exit2"]
 size = Vector2(175, 72.896)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_te7sm"]
 shader = ExtResource("5_bhwyr")
+shader_parameter/sprite_texture = ExtResource("8")
+shader_parameter/normal_map = ExtResource("6_tse8u")
 shader_parameter/dark_threshold = 0.004
 shader_parameter/light_strength = 34.59
 shader_parameter/light_direction = Vector3(0.235, 1.135, 0)
 shader_parameter/is_flipped = false
 shader_parameter/overall_dark = 1.0
 shader_parameter/maintain_light = 0.815
-shader_parameter/sprite_texture = ExtResource("8")
-shader_parameter/normal_map = ExtResource("6_tse8u")
 
 [sub_resource type="Animation" id="3"]
 length = 0.001
@@ -56,8 +59,8 @@ tracks/0/keys = {
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_nt7ty"]
 _data = {
-"RESET": SubResource("3"),
-"open": SubResource("4")
+&"RESET": SubResource("3"),
+&"open": SubResource("4")
 }
 
 [sub_resource type="NavigationPolygon" id="1"]
@@ -69,48 +72,36 @@ source_geometry_group_name = &"navigation_polygon_source_group"
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_orrrw"]
 size = Vector2(1153, 648)
 
-[node name="theporch" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+[node name="theporch" type="Node2D" unique_id=755532276 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1")
 darkMap = ExtResource("2_dud0g")
 parallaxSprites = []
 
-[node name="background" type="Sprite2D" parent="."]
+[node name="background" type="Sprite2D" parent="." unique_id=1616755134]
 texture = ExtResource("6")
 offset = Vector2(320, 240)
 
-[node name="exit_to_interior" type="Area2D" parent="."]
-position = Vector2(585.312, 284.104)
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_interior"]
-z_index = 1
-position = Vector2(-231.812, -8.104)
+[node name="exit_to_entryway" type="CollisionShape2D" parent="." unique_id=2111351835]
+position = Vector2(355, 286.224)
 shape = SubResource("2")
 
-[node name="exit_to_housefront" type="Area2D" parent="."]
-position = Vector2(759, 529)
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
+[node name="exit_to_housefront" type="CollisionShape2D" parent="." unique_id=337940465]
+position = Vector2(549.5, 514.448)
+shape = SubResource("RectangleShape2D_exit2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_housefront"]
-z_index = 1
-position = Vector2(-209.5, -14.552)
-shape = SubResource("2")
-
-[node name="door" type="Node2D" parent="." groups=["things"]]
+[node name="door" type="Node2D" parent="." unique_id=347658526 groups=["things"]]
 position = Vector2(353, 345)
 script = ExtResource("7")
 displayName = "door"
 lookText = PackedStringArray("THE FRONT DOOR IS RATHER DIRTY.", "MAYBE I SHOULD GIVE IT A TRY...")
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="door"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="door" unique_id=196545625]
 polygon = PackedVector2Array(-58, -256, 62, -259, 57, -8, -54, -11)
 
-[node name="InteractPoint" type="Node2D" parent="door"]
+[node name="InteractPoint" type="Node2D" parent="door" unique_id=753534822]
 position = Vector2(-43, 31)
 
-[node name="Sprite2D" type="Sprite2D" parent="door"]
+[node name="Sprite2D" type="Sprite2D" parent="door" unique_id=1891607712]
 light_mask = 0
 material = SubResource("ShaderMaterial_te7sm")
 position = Vector2(3, -8)
@@ -119,34 +110,26 @@ texture = ExtResource("8")
 offset = Vector2(0, -600)
 hframes = 4
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="door/Sprite2D"]
+[node name="AnimationPlayer" type="AnimationPlayer" parent="door/Sprite2D" unique_id=394725999]
 root_node = NodePath("../../..")
-libraries = {
-"": SubResource("AnimationLibrary_nt7ty")
-}
+libraries/ = SubResource("AnimationLibrary_nt7ty")
 
-[node name="ScalerStick" type="Line2D" parent="."]
-visible = false
-points = PackedVector2Array(360, 206, 385, 267, 514, 520)
+[node name="ScalerStick" type="Line2D" parent="." unique_id=2076325955]
+points = PackedVector2Array(383, 205, 433, 348, 525, 552)
 width = 4.0
+default_color = Color(1, 1, 1, 0)
+script = ExtResource("ScalerStick_cs")
+ScaleMultiplier = 1.18
 
-[node name="Character" parent="." instance=ExtResource("5")]
-modulate = Color(0.172549, 0.172549, 0.172549, 1)
-position = Vector2(531, 469)
-scale = Vector2(1.88, 1.88)
-character_speed = 85.0
-displayName = "Character"
-startingScaleAsBaseline = false
-
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=129577341]
 modulate = Color(0.509804, 0.0392157, 0.301961, 1)
 navigation_polygon = SubResource("1")
 
-[node name="Polygon2D" type="Polygon2D" parent="NavigationRegion2D"]
+[node name="openDoorFloor" type="Polygon2D" parent="NavigationRegion2D" unique_id=1898200066]
 visible = false
 polygon = PackedVector2Array(320, 283, 390, 285, 406, 338, 419, 349, 625, 348, 634, 475, 78, 473, 129, 445, 180, 446, 223, 365, 258, 346, 294, 348, 310, 333)
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=651715280]
 visible = false
 position = Vector2(120, 174)
 scale = Vector2(0.5, 0.7)
@@ -155,14 +138,14 @@ texture = ExtResource("2")
 texture_scale = 0.18
 height = 225.0
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=650464819]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
-[node name="CameraClamp" type="CollisionShape2D" parent="."]
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1201390490]
 position = Vector2(576, 324)
 shape = SubResource("RectangleShape2D_orrrw")
 
-[connection signal="body_entered" from="exit_to_interior" to="." method="_on_exit_to_interior_body_entered"]
-[connection signal="body_entered" from="exit_to_housefront" to="." method="_on_exit_to_housefront_body_entered"]
+[node name="start_point" type="Node2D" parent="." unique_id=213667987]
+position = Vector2(542, 463)

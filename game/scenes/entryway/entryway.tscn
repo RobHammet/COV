@@ -1,12 +1,11 @@
-[gd_scene load_steps=11 format=3 uid="uid://gktsetbi8ml0"]
+[gd_scene format=3 uid="uid://gktsetbi8ml0"]
 
-[ext_resource type="Script" path="res://game/scenes/entryway/entryway.cs" id="1_ev3vt"]
-[ext_resource type="Texture2D" uid="uid://cqjmvvgof78hl" path="res://game/art/entryway_darkmap.png" id="2_3aq3i"]
-[ext_resource type="Texture2D" uid="uid://dxsebvx8oawuh" path="res://game/art/entryway.png" id="2_47dve"]
-[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="3_sotew"]
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_ev3vt"]
+[ext_resource type="Texture2D" uid="uid://cqjmvvgof78hl" path="res://game/scenes/entryway/entryway_darkmap.png" id="2_3aq3i"]
+[ext_resource type="Texture2D" uid="uid://dxsebvx8oawuh" path="res://game/scenes/entryway/entryway.png" id="2_47dve"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="4_7jta6"]
-[ext_resource type="Material" uid="uid://5k4ulos2ygp1" path="res://shaders/materials/toonred_mat.tres" id="5_yqv7b"]
-[ext_resource type="Script" path="res://game/scenes/entryway/table.cs" id="7_2j5w2"]
+[ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7_2j5w2"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1vtu2"]
 size = Vector2(714, 119)
@@ -20,41 +19,34 @@ source_geometry_group_name = &"navigation_polygon_source_group"
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1w8pk"]
 size = Vector2(1153, 648)
 
-[node name="entryway" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_4s7rw"]
+size = Vector2(148, 23)
+
+[node name="entryway" type="Node2D" unique_id=993926936 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1_ev3vt")
 displayName = "ENTRYWAY"
 darkMap = ExtResource("2_3aq3i")
 parallaxSprites = []
 
-[node name="background" type="Sprite2D" parent="."]
+[node name="background" type="Sprite2D" parent="." unique_id=1076580361]
 texture = ExtResource("2_47dve")
 offset = Vector2(320, 240)
 
-[node name="into_the_house" type="Area2D" parent="."]
-position = Vector2(585.312, 284.104)
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="into_the_house"]
-z_index = 1
-position = Vector2(-241.312, 246.396)
+[node name="exit_to_sittingroom" type="CollisionShape2D" parent="." unique_id=2022559575]
+position = Vector2(344, 530.5)
 shape = SubResource("RectangleShape2D_1vtu2")
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=570907929]
 navigation_polygon = SubResource("NavigationPolygon_a0nhy")
 
-[node name="ScalerStick" type="Line2D" parent="."]
-visible = false
-points = PackedVector2Array(169, 82, 325, 296, 429, 442)
+[node name="ScalerStick" type="Line2D" parent="." unique_id=512624876]
+points = PackedVector2Array(160, 148, 462, 453, 803, 733)
 width = 4.0
+default_color = Color(1, 1, 1, 0)
+script = ExtResource("ScalerStick_cs")
+ScaleMultiplier = 1.86
 
-[node name="Character" parent="." instance=ExtResource("3_sotew")]
-material = ExtResource("5_yqv7b")
-position = Vector2(351, 464)
-character_speed = 85.0
-startingScaleAsBaseline = false
-
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=498658864]
 visible = false
 position = Vector2(323, 224)
 scale = Vector2(0.5, 0.7)
@@ -62,24 +54,29 @@ energy = 5.22
 texture = ExtResource("4_7jta6")
 texture_scale = 7.03
 
-[node name="table" type="Node2D" parent="." groups=["things"]]
+[node name="table" type="Node2D" parent="." unique_id=74283511 groups=["things"]]
 script = ExtResource("7_2j5w2")
 displayName = "table"
 lookText = PackedStringArray("IT\'S A SIDE TABLE.")
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="table"]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="table" unique_id=286191904]
 polygon = PackedVector2Array(528, 285, 623, 309, 635, 488, 500, 491, 441, 435, 436, 285)
 
-[node name="InteractPoint" type="Node2D" parent="table"]
+[node name="InteractPoint" type="Node2D" parent="table" unique_id=112659930]
 position = Vector2(416, 459)
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1433958641]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
-[node name="CameraClamp" type="CollisionShape2D" parent="."]
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1242167245]
 position = Vector2(576, 324)
 shape = SubResource("RectangleShape2D_1w8pk")
 
-[connection signal="body_entered" from="into_the_house" to="." method="_on_into_the_house_body_entered"]
+[node name="exit_to_theporch" type="CollisionShape2D" parent="." unique_id=2110948570]
+position = Vector2(325, 397.5)
+shape = SubResource("RectangleShape2D_4s7rw")
+
+[node name="start_point" type="Node2D" parent="." unique_id=1227782000]
+position = Vector2(323, 437)

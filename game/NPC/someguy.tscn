@@ -1,21 +1,21 @@
-[gd_scene load_steps=13 format=3 uid="uid://4vtqd6qa57n1"]
+[gd_scene format=3 uid="uid://4vtqd6qa57n1"]
 
-[ext_resource type="Script" path="res://framework/NPC.cs" id="1_0b3ql"]
-[ext_resource type="Shader" path="res://shaders/light_and_shadows_shader.gdshader" id="2_2kksh"]
+[ext_resource type="Script" uid="uid://bm38qqc3nw3xg" path="res://framework/NPC.cs" id="1_0b3ql"]
+[ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="2_2kksh"]
 [ext_resource type="Texture2D" uid="uid://c4rfb5vhcr2ea" path="res://game/art/walkman_new_normal1.png" id="3_8u0ma"]
 [ext_resource type="Texture2D" uid="uid://nsb7ermfjg4" path="res://game/art/farmerSheet.png" id="4_klq5y"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="4_xs23k"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_s8pxs"]
 shader = ExtResource("2_2kksh")
+shader_parameter/sprite_texture = ExtResource("4_klq5y")
+shader_parameter/normal_map = ExtResource("3_8u0ma")
 shader_parameter/dark_threshold = -0.015
 shader_parameter/light_strength = 0.126
 shader_parameter/light_direction = Vector3(11.285, 1.79, 3.38)
 shader_parameter/is_flipped = false
 shader_parameter/overall_dark = 1.0
 shader_parameter/maintain_light = 0.0
-shader_parameter/sprite_texture = ExtResource("4_klq5y")
-shader_parameter/normal_map = ExtResource("3_8u0ma")
 
 [sub_resource type="CanvasTexture" id="CanvasTexture_iuvf6"]
 diffuse_texture = ExtResource("4_klq5y")
@@ -70,43 +70,41 @@ tracks/0/keys = {
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_od1ps"]
 _data = {
-"walk": SubResource("1"),
-"walkdown": SubResource("2"),
-"walkup": SubResource("3")
+&"walk": SubResource("1"),
+&"walkdown": SubResource("2"),
+&"walkup": SubResource("3")
 }
 
 [sub_resource type="CapsuleShape2D" id="4"]
 radius = 2.0
 height = 4.0
 
-[node name="someguy" type="Node2D"]
+[node name="someguy" type="Node2D" unique_id=682049652]
 z_index = 1
 position = Vector2(0, 3)
 script = ExtResource("1_0b3ql")
 displayName = "NPCguy"
 lookClosely = true
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1443064704]
 material = SubResource("ShaderMaterial_s8pxs")
 position = Vector2(3, -53)
-scale = Vector2(0.426422, 0.426422)
+scale = Vector2(0.4, 0.4)
 texture = SubResource("CanvasTexture_iuvf6")
 offset = Vector2(0, -95)
 hframes = 8
 vframes = 3
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="Sprite2D"]
-libraries = {
-"": SubResource("AnimationLibrary_od1ps")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Sprite2D" unique_id=563681735]
+libraries/ = SubResource("AnimationLibrary_od1ps")
 
-[node name="charBody" type="CharacterBody2D" parent="."]
+[node name="charBody" type="CharacterBody2D" parent="." unique_id=2141091428]
 
-[node name="charBodyShape" type="CollisionShape2D" parent="charBody"]
+[node name="charBodyShape" type="CollisionShape2D" parent="charBody" unique_id=1435671862]
 position = Vector2(0, -2)
 shape = SubResource("4")
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1895017352]
 visible = false
 position = Vector2(-110, -159)
 energy = 11.5
@@ -115,15 +113,15 @@ texture = ExtResource("4_xs23k")
 texture_scale = 0.6
 height = 2460.0
 
-[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=241643633]
 path_desired_distance = 5.0
 target_desired_distance = 5.0
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="." unique_id=612834835]
 polygon = PackedVector2Array(-6, -187, 19, -184, 27, -141, 32, -4, 4.71579, -0.855813, -24, -6, -14, -139)
 
-[node name="InteractPoint" type="Node2D" parent="."]
+[node name="InteractPoint" type="Node2D" parent="." unique_id=1854553687]
 position = Vector2(-126, -4)
 
-[node name="TopPoint" type="Node2D" parent="."]
+[node name="TopPoint" type="Node2D" parent="." unique_id=2037139324]
 position = Vector2(-25, -168)

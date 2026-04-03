@@ -1,9 +1,9 @@
-[gd_scene load_steps=8 format=3 uid="uid://bd8haus21ag5o"]
+[gd_scene format=3 uid="uid://bd8haus21ag5o"]
 
-[ext_resource type="Script" path="res://game/scenes/barnfront/barnfront.cs" id="1_nfn7c"]
-[ext_resource type="Texture2D" uid="uid://bfjcw0plb2c0b" path="res://game/art/barnfront.png" id="2_qlfg0"]
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_nfn7c"]
+[ext_resource type="Texture2D" uid="uid://bfjcw0plb2c0b" path="res://game/scenes/barnfront/barnfront.png" id="2_qlfg0"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="3_gxcdv"]
-[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="4_y0pos"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_m17tp"]
 vertices = PackedVector2Array(48, 301, 109, 312, 27, 347, 2, 318, -5, 414, 34, 373, 484, 422, 642, 376, 658, 521, 392, 412, 158, 490, 300.509, 404.883, 320, 379, 398, 391, 1, 493, 121, 380, 216, 397)
@@ -12,30 +12,34 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(216, 397, 300.509, 404.
 source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_31bcx"]
-size = Vector2(92, 120)
+size = Vector2(94, 37)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_31bcx2"]
+size = Vector2(76.31201, 32)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_h0sj2"]
 size = Vector2(1153, 648)
 
-[node name="barnfront" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+[node name="barnfront" type="Node2D" unique_id=1187856 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1_nfn7c")
 displayName = "barnfront"
 darkMap = ExtResource("2_qlfg0")
 parallaxSprites = []
 
-[node name="background" type="Sprite2D" parent="."]
+[node name="background" type="Sprite2D" parent="." unique_id=930336805]
 y_sort_enabled = true
 position = Vector2(321, 241)
 texture = ExtResource("2_qlfg0")
 
-[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=1153877583]
 navigation_polygon = SubResource("NavigationPolygon_m17tp")
 
-[node name="ScalerStick" type="Line2D" parent="."]
-visible = false
+[node name="ScalerStick" type="Line2D" parent="." unique_id=1597339409]
 points = PackedVector2Array(253, 263, 426, 483, 572, 662)
+default_color = Color(1, 1, 1, 0)
+script = ExtResource("ScalerStick_cs")
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1583422640]
 visibility_layer = 0
 position = Vector2(-206, 311)
 color = Color(0.435294, 0.752941, 0.721569, 1)
@@ -44,43 +48,22 @@ texture = ExtResource("3_gxcdv")
 texture_scale = 0.17
 height = 395.0
 
-[node name="exit_to_housefront" type="Area2D" parent="."]
-position = Vector2(78, 547)
-input_pickable = false
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_housefront"]
-z_index = 1
-position = Vector2(-29.312, -35.104)
+[node name="exit_to_housefront" type="CollisionShape2D" parent="." unique_id=269845840]
+position = Vector2(48, 466.5)
 shape = SubResource("RectangleShape2D_31bcx")
 
-[node name="exit_to_barninterior" type="Area2D" parent="."]
-position = Vector2(396, 374)
-input_pickable = false
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
+[node name="exit_to_barninterior" type="CollisionShape2D" parent="." unique_id=928881851]
+position = Vector2(358.844, 387)
+shape = SubResource("RectangleShape2D_31bcx2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_barninterior"]
-z_index = 1
-position = Vector2(-29.312, -35.104)
-shape = SubResource("RectangleShape2D_31bcx")
-
-[node name="Character" parent="." instance=ExtResource("4_y0pos")]
-y_sort_enabled = true
-position = Vector2(136, 461)
-Facing = 4
-character_speed = 85.0
-startingScaleAsBaseline = false
-
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=846840118]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
-[node name="CameraClamp" type="CollisionShape2D" parent="."]
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=493236963]
 position = Vector2(576, 324)
 shape = SubResource("RectangleShape2D_h0sj2")
 
-[connection signal="body_entered" from="exit_to_housefront" to="." method="_on_exit_to_housefront_body_entered"]
-[connection signal="body_entered" from="exit_to_barninterior" to="." method="_on_exit_to_barninterior_body_entered"]
+[node name="start_point" type="Node2D" parent="." unique_id=1685883866]
+position = Vector2(109, 466)

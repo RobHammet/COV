@@ -1,17 +1,12 @@
 [gd_scene format=3 uid="uid://dq6j1wrrf8vq2"]
 
-[ext_resource type="Script" uid="uid://b72m4kaa1dcsw" path="res://game/scenes/theroad/theroad.cs" id="2"]
-[ext_resource type="PackedScene" uid="uid://bqdiq7mbj270m" path="res://game/character/Character.tscn" id="3"]
-[ext_resource type="Texture2D" uid="uid://c1xg7g2xu8up2" path="res://game/art/hwy86prettycolors.png" id="4"]
-[ext_resource type="Script" uid="uid://b1avab6sb7hef" path="res://game/scenes/theroad/candle.cs" id="5"]
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="2"]
+[ext_resource type="Texture2D" uid="uid://c1xg7g2xu8up2" path="res://game/scenes/theroad/hwy86prettycolors.png" id="4"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="6"]
 [ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7"]
-[ext_resource type="Texture2D" uid="uid://dcygbwi0aw4ja" path="res://game/art/candle_sprite-Sheet.png" id="8"]
-[ext_resource type="Material" uid="uid://safyatrerxbt" path="res://shaders/materials/spriteframe_shader_mat.tres" id="8_jfnsk"]
-[ext_resource type="Texture2D" uid="uid://cohljo4bigmjt" path="res://game/art/candle/candle_sprite1.png" id="9_wikll"]
+[ext_resource type="Texture2D" uid="uid://dcygbwi0aw4ja" path="res://game/scenes/theroad/candle_sprite-Sheet.png" id="8"]
 [ext_resource type="PackedScene" uid="uid://4vtqd6qa57n1" path="res://game/NPC/someguy.tscn" id="10_gjxlk"]
-[ext_resource type="Script" uid="uid://bpqx6yex8dhy2" path="res://game/NPC/someguy.cs" id="10_x4sgq"]
-[ext_resource type="Script" uid="uid://c0ll22lbmwuto" path="res://ui/DialogTree.cs" id="12_ki331"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="RectangleShape2D" id="2"]
 size = Vector2(105, 58)
@@ -60,12 +55,11 @@ polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Arr
 outlines = Array[PackedVector2Array]([PackedVector2Array(329, 346, 329, 330, 491, 326, 939, 342, 969, 351, 1107, 415, 1152, 646, 294, 634, 250, 440, 811, 454, 864, 398, 917, 362, 814, 362, 632, 355)])
 source_geometry_group_name = &"navigation_polygon_source_group"
 
-[sub_resource type="CanvasTexture" id="CanvasTexture_0ignm"]
-diffuse_texture = ExtResource("9_wikll")
-normal_texture = ExtResource("9_wikll")
-
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3bukr"]
 size = Vector2(1153, 648)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3183a"]
+size = Vector2(103, 23)
 
 [node name="theroad" type="Node2D" unique_id=1613044435 node_paths=PackedStringArray("parallaxSprites")]
 y_sort_enabled = true
@@ -99,20 +93,16 @@ polygon = PackedVector2Array(679, 4, 695, 6, 679, 336, 659, 327)
 [node name="InteractPoint" type="Node2D" parent="pole" unique_id=1550536379]
 position = Vector2(838, 466)
 
-[node name="exit_to_house" type="Area2D" parent="." unique_id=1790095507]
-position = Vector2(812, 338)
-gravity_point_center = Vector2(1, 1)
-gravity_direction = Vector2(1, 1)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="exit_to_house" unique_id=319799139]
+[node name="exit_to_housefront" type="CollisionShape2D" parent="." unique_id=319799139]
 z_index = 1
+position = Vector2(812, 338)
 shape = SubResource("2")
 
 [node name="Candle" type="Node2D" parent="." unique_id=1637498701]
 z_index = 1
 z_as_relative = false
-position = Vector2(1102, 460)
-script = ExtResource("5")
+position = Vector2(1081, 460)
+script = ExtResource("7")
 displayName = "candle"
 castsShadow = true
 inventoryItemType = 2
@@ -138,8 +128,9 @@ position = Vector2(-36, 2)
 navigation_polygon = SubResource("NavigationPolygon_nayev")
 
 [node name="ScalerStick" type="Line2D" parent="." unique_id=1677862880]
-visible = false
-points = PackedVector2Array(955, 326, 798, 449, 511, 680)
+points = PackedVector2Array(903, 366, 592, 513, 256, 658)
+default_color = Color(1, 1, 1, 0)
+script = ExtResource("ScalerStick_cs")
 
 [node name="house" type="Node2D" parent="." unique_id=1059648493]
 script = ExtResource("7")
@@ -153,34 +144,15 @@ polygon = PackedVector2Array(401, 300, 403, 336, 332, 329, 336, 296)
 [node name="InteractPoint" type="Node2D" parent="house" unique_id=1984360920]
 position = Vector2(387, 460)
 
-[node name="framsprit" type="Sprite2D" parent="." unique_id=774793482]
-visible = false
-z_index = 4
-material = ExtResource("8_jfnsk")
-position = Vector2(584, 353)
-texture = SubResource("CanvasTexture_0ignm")
-
-[node name="Character" parent="." unique_id=129544303 instance=ExtResource("3")]
-position = Vector2(1015, 570)
-Facing = 4
-character_speed = 85.0
-displayName = "ego"
-startingScaleAsBaseline = false
-
 [node name="someguy" parent="." unique_id=1779810606 instance=ExtResource("10_gjxlk")]
 position = Vector2(489, 508)
-script = ExtResource("10_x4sgq")
 dialogColor = Color(1, 0.886275, 0.223529, 1)
 Facing = 4
-character_speed = 85.0
+speed = 85.0
 castsShadow = true
 lookClosely = false
 lookText = PackedStringArray("HE SEEMS FAMILIAR...")
 startingScaleAsBaseline = false
-
-[node name="ChatWithFarmer" type="Node2D" parent="." unique_id=1977570458]
-script = ExtResource("12_ki331")
-dialogFile = "game/data/dialogs/ChatWithFarmer.json"
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=73297095]
 modulate = Color(1, 0, 0, 1)
@@ -191,4 +163,9 @@ position = Vector2(577, 324)
 position = Vector2(576, 324)
 shape = SubResource("RectangleShape2D_3bukr")
 
-[connection signal="body_entered" from="exit_to_house" to="." method="_on_exit_to_house_body_entered"]
+[node name="towards_house" type="CollisionShape2D" parent="." unique_id=120527646]
+position = Vector2(921.5, 386.5)
+shape = SubResource("RectangleShape2D_3183a")
+
+[node name="start_point" type="Node2D" parent="." unique_id=332711221]
+position = Vector2(1000, 447)

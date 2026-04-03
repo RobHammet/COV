@@ -1,0 +1,32 @@
+{
+  "areas": {
+    "exit_to_housefront": {
+      "move_into": [{ "action": "exit", "destination": "housefront", "arrive_dir": "left", "arrive_area": "exit_to_theroad" }]
+    },
+    "towards_house": {
+      "move_through": [
+        {
+          "action": "branch_on_flag",
+          "name": "talkedAboutHouse",
+          "is": false,
+          "then": [
+            { "action": "think", "actor": "ego", "text": "I DON'T KNOW WHERE I'M GOING." },
+            { "action": "move", "actor": "ego", "target": "start_point", "strict": true }
+          ]
+        }
+      ]
+    }
+  },
+  "things": {
+    "Candle": {
+      "use": [
+        { "action": "think", "actor": "ego", "text": "MAYBE I'LL GO AHEAD AND LIGHT THIS CANDLE... LET'S SEE IF THAT WORKS." },
+        { "action": "think", "actor": "ego", "text": "I DUNNO." },
+        { "action": "think", "actor": "ego", "text": "TO BE HONEST, I DON'T USUALLY DO THIS KIND OF THING. I MEAN... IT'S A CANDLE JUST SITTING HERE ON THE SIDE OF THE ROAD. ON THE ONE HAND, IT'S JUST WEIRD AND I'D HAVE TO BE CRAZY TO ENGAGE WITH IT IN ANY WAY." },
+        { "action": "think", "actor": "ego", "text": "SCREW IT." },
+        { "action": "play_animation", "actor": "self", "animation": "burn" }
+      ]
+    }
+  },
+  "default": {}
+}

@@ -13,7 +13,7 @@ public partial class shadertest : thing
 	// {
 	// }
 
-	public override bool SpecificLook(Character character, EventSequence eventSequence) {
+	public override bool SpecificLook(NPC character, EventSequence eventSequence) {
 
 
 		if ((bool)parentScene.GetFlag("ballLooked").Value) {

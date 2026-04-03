@@ -19,7 +19,7 @@ public partial class NPC : thing
 
     [Export] public Color     dialogColor      = Colors.White;
     [Export] public Direction Facing;
-    [Export(PropertyHint.Range, "0,200,")] public float character_speed = 100.0f;
+    [Export(PropertyHint.Range, "0,200,")] public float speed = 100.0f;
 
     [Signal] public delegate void DestinationReachedEventHandler();
     [Signal] public delegate void FacingChangedEventHandler();
@@ -42,9 +42,10 @@ public partial class NPC : thing
     }
 
     public NavigationAgent2D navigationAgent2D;
+    public CharacterBody2D   charBody;
     public bool              isWalking      = false;
     public bool              isFastWalking  = false;
-    public float             character_fastwalk_speed;
+    public float             fastwalk_speed;
     public int               anim_fps       = 8;
 
     // ---------------------------------------------------------------------------
@@ -58,16 +59,17 @@ public partial class NPC : thing
         if (shadow != null)
             shadow.Offset = new Vector2(0, -(float)0.46 * sprite.Texture.GetHeight() / sprite.Vframes);
 
-        character_fastwalk_speed = character_speed + character_speed / 100f * 85f;
+        fastwalk_speed = speed + speed / 100f * 85f;
 
         navigationAgent2D = GetNode<NavigationAgent2D>("NavigationAgent2D");
+        charBody          = GetNodeOrNull<CharacterBody2D>("charBody");
 
         StopWalking();
         isFastWalking = false;
         ChangeFacing(Facing);
 
-        Connect("DestinationReached", new Callable(parentScene, "_on_Character_DestinationReached"));
-        Connect("FacingChanged",      new Callable(parentScene, "_on_Character_FacingChanged"));
+        Connect("DestinationReached", new Callable(parentScene, "_on_Ego_DestinationReached"));
+        Connect("FacingChanged",      new Callable(parentScene, "_on_Ego_FacingChanged"));
     }
 
     // ---------------------------------------------------------------------------
@@ -107,7 +109,7 @@ public partial class NPC : thing
     public void GoToLocation(Vector2 pos)
     {
         StartWalking();
-        navigationAgent2D.TargetPosition = pos;
+        navigationAgent2D.TargetPosition = parentScene.ToGlobal(pos);
     }
 
     public void GoToThing(thing target) => GoToLocation(target.interactPoint);
@@ -116,21 +118,21 @@ public partial class NPC : thing
     {
         Vector2 target = navigationAgent2D.GetNextPathPosition();
 
-        if (Position.DistanceTo(target) <= navigationAgent2D.TargetDesiredDistance)
+        if (GlobalPosition.DistanceTo(target) <= navigationAgent2D.TargetDesiredDistance)
         {
-            navigationAgent2D.TargetPosition = Position;
+            navigationAgent2D.TargetPosition = GlobalPosition;
         }
         else
         {
-            float   speed    = isFastWalking ? character_fastwalk_speed : character_speed;
-            Vector2 velocity = Position.DirectionTo(target).Normalized() * speed * (float)delta * Scale.X;
+            float   moveSpeed = isFastWalking ? fastwalk_speed : speed;
+            Vector2 velocity  = GlobalPosition.DirectionTo(target).Normalized() * moveSpeed * (float)delta * Scale.X;
 
             if (Math.Abs(velocity.Y) > Math.Abs(velocity.X))
                 Facing = velocity.Y < 0 ? Direction.up : Direction.down;
             else
                 Facing = velocity.X < 0 ? Direction.left : Direction.right;
 
-            GlobalPosition += velocity;
+            Position += velocity;
         }
 
         if (navigationAgent2D.IsNavigationFinished())

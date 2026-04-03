@@ -1,8 +1,8 @@
-[gd_scene load_steps=12 format=3 uid="uid://bqdiq7mbj270m"]
+[gd_scene format=3 uid="uid://bqdiq7mbj270m"]
 
 [ext_resource type="Texture2D" uid="uid://l7oltibc5wtp" path="res://game/art/walkman_spritesheet_leftdownup.png" id="1"]
 [ext_resource type="Material" uid="uid://vatugls1iglu" path="res://shaders/materials/light_and_shadows.tres" id="2_2sa4s"]
-[ext_resource type="Script" path="res://game/character/Character.cs" id="3"]
+[ext_resource type="Script" uid="uid://bm38qqc3nw3xg" path="res://framework/NPC.cs" id="3"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="5"]
 [ext_resource type="AudioStream" uid="uid://bv1jv1ucuvnfs" path="res://game/audio/Footsteps.mp3" id="5_u0bnw"]
 
@@ -59,22 +59,23 @@ tracks/0/keys = {
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_od1ps"]
 _data = {
-"walk": SubResource("1"),
-"walkdown": SubResource("2"),
-"walkup": SubResource("3")
+&"walk": SubResource("1"),
+&"walkdown": SubResource("2"),
+&"walkup": SubResource("3")
 }
 
 [sub_resource type="CapsuleShape2D" id="4"]
 radius = 2.0
 height = 4.0
 
-[node name="Character" type="Node2D"]
+[node name="Jack" type="Node2D" unique_id=1116117548]
 z_index = 1
 position = Vector2(0, 3)
 script = ExtResource("3")
 castsShadow = true
+startingScaleAsBaseline = false
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1800576385]
 material = ExtResource("2_2sa4s")
 position = Vector2(0, 1)
 texture = SubResource("CanvasTexture_iuvf6")
@@ -82,18 +83,16 @@ offset = Vector2(0, -95)
 hframes = 8
 vframes = 3
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="Sprite2D"]
-libraries = {
-"": SubResource("AnimationLibrary_od1ps")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Sprite2D" unique_id=414758203]
+libraries/ = SubResource("AnimationLibrary_od1ps")
 
-[node name="charBody" type="CharacterBody2D" parent="."]
+[node name="charBody" type="CharacterBody2D" parent="." unique_id=655265347]
 
-[node name="charBodyShape" type="CollisionShape2D" parent="charBody"]
+[node name="charBodyShape" type="CollisionShape2D" parent="charBody" unique_id=1989713318]
 position = Vector2(0, -2)
 shape = SubResource("4")
 
-[node name="PointLight2D" type="PointLight2D" parent="."]
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1023721135]
 visible = false
 position = Vector2(-131, -175)
 energy = 11.5
@@ -102,19 +101,19 @@ texture = ExtResource("5")
 texture_scale = 0.6
 height = 2460.0
 
-[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=1095773179]
 path_desired_distance = 5.0
 target_desired_distance = 5.0
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="." unique_id=674399428]
 polygon = PackedVector2Array(0, -200.26, 20.0421, -185.711, 28.2947, -3.42325, 7.07369, 0, -21.2211, -2.56744, -22.4, -184)
 
-[node name="InteractPoint" type="Node2D" parent="."]
+[node name="InteractPoint" type="Node2D" parent="." unique_id=349800385]
 
-[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=82946357]
 stream = ExtResource("5_u0bnw")
 volume_db = -24.781
 pitch_scale = 1.43
 
-[node name="TopPoint" type="Node2D" parent="."]
+[node name="TopPoint" type="Node2D" parent="." unique_id=1311297805]
 position = Vector2(-25, -168)
