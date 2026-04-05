@@ -24,6 +24,7 @@ public partial class DialogBox : Control
     public float offsetForFacing = 0f; //place dialog a little left for left facing, or right for right facing character
 
     public Globals.DialogTypes dialogType = Globals.DialogTypes.narration;
+    public bool isStrict = false;
 
     private RichTextLabel dbText;
     private Timer dbTimer;
@@ -102,7 +103,6 @@ public partial class DialogBox : Control
         audioStreamPlayer = GetNode<AudioStreamPlayer>("DB_AudioStreamPlayer");
         dialogChoices = dbText.GetNode<DialogChoices>("DialogChoices");
 
-        this.Connect("DialogClosed", new Callable(parentScene, "_on_DialogBox_DialogClosed"));
 
     }
 
@@ -124,25 +124,18 @@ public partial class DialogBox : Control
     }
 
 
-    public void DealWithClick() {        
-        //dont exit on click if this is a choice
+    public void DealWithClick() {
         if (dialogType == Globals.DialogTypes.choice) {
-            if (dialogChoices.currentChoice < 0)
-                return;
-            else {
-               CloseThisDialog(dialogChoices.currentChoice);
-             // GD.Print("deal with click, choice is " + dialogChoices.currentChoice);
-            }
-        } //else {
+            if (dialogChoices.currentChoice >= 0)
+                CloseThisDialog(dialogChoices.currentChoice);
+            return;
+        }
 
         if (dbText.VisibleCharacters >= GetPhrase().Length) {
             CloseThisDialog();
-        } else {
-            dbText.VisibleCharacters = dbText.Text.Length;
+        } else if (!isStrict) {
+            dbText.VisibleCharacters = GetPhrase().Length;
         }
-
-       // }
-        
     }
 
     public override void _Input (InputEvent @event) {
@@ -398,7 +391,6 @@ public partial class DialogBox : Control
 
         
        
-       parentScene.numberOfOpenDialogs++;
         // set the dialog properties
         dbText.Modulate = this.dialogColor;
         dbTimer.WaitTime = 1f / textSpeed;
@@ -413,8 +405,7 @@ public partial class DialogBox : Control
 
 
 		dbText.Clear();
-		dbText.AddText(phrase);
-        dbText.Text = phrase;
+		dbText.AppendText(phrase);
         dbText.VisibleCharacters = GetPhrase().Length;
 		dbText.Size = dbText.GetMinimumSize();
 		

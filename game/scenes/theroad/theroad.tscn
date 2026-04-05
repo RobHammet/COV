@@ -59,7 +59,7 @@ source_geometry_group_name = &"navigation_polygon_source_group"
 size = Vector2(1153, 648)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3183a"]
-size = Vector2(103, 23)
+size = Vector2(99, 20)
 
 [node name="theroad" type="Node2D" unique_id=1613044435 node_paths=PackedStringArray("parallaxSprites")]
 y_sort_enabled = true
@@ -164,7 +164,7 @@ position = Vector2(576, 324)
 shape = SubResource("RectangleShape2D_3bukr")
 
 [node name="towards_house" type="CollisionShape2D" parent="." unique_id=120527646]
-position = Vector2(921.5, 386.5)
+position = Vector2(838.5, 385)
 shape = SubResource("RectangleShape2D_3183a")
 
 [node name="start_point" type="Node2D" parent="." unique_id=332711221]

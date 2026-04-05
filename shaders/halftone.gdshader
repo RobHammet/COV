@@ -13,7 +13,8 @@ uniform float radius_m = -0.3;
 uniform float radius_y = 0.0;
 uniform float radius_k = 0.785;
 
-uniform float frequency = 400.0;
+uniform float frequency  = 400.0;
+uniform vec2  uv_offset  = vec2(0.0, 0.0);
 
 mat2 rotate( float r )
 {
@@ -27,7 +28,7 @@ mat2 rotate( float r )
 
 float f( float value, vec2 uv, float radius )
 {
-	return smoothstep( -1.0, 1.0, sqrt( value ) - length( 2.0 * fract( rotate( radius ) * ( frequency * uv ) ) - 1.0 ) );
+	return smoothstep( -1.0, 1.0, sqrt( value ) - length( 2.0 * fract( rotate( radius ) * ( frequency * (uv + uv_offset) ) ) - 1.0 ) );
 }
 
 void fragment( )

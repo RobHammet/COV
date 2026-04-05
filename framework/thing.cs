@@ -47,7 +47,8 @@ public partial class thing : Node2D
     public Vector2 basePoint     { get; set; } = Vector2.Zero;
 
     public Sprite2D shadow;
-    public bool     isExist = true;
+    [Export] public bool isExist  = true;
+    [Export] public bool isHidden = false;
 
     // Game-specific fallback responses for unhandled interactions.
     // Set these from game code (e.g. a ModuleInitializer in GameData.cs)
@@ -135,6 +136,10 @@ public partial class thing : Node2D
         }
 
         SetPoints();
+
+        // Apply initial visibility from exported state flags.
+        bool visible = isExist && !isHidden;
+        if (hasSprite) sprite.Visible = visible;
 
         // Check scene JSON first (things subsection), then fall back to:
         //   1. interactionFile export (explicit path)
@@ -266,14 +271,11 @@ public partial class thing : Node2D
     public void TryLook()
     {
         if (parentScene.eventQueue.isRunning) return;
-        ego.StopWalking();
-        if (lookClosely)
+        ego?.StopWalking();
+        if (ego != null)
         {
-            parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
-            parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
-        }
-        else
-        {
+            if (lookClosely)
+                parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
             parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
         }
         bool handled = SpecificLook(ego, parentScene.eventQueue);
@@ -284,44 +286,62 @@ public partial class thing : Node2D
             if (hasLookText && t >= lookText.Length) t = 0;
             string text = hasLookText ? lookText[t] : $"IT'S A {displayName.ToUpper()}.";
             if (hasLookText) lastLookTextRead = t;
-            parentScene.eventQueue.AddEventThink(ego, text);
+            if (ego != null)
+                parentScene.eventQueue.AddEventThink(ego, text);
+            else
+                parentScene.eventQueue.AddEventNarrate(text);
         }
     }
 
     public void TryUse()
     {
-        parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
-        parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        if (ego != null)
+        {
+            parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
+            parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        }
         bool handled = SpecificUse(ego, parentScene.eventQueue);
         if (!handled && UseFallbacks.Length > 0)
         {
             var rng = new RandomNumberGenerator(); rng.Randomize();
-            parentScene.eventQueue.AddEventThink(ego, UseFallbacks[(int)(rng.Randf() * UseFallbacks.Length)]);
+            string fb = UseFallbacks[(int)(rng.Randf() * UseFallbacks.Length)];
+            if (ego != null) parentScene.eventQueue.AddEventThink(ego, fb);
+            else             parentScene.eventQueue.AddEventNarrate(fb);
         }
     }
 
     public void TryTalk()
     {
-        parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
-        parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        if (ego != null)
+        {
+            parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
+            parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        }
         bool handled = SpecificTalk(ego, parentScene.eventQueue);
         if (!handled && TalkFallbacks.Length > 0)
         {
             var rng = new RandomNumberGenerator(); rng.Randomize();
-            parentScene.eventQueue.AddEventSpeak(ego, TalkFallbacks[(int)(rng.Randf() * TalkFallbacks.Length)], Vector2.Zero);
+            string fb = TalkFallbacks[(int)(rng.Randf() * TalkFallbacks.Length)];
+            if (ego != null) parentScene.eventQueue.AddEventSpeak(ego, fb, Vector2.Zero);
+            else             parentScene.eventQueue.AddEventNarrate(fb);
         }
     }
 
     public void TryUseItem(InventoryItem.ItemType item)
     {
         if (item == InventoryItem.ItemType.none) return;
-        parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
-        parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        if (ego != null)
+        {
+            parentScene.eventQueue.AddEventMove(ego, interactPoint, _interruptable: true);
+            parentScene.eventQueue.AddEventChangeFacingToLookAt(ego, this, _interruptable: true);
+        }
         bool handled = SpecificUseItem(item);
         if (!handled && UseItemFallbacks.Length > 0)
         {
             var rng = new RandomNumberGenerator(); rng.Randomize();
-            parentScene.eventQueue.AddEventSpeak(ego, UseItemFallbacks[(int)(rng.Randf() * UseItemFallbacks.Length)], Vector2.Zero);
+            string fb = UseItemFallbacks[(int)(rng.Randf() * UseItemFallbacks.Length)];
+            if (ego != null) parentScene.eventQueue.AddEventSpeak(ego, fb, Vector2.Zero);
+            else             parentScene.eventQueue.AddEventNarrate(fb);
         }
     }
 
@@ -358,14 +378,28 @@ public partial class thing : Node2D
     {
         if (inventoryItemType == InventoryItem.ItemType.none) return false;
         parentScene.mainScene.inventory.Add(new InventoryItem(inventoryItemType));
-        Disappear();
+        ToggleExist(false);
         return true;
     }
 
-    public void Disappear()
+    // ToggleExist — controls whether the thing participates in the scene at all.
+    // false: not interactive, not visible. true: interactive, respects isHidden.
+    public void ToggleExist(bool? value = null)
     {
-        isExist = false;
-        if (hasSprite) sprite.Visible = false;
-        if (castsShadow && shadow != null) shadow.Visible = false;
+        isExist = value ?? !isExist;
+        bool visible = isExist && !isHidden;
+        if (hasSprite) sprite.Visible = visible;
+        if (castsShadow && shadow != null) shadow.Visible = visible;
     }
+
+    // ToggleHide — controls visibility only; thing remains interactive when hidden.
+    public void ToggleHide(bool? value = null)
+    {
+        isHidden = value ?? !isHidden;
+        bool visible = isExist && !isHidden;
+        if (hasSprite) sprite.Visible = visible;
+        if (castsShadow && shadow != null) shadow.Visible = visible;
+    }
+
+
 }

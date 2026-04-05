@@ -20,6 +20,14 @@ shader = ExtResource("7_eq2w1")
 shader_parameter/sprite_texture = ExtResource("8")
 shader_parameter/normal_map = ExtResource("7_ad6xd")
 shader_parameter/dark_threshold = 0.01
+shader_parameter/hatch_threshold = 0.0
+shader_parameter/hatch_spacing = 8.0
+shader_parameter/hatch_thickness = 0.36
+shader_parameter/hatch_roughness = 0.5
+shader_parameter/hatch_taper = 3.0
+shader_parameter/light_pos_uv = Vector2(0.5, -2)
+shader_parameter/hframes = 1
+shader_parameter/vframes = 1
 shader_parameter/light_strength = 0.625
 shader_parameter/light_direction = Vector3(0.615, -32.425, 4.105)
 shader_parameter/is_flipped = false
@@ -36,9 +44,17 @@ size = Vector2(101, 72)
 shader = ExtResource("7_eq2w1")
 shader_parameter/sprite_texture = ExtResource("9")
 shader_parameter/normal_map = ExtResource("9_rb0sk")
-shader_parameter/dark_threshold = 0.1
+shader_parameter/dark_threshold = 0.310000014725
+shader_parameter/hatch_threshold = 0.44800002128
+shader_parameter/hatch_spacing = 5.4370002107575
+shader_parameter/hatch_thickness = 0.7930000376675
+shader_parameter/hatch_roughness = 0.15200000722
+shader_parameter/hatch_taper = 6.0830002651925
+shader_parameter/light_pos_uv = Vector2(0.5, -2)
+shader_parameter/hframes = 1
+shader_parameter/vframes = 1
 shader_parameter/light_strength = 1.0
-shader_parameter/light_direction = Vector3(-4.68, -4.45, 6.16)
+shader_parameter/light_direction = Vector3(4.25, -3.735, 6.16)
 shader_parameter/is_flipped = false
 shader_parameter/overall_dark = 1.0
 shader_parameter/maintain_light = 0.58
@@ -57,8 +73,16 @@ source_geometry_group_name = &"navigation_polygon_source_group"
 shader = ExtResource("7_eq2w1")
 shader_parameter/sprite_texture = ExtResource("15_4rv4h")
 shader_parameter/normal_map = ExtResource("14_n4ufk")
-shader_parameter/dark_threshold = 0.1
-shader_parameter/light_strength = 0.0
+shader_parameter/dark_threshold = 0.490000023275
+shader_parameter/hatch_threshold = 0.7470000354825
+shader_parameter/hatch_spacing = 17.838000799805
+shader_parameter/hatch_thickness = 0.90800004313
+shader_parameter/hatch_roughness = 0.1590000075525
+shader_parameter/hatch_taper = 5.9870002606325
+shader_parameter/light_pos_uv = Vector2(0.5, -2)
+shader_parameter/hframes = 1
+shader_parameter/vframes = 1
+shader_parameter/light_strength = 0.530000025175
 shader_parameter/light_direction = Vector3(0, 0, 0)
 shader_parameter/is_flipped = false
 shader_parameter/overall_dark = 1.0
@@ -234,3 +258,14 @@ shape = SubResource("RectangleShape2D_bd21s")
 
 [node name="start_point" type="Node2D" parent="." unique_id=1390107403]
 position = Vector2(185, 442)
+
+[node name="drawers" type="Node2D" parent="." unique_id=987437930]
+script = ExtResource("7")
+displayName = "chest of drawers"
+lookClosely = true
+
+[node name="InteractPoint" type="Node2D" parent="drawers" unique_id=534030031]
+position = Vector2(555, 323)
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="drawers" unique_id=702492190]
+polygon = PackedVector2Array(551, 223, 581, 211, 637, 222, 639, 294, 615, 315, 553, 290)

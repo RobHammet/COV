@@ -6,7 +6,7 @@
     "towards_house": {
       "move_through": [
         {
-          "action": "branch_on_flag",
+          "action": "if_flag",
           "name": "talkedAboutHouse",
           "is": false,
           "then": [

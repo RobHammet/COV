@@ -109,7 +109,8 @@ public partial class NPC : thing
     public void GoToLocation(Vector2 pos)
     {
         StartWalking();
-        navigationAgent2D.TargetPosition = parentScene.ToGlobal(pos);
+        Vector2 globalTarget = parentScene.ToGlobal(pos);
+        navigationAgent2D.TargetPosition = globalTarget;
     }
 
     public void GoToThing(thing target) => GoToLocation(target.interactPoint);

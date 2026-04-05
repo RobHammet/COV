@@ -13,11 +13,12 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2dqqq"]
 shader = ExtResource("2_iv7us")
-shader_parameter/radius_c = 0.2
-shader_parameter/radius_m = -0.3
-shader_parameter/radius_y = 0.0
-shader_parameter/radius_k = 0.785
-shader_parameter/frequency = 463.46
+shader_parameter/radius_c = 4.0
+shader_parameter/radius_m = 5.0
+shader_parameter/radius_y = 6.0
+shader_parameter/radius_k = 7.0
+shader_parameter/frequency = 330.0
+shader_parameter/uv_offset = Vector2(0, 0)
 
 [sub_resource type="Animation" id="4"]
 tracks/0/type = "value"
@@ -126,29 +127,23 @@ position = Vector2(345, 265)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="Camera2D" unique_id=1286740618]
 
-[node name="ColorRect" type="ColorRect" parent="Camera2D/CanvasLayer" unique_id=474647823]
-modulate = Color(0, 0, 0, 0.192157)
-self_modulate = Color(0, 0, 0, 0.164706)
-light_mask = 0
-z_as_relative = false
-material = SubResource("ShaderMaterial_2dqqq")
-anchors_preset = -1
-anchor_left = -0.78125
-anchor_top = -1.0787
-anchor_right = -0.78125
-anchor_bottom = -1.0787
-offset_left = -74.0
-offset_top = -70.0
-offset_right = 2080.0
-offset_bottom = 1379.0
-mouse_filter = 2
-color = Color(0, 0, 0, 1)
-metadata/_edit_use_anchors_ = true
-
 [node name="title_splash" parent="Camera2D/CanvasLayer" unique_id=1990951114 instance=ExtResource("3_obykk")]
 visible = false
 position = Vector2(-1, -2)
 script = ExtResource("4_1dlpk")
+
+[node name="HalftoneLayer" type="CanvasLayer" parent="." unique_id=1286740619]
+layer = 15
+
+[node name="ColorRect" type="ColorRect" parent="HalftoneLayer" unique_id=474647823]
+material = SubResource("ShaderMaterial_2dqqq")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1053928725]
 root_node = NodePath("../CurrentSceneHolder")

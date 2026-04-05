@@ -3,5 +3,17 @@
     "exit_to_sittingroom": { "move_into": [{ "action": "exit", "destination": "sittingroom", "arrive_dir": "right", "arrive_area": "exit_to_entryway" }] },
     "exit_to_theporch":    { "move_into": [{ "action": "exit", "destination": "theporch",    "arrive_dir": "down",  "arrive_area": "exit_to_entryway"  }] }
   },
+  "sequences": {
+    "arrive_from_porch": [
+      { "action": "narrate",       "text": "HE CAREFULLY WALKED INTO THE HOUSE...", "strict": true },
+      { "action": "move",          "actor": "ego", "to": [200, 465], "strict": true },
+      { "action": "change_facing", "actor": "ego", "direction": "left" },
+      { "action": "narrate",       "text": "LOOKING IN EVERY DIRECTION...", "strict": true },
+      { "action": "move",          "actor": "ego", "to": [600, 600], "strict": true }
+    ]
+  },
+  "on_arrive_from": {
+    "theporch": [{ "action": "run_sequence", "name": "arrive_from_porch" }]
+  },
   "default": {}
 }

@@ -1,26 +1,38 @@
 using Godot;
-using System;
 
 public partial class OverlayScene : CanvasLayer
 {
-    private Label label;
+    [Export] public float BorderWidth  = 64f;  // white outer border in pixels (drives inner rect)
+    [Export] public float LineWidth    = 4f;
+    [Export] public float CornerRadius = 48f;
+    [Export] public float Softness     = 8f;
+
+    private Label     label;
     private MainScene mainScene;
-    public VerbPanel verbPanel;
+    public  VerbPanel verbPanel;
+    private ColorRect _celBorder;
 
     public override void _Ready()
     {
         label     = GetNode<Label>("CelBorder/Label");
         mainScene = (MainScene)GetTree().Root.GetChild(1);
         verbPanel = GetNode<VerbPanel>("VerbPanel");
+        _celBorder = GetNode<ColorRect>("CelBorder");
 
         Vector2 vp = GetViewport().GetVisibleRect().Size;
 
-        // Scale CelBorder sprite to cover the viewport exactly.
-        var celBorder  = GetNode<Sprite2D>("CelBorder");
-        celBorder.Position = vp / 2f;
-        celBorder.Scale    = vp / celBorder.Texture.GetSize();
+        _celBorder.Position = Vector2.Zero;
+        _celBorder.Size     = vp;
+        _celBorder.Material = MakeBorderMaterial(GetInnerRect());
 
-        // Snap VerbPanel to top of viewport, full width, no extra scale.
+        // Sync the InnerWindow visual guide to match BorderWidth.
+        var inner = GetNodeOrNull<Control>("CelBorder/InnerWindow");
+        if (inner != null)
+        {
+            inner.Position = Vector2.One * BorderWidth;
+            inner.Size     = vp - Vector2.One * BorderWidth * 2f;
+        }
+
         verbPanel.Scale        = Vector2.One;
         verbPanel.AnchorLeft   = 0f;
         verbPanel.AnchorTop    = 0f;
@@ -32,7 +44,7 @@ public partial class OverlayScene : CanvasLayer
         verbPanel.OffsetBottom = 100f;
     }
 
-    public void _on_Button_pressed()
+    public void OnButtonPressed()
     {
         GD.Print("Button pressed.");
         GetViewport().SetInputAsHandled();
@@ -43,14 +55,49 @@ public partial class OverlayScene : CanvasLayer
         label.Text = text;
     }
 
-    // Returns the inner boundary of the cel border in screen space.
-    // CelBorderEdge is a CollisionShape2D child of CelBorder; its GlobalScale
-    // already includes the parent's scale, so this is correct for any viewport size.
+    public void HideForTransition()   => _celBorder?.Hide();
+    public void ShowAfterTransition() => _celBorder?.Show();
+
+    // Returns the inner transparent window rect in screen space.
     public Rect2 GetInnerRect()
     {
-        var edge     = GetNode<CollisionShape2D>("CelBorder/CelBorderEdge");
-        Vector2 center   = edge.GlobalPosition;
-        Vector2 halfSize = edge.Shape.GetRect().Size / 2f * edge.GlobalScale;
-        return new Rect2(center - halfSize, halfSize * 2f);
+        Vector2 vp = GetViewport().GetVisibleRect().Size;
+        return new Rect2(Vector2.One * BorderWidth, vp - Vector2.One * BorderWidth * 2f);
+    }
+
+    // Creates a cel border overlay for a transition panel thumbnail.
+    // Uses UV-space math so it's immune to screen position and animation scale.
+    public ColorRect MakePanelBorderOverlay(Vector2 position, Vector2 size)
+    {
+        var mat = new ShaderMaterial
+        {
+            Shader = ResourceLoader.Load<Shader>("res://shaders/cel_border_panel_shader.gdshader")
+        };
+        float scale = size.X / GetViewport().GetVisibleRect().Size.X;
+        mat.SetShaderParameter("panel_size",    new Vector2(size.X, size.Y));
+        mat.SetShaderParameter("border_width",  BorderWidth    * scale);
+        mat.SetShaderParameter("line_width",    LineWidth      * scale);
+        mat.SetShaderParameter("corner_radius", CornerRadius   * scale);
+        mat.SetShaderParameter("softness",      Softness       * scale);
+        return new ColorRect
+        {
+            Position    = position,
+            Size        = size,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Material    = mat,
+        };
+    }
+
+    private ShaderMaterial MakeBorderMaterial(Rect2 innerRect)
+    {
+        var mat = new ShaderMaterial
+        {
+            Shader = ResourceLoader.Load<Shader>("res://shaders/cel_border_shader.gdshader")
+        };
+        mat.SetShaderParameter("inner_rect",    new Vector4(innerRect.Position.X, innerRect.Position.Y, innerRect.Size.X, innerRect.Size.Y));
+        mat.SetShaderParameter("corner_radius", CornerRadius);
+        mat.SetShaderParameter("line_width",    LineWidth);
+        mat.SetShaderParameter("softness",      Softness);
+        return mat;
     }
 }

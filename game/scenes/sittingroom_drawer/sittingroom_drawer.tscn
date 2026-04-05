@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://rdgs8e07g078"]
+
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_e8rgf"]
+[ext_resource type="Texture2D" uid="uid://drbu4dxdq13ku" path="res://game/scenes/sittingroom_drawer/drawerbg.png" id="2_d3ylk"]
+[ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="3_wv6cr"]
+[ext_resource type="Texture2D" uid="uid://d0rxbxe6gx555" path="res://game/scenes/sittingroom_drawer/drawerfg.png" id="4_6e5wh"]
+[ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="5_6e5wh"]
+[ext_resource type="Script" uid="uid://165o7srds63d" path="res://framework/DialogAnchor.cs" id="6_asa5a"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_asa5a"]
+size = Vector2(1433, 926)
+
+[node name="sittingroom_drawer" type="Node2D" unique_id=84056489 node_paths=PackedStringArray("parallaxSprites")]
+script = ExtResource("1_e8rgf")
+displayName = "sittingroom_drawer"
+isInsert = true
+parallaxSprites = []
+
+[node name="background" type="Sprite2D" parent="." unique_id=1574128041]
+texture = ExtResource("2_d3ylk")
+
+[node name="drawer" type="Node2D" parent="." unique_id=1446351290]
+script = ExtResource("3_wv6cr")
+displayName = "drawer"
+castsShadow = true
+isHidden = true
+
+[node name="Sprite2D" type="Sprite2D" parent="drawer" unique_id=752008576]
+texture = ExtResource("4_6e5wh")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="drawer" unique_id=285876884]
+polygon = PackedVector2Array(591, 4, 583, 236, -584, 259, -612, 8)
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=62046824]
+position = Vector2(-4, 58)
+zoom = Vector2(0.81, 0.81)
+
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1012678356]
+position = Vector2(-1.5, 0)
+shape = SubResource("RectangleShape2D_asa5a")
+
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1146669089]
+position = Vector2(-775, -595)
+energy = 9.15
+texture = ExtResource("5_6e5wh")
+
+[node name="exit_shape" type="CollisionPolygon2D" parent="." unique_id=1169946742]
+polygon = PackedVector2Array(673, -81, 610, 460, 712, 463, 710, -454, -718, -462, -713, 458, -597, 450, -717, -51, -453, -228, 328, -229)
+
+[node name="ego_point" type="Node2D" parent="." unique_id=1966345910]
+position = Vector2(-646, -87)
+script = ExtResource("6_asa5a")

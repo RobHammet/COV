@@ -36,6 +36,7 @@ public static class Scenes
     public const string THEROAD      = "res://game/scenes/theroad/theroad.tscn";
     public const string KITCHEN      = "res://game/scenes/kitchen/kitchen.tscn";
     public const string SITTINGROOM  = "res://game/scenes/sittingroom/sittingroom.tscn";
+    public const string SITTINGROOM_DRAWER     ="res://game/scenes/sittingroom_drawer/sittingroom_drawer.tscn";
     public const string ENTRYWAY     = "res://game/scenes/entryway/entryway.tscn";
     public const string THEPORCH     = "res://game/scenes/theporch/theporch.tscn";
     public const string HOUSEFRONT   = "res://game/scenes/housefront/housefront.tscn";
@@ -45,11 +46,14 @@ public static class Scenes
     public const string TREE         = "res://game/scenes/tree/tree.tscn";
     public const string BASEMENT     = "res://game/scenes/basement/basement.tscn";
 
+    
+
     private static readonly System.Collections.Generic.Dictionary<string, string> _byName = new()
     {
         { "theroad",      THEROAD      },
         { "kitchen",      KITCHEN      },
         { "sittingroom",  SITTINGROOM  },
+        { "sittingroom_drawer",  SITTINGROOM_DRAWER  },
         { "entryway",     ENTRYWAY     },
         { "theporch",     THEPORCH     },
         { "housefront",   HOUSEFRONT   },

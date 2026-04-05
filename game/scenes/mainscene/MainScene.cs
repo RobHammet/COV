@@ -60,6 +60,7 @@ public partial class MainScene : Node2D
     public scene_script nextScene;
     public OverlayScene overlayScene;
     public Cursor       cursor;
+    private CanvasLayer _halftoneLayer;
 
     public bool isInTransition = false;
 
@@ -137,6 +138,7 @@ public partial class MainScene : Node2D
         // Detach OverlayScene from CurrentSceneHolder so it is never touched by
         // scene-transition code (scene frees, AddChild calls, etc.).
         // Black (the fade ColorRect) stays in CurrentSceneHolder for AnimationPlayer.
+        _halftoneLayer = GetNode<CanvasLayer>("HalftoneLayer");
         overlayScene = currentSceneHolder.GetNode<OverlayScene>("OverlayScene");
         currentSceneHolder.RemoveChild(overlayScene);
         AddChild(overlayScene);
@@ -151,12 +153,41 @@ public partial class MainScene : Node2D
         _celBorderOffset = -overlayScene.GetInnerRect().Position;
         ApplyCelBorderOffset(currentScene);
 
+        // Snap the starting scene's camera to the ego's initial position, clamped
+        // to the camera bounds — identical to what PrepareNextScene does for every
+        // scene loaded via transition. Without this the camera starts at the .tscn
+        // default position and pans toward the ego over many frames; clicks during
+        // that pan land at world positions based on the lagging camera, so the walk
+        // target appears offset from what the player actually clicked.
+        if (currentScene.hasCameraControl && currentScene.camera != null && currentScene.ego != null)
+        {
+            Vector2 snapped  = currentScene.ego.Position;
+            Vector2 halfView = GetViewportRect().Size / 2f / currentScene.camera.Zoom;
+            if (currentScene.cameraClamp != null)
+            {
+                Vector2 tl = currentScene.cameraClamp.Position - currentScene.cameraClamp.Shape.GetRect().Size / 2f;
+                Vector2 br = currentScene.cameraClamp.Position + currentScene.cameraClamp.Shape.GetRect().Size / 2f;
+                tl += halfView;
+                br -= halfView;
+                snapped = snapped.Clamp(tl, br);
+            }
+            currentScene.camera.Position = snapped;
+        }
+
         // MainScene has a Camera2D for legacy AnimationPlayer/CanvasLayer reasons,
         // but per-scene cameras handle all actual rendering. Disable it permanently
         // so it never steals the viewport when a scene camera is momentarily inactive.
         var cam = GetNode<Camera2D>("Camera2D");
         cam.Enabled  = false;
         cam.Position = GetViewportRect().Size / 2f;
+
+        // Suspend input for one deferred frame so the NavigationServer2D has time
+        // to process the initial navmesh bake before the player can click.
+        // Every transition scene gets this via SuspendSceneInput → UnsuspendSceneInput;
+        // the starting scene needs the same treatment or the first path query may use
+        // a stale/incomplete map.
+        currentScene.SuspendSceneInput();
+        Callable.From(() => currentScene?.UnsuspendSceneInput()).CallDeferred();
 
         cursor.Frame = 0;
 
@@ -215,6 +246,8 @@ public partial class MainScene : Node2D
     {
         if (isInTransition) return;
         isInTransition = true;
+        overlayScene?.HideForTransition();
+        if (_halftoneLayer != null) _halftoneLayer.Visible = false;
 
         switch (transitionType)
         {
@@ -273,7 +306,7 @@ public partial class MainScene : Node2D
             Position = Vector2.Zero,
         });
 
-        Control page      = BuildPageContainer(vp);
+        Control page      = BuildPageContainer(vp, fromIndex);
         overlay.AddChild(page);
 
         Vector2 panelSize = PanelSize(vp);
@@ -310,6 +343,8 @@ public partial class MainScene : Node2D
         overlay.QueueFree();
         currentScene.UnsuspendSceneInput();
         isInTransition = false;
+        overlayScene?.ShowAfterTransition();
+        if (_halftoneLayer != null) _halftoneLayer.Visible = true;
     }
 
     // ---------------------------------------------------------------------------
@@ -336,7 +371,7 @@ public partial class MainScene : Node2D
             Position = Vector2.Zero,
         });
 
-        Control page      = BuildPageContainer(vp);
+        Control page      = BuildPageContainer(vp, _currentPanelIndex);
         pageOverlay.AddChild(page);
 
         Vector2 panelSize = PanelSize(vp);
@@ -377,7 +412,7 @@ public partial class MainScene : Node2D
         });
 
         float   newZoomIn    = ZoomInScale(panelSize, vp);
-        Control newPage      = BuildPageContainer(vp);
+        Control newPage      = BuildPageContainer(vp, 0);
         newPageOverlay.AddChild(newPage);
         newPage.Scale    = new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT);
         newPage.Position = ContainerPosForFullPage(vp);
@@ -429,6 +464,8 @@ public partial class MainScene : Node2D
         newPageOverlay.QueueFree();
         currentScene.UnsuspendSceneInput();
         isInTransition = false;
+        overlayScene?.ShowAfterTransition();
+        if (_halftoneLayer != null) _halftoneLayer.Visible = true;
     }
 
     // ---------------------------------------------------------------------------
@@ -449,6 +486,8 @@ public partial class MainScene : Node2D
             GetNode<AnimationPlayer>("AnimationPlayer").Play("fadeinfromblack");
             currentScene.UnsuspendSceneInput();
             isInTransition = false;
+        overlayScene?.ShowAfterTransition();
+        if (_halftoneLayer != null) _halftoneLayer.Visible = true;
         }
     }
 
@@ -485,23 +524,30 @@ public partial class MainScene : Node2D
         // For camera-following scenes: snap the camera to the character's start
         // position (clamped), set the SubViewport CanvasTransform to match so the
         // thumbnail renders the correct view, then prime parallax to match.
-        if (nextScene.hasCameraControl && nextScene.camera != null && nextScene.ego != null)
+        if (nextScene.hasCameraControl && nextScene.camera != null)
         {
-            Vector2 snapped = nextScene.ego.Position;
+            Vector2 snapped = nextScene.ego?.Position ?? Vector2.Zero;
 
             if (nextScene.cameraClamp != null)
             {
+                Vector2 clampZoom = nextScene.camera.Zoom;
+                Vector2 halfView  = vp / 2f / clampZoom;
                 Vector2 tl = nextScene.cameraClamp.Position - nextScene.cameraClamp.Shape.GetRect().Size / 2f;
                 Vector2 br = nextScene.cameraClamp.Position + nextScene.cameraClamp.Shape.GetRect().Size / 2f;
-                tl += vp / 2f;
-                br -= vp / 2f;
+                tl += halfView;
+                br -= halfView;
                 snapped = snapped.Clamp(tl, br);
             }
 
             nextScene.camera.Position = snapped;
             nextScene.camera.Offset   = _celBorderOffset;
-            // Camera2D canvas translation = vp/2 - (camera.Position + camera.Offset)
-            _stagingViewport.CanvasTransform = new Transform2D(0f, vp / 2f - snapped - _celBorderOffset);
+            Vector2 zoom = nextScene.camera.Zoom;
+            // CanvasTransform must replicate what Camera2D does at runtime:
+            // scale by zoom, then translate so the camera position maps to vp/2.
+            _stagingViewport.CanvasTransform = new Transform2D(
+                new Vector2(zoom.X, 0f),
+                new Vector2(0f, zoom.Y),
+                vp / 2f - (snapped + _celBorderOffset) * zoom);
             PrimeParallax(nextScene);
         }
 
@@ -554,9 +600,20 @@ public partial class MainScene : Node2D
             });
         }
 
+        // Check destination scene JSON for an on_arrive_from sequence keyed by source name.
+        if (!string.IsNullOrEmpty(arrival.SourceName))
+        {
+            var onArriveFrom = scene._sceneData?["on_arrive_from"]?.AsObject();
+            var seqJson      = onArriveFrom?[arrival.SourceName]?.AsArray()
+                            ?? onArriveFrom?[arrival.SourceName.ToLower()]?.AsArray();
+            if (seqJson != null)
+                scene._arrivalSequence = seqJson;
+        }
+
         // Store the walk target on the scene; UnsuspendSceneInput fires it after the
         // transition completes so the walk is visible to the player, not pre-run in staging.
-        if (arrival.Walk && arriveShape?.Shape is RectangleShape2D rect && !string.IsNullOrEmpty(arrival.Dir))
+        if (arrival.Walk && scene._arrivalSequence == null &&
+            arriveShape?.Shape is RectangleShape2D rect && !string.IsNullOrEmpty(arrival.Dir))
         {
             Vector2 center = arriveShape.Position;
             Vector2 half   = rect.Size / 2f;
@@ -569,12 +626,6 @@ public partial class MainScene : Node2D
                 "down"  => new Vector2(center.X, center.Y + half.Y + margin),
                 _       => null,
             };
-        }
-        else if (arrival.Sequence != null)
-        {
-            var seq = new EventSequence(scene);
-            scene_script.PopulateEventQueue(seq, arrival.Sequence, scene);
-            scene.eventQueue = seq;
         }
     }
 
@@ -702,7 +753,7 @@ public partial class MainScene : Node2D
     {
         bool overlayWasVisible = overlayScene?.Visible ?? false;
         cursor.Visible = false;
-        if (overlayScene != null) overlayScene.Visible = false;
+        overlayScene?.HideForTransition();
 
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
 
@@ -739,7 +790,13 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     // BuildPageContainer — 6-panel comic page as a Control tree.
     // ---------------------------------------------------------------------------
-    private Control BuildPageContainer(Vector2 vp)
+    private ShaderMaterial HalftoneMaterial =>
+        _halftoneLayer?.GetNodeOrNull<ColorRect>("ColorRect")?.Material as ShaderMaterial;
+
+    private float GetHalftoneParam(string name, float fallback) =>
+        HalftoneMaterial?.GetShaderParameter(name).AsSingle() ?? fallback;
+
+    private Control BuildPageContainer(Vector2 vp, int startPanelIndex = 0)
     {
         Vector2 panelSize = PanelSize(vp);
 
@@ -755,8 +812,6 @@ public partial class MainScene : Node2D
             Size     = vp,
             Position = Vector2.Zero,
         });
-
-        var celTex = GD.Load<Texture2D>("res://game/art/cel_overlay.png");
 
         for (int i = 0; i < 6; i++)
         {
@@ -784,29 +839,28 @@ public partial class MainScene : Node2D
                 });
             }
 
-            // Overlay the cel border image on each panel to match the in-game frame.
-            if (celTex != null)
-                container.AddChild(new TextureRect
-                {
-                    Texture     = celTex,
-                    StretchMode = TextureRect.StretchModeEnum.Scale,
-                    ExpandMode  = TextureRect.ExpandModeEnum.IgnoreSize,
-                    MouseFilter = Control.MouseFilterEnum.Ignore,
-                    Position    = pos,
-                    Size        = panelSize,
-                });
+            container.AddChild(overlayScene.MakePanelBorderOverlay(pos, panelSize));
         }
 
-        // Add halftone on top of all panels — matches the in-game screen effect.
+        // Halftone inside the container so it scales/moves with the page ("part of the paper").
+        // frequency = HalftoneFrequency / panelScale so that when zoomed in (scale = 1/panelScale)
+        // the on-screen dot size equals exactly HalftoneFrequency — matching the main scene.
+        // uv_offset shifts the pattern origin to the start panel's position in page UV space,
+        // so the dots are continuous with the main scene on entry.
         var halftoneShader = GD.Load<Shader>("res://shaders/halftone.gdshader");
         if (halftoneShader != null)
         {
+            float   panelScale = panelSize.X / vp.X;
+            Vector2 panelTL    = PanelTopLeft(startPanelIndex, panelSize, vp);
+            Vector2 uvOffset   = -panelTL / vp;   // in page UV space, panel TL is at this fraction
+
             var mat = new ShaderMaterial { Shader = halftoneShader };
-            mat.SetShaderParameter("radius_c",  0.2f);
-            mat.SetShaderParameter("radius_m", -0.3f);
-            mat.SetShaderParameter("radius_y",  0.0f);
-            mat.SetShaderParameter("radius_k",  0.785f);
-            mat.SetShaderParameter("frequency", 463.46f);
+            mat.SetShaderParameter("radius_c",  GetHalftoneParam("radius_c",  0.2f));
+            mat.SetShaderParameter("radius_m",  GetHalftoneParam("radius_m", -0.3f));
+            mat.SetShaderParameter("radius_y",  GetHalftoneParam("radius_y",  0.0f));
+            mat.SetShaderParameter("radius_k",  GetHalftoneParam("radius_k",  0.785f));
+            mat.SetShaderParameter("frequency", GetHalftoneParam("frequency", 463.46f) / panelScale);
+            mat.SetShaderParameter("uv_offset", uvOffset);
             container.AddChild(new ColorRect
             {
                 Material    = mat,

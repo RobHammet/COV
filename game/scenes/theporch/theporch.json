@@ -1,19 +1,7 @@
 {
   "areas": {
     "exit_to_entryway": {
-      "move_into": [{
-        "action": "exit",
-        "destination": "entryway",
-        "arrive_dir": "down",
-        "arrive_area": "exit_to_theporch",
-        "arrive_sequence": [
-          { "action": "narrate",       "text": "HE CAREFULLY WALKED INTO THE HOUSE...", "strict": true },
-          { "action": "move",          "actor": "ego", "to": [200, 465], "strict": true },
-          { "action": "change_facing", "actor": "ego", "direction": "left" },
-          { "action": "narrate",       "text": "LOOKING IN EVERY DIRECTION...", "strict": true },
-          { "action": "move",          "actor": "ego", "to": [600, 600], "strict": true }
-        ]
-      }]
+      "move_into": [{ "action": "exit", "destination": "entryway", "arrive_dir": "down", "arrive_area": "exit_to_theporch" }]
     },
     "exit_to_housefront": { "move_into": [{ "action": "exit", "destination": "housefront", "arrive_dir": "down", "arrive_area": "exit_to_theporch" }] }
   },
@@ -21,7 +9,7 @@
     "door": {
       "use": [
         {
-          "action": "branch_on_flag",
+          "action": "if_flag",
           "name": "porchDoorOpen",
           "is": false,
           "then": [

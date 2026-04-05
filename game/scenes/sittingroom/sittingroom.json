@@ -12,6 +12,16 @@
         { "action": "add_to_inventory" },
         { "action": "set_flag",  "name": "keyTaken", "value": "true" }
       ]
+    },
+    "drawers": {
+      "look": [
+        { "action": "exit",     "destination": "sittingroom_drawer" }
+
+      ],
+      "use": [
+        { "action": "exit",     "destination": "sittingroom_drawer" }
+
+      ]
     }
   },
   "default": {}

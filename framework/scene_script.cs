@@ -37,6 +37,10 @@ public partial class scene_script : Node2D
     // Set in the Godot editor. Leave empty if the scene needs no entry sequences.
     [Export] public string entryScriptFile;
 
+    // Mark this scene as an insert (close-up / puzzle / interstitial).
+    // Insert scenes have no ego: walking is disabled and the ego is not spawned.
+    [Export] public bool isInsert = false;
+
     // Per-scene ambient darkness texture. Sampled at each thing's/ego's
     // position; the result drives the shader's overall_dark parameter.
     [Export] public Texture2D darkMap;
@@ -62,7 +66,7 @@ public partial class scene_script : Node2D
     public List<Globals.SceneFlag> flags     = new List<Globals.SceneFlag>();
     public EventSequence           eventQueue;
     public MainScene               mainScene;
-    public int                     numberOfOpenDialogs = 0;
+    public bool HasOpenDialog => GetChildren().OfType<DialogBox>().Any();
 
     // Scene JSON data — loaded in _EnterTree (parent-first, before child _Ready()).
     // Used by exit area handling and thing interaction data lookup.
@@ -71,19 +75,22 @@ public partial class scene_script : Node2D
     // Arrival data passed from the source scene's exit definition.
     // SourceName — display name of the scene the ego came from (for auto-detecting arrive_area).
     // Dir        — direction to face and walk on arrival ("up"/"down"/"left"/"right").
-    // Area       — CollisionShape2D node name in this scene to start at; empty = auto-detect.
-    // Walk       — true: trigger a strict walk-out-of-zone move after the transition completes.
-    // Sequence   — optional event sequence to run instead of auto-walk (no_walk implied).
+    // Area  — CollisionShape2D node name in this scene to start at; empty = auto-detect.
+    // Walk  — true: trigger a strict walk-out-of-zone move after the transition completes.
 
-    // Walk target stored here during staging; consumed by UnsuspendSceneInput so the
-    // walk only becomes visible after the transition animation finishes.
-    public Vector2? _arrivalWalkTarget;
+    // Arrival state stored during staging; consumed by UnsuspendSceneInput so effects
+    // only become visible after the transition animation finishes.
+    public Vector2?  _arrivalWalkTarget;
+    public JsonArray _arrivalSequence;
+
+    // Returns a named sequence from this scene's JSON "sequences" block, or null.
+    public JsonArray GetNamedSequence(string name) =>
+        _sceneData?["sequences"]?[name]?.AsArray();
     public record struct ArrivalData(
-        string     SourceName,
-        string     Dir,
-        string     Area,
-        bool       Walk,
-        JsonArray  Sequence
+        string SourceName,
+        string Dir,
+        string Area,
+        bool   Walk
     );
 
     private readonly record struct ExitZone(string Dest, Vector2 Center, Vector2 HalfSize, ArrivalData Arrival);
@@ -91,9 +98,14 @@ public partial class scene_script : Node2D
     private readonly HashSet<string>                    _insideExits  = new();
     private          bool                               _exitsSeeded  = false;
 
-    private readonly record struct AreaZone(Vector2 Center, Vector2 HalfSize, JsonArray Actions, bool Through);
+    private readonly record struct AreaZone(Vector2 Center, Vector2 HalfSize, JsonArray Actions, bool Through, Vector2[] Polygon = null);
     private readonly List<(string Name, AreaZone Zone)> _areaZones   = new();
     private readonly HashSet<string>                    _insideAreas  = new();
+
+    // Interactive areas — CollisionShape2D or CollisionPolygon2D regions in the
+    // scene JSON that respond to use/look/talk clicks rather than walk triggers.
+    private readonly record struct InteractiveArea(Vector2[] Polygon, JsonArray UseActions, JsonArray LookActions, JsonArray TalkActions);
+    private readonly List<InteractiveArea> _interactiveAreas = new();
 
     // Cached scene light — resolved once in _EnterTree() to avoid GetNode every frame.
     private PointLight2D _sceneLight;
@@ -126,14 +138,17 @@ public partial class scene_script : Node2D
     public void UnsuspendSceneInput()
     {
         if (prevInteractMode == Globals.InteractModes.wait)
-            prevInteractMode = Globals.InteractModes.walk;
+            prevInteractMode = ego != null ? Globals.InteractModes.walk : Globals.InteractModes.look;
         mainScene.SetInteractMode(prevInteractMode);
         isSceneInputSuspended = false;
 
-        // Kick off the arrival walk now that the transition is complete and the
-        // scene is live. This keeps the walk visible to the player rather than
-        // happening invisibly during the staging SubViewport phase.
-        if (_arrivalWalkTarget.HasValue && ego != null)
+        // Kick off arrival effects now that the transition is complete and the scene is live.
+        if (_arrivalSequence != null)
+        {
+            PopulateEventQueue(eventQueue, _arrivalSequence, this);
+            _arrivalSequence = null;
+        }
+        else if (_arrivalWalkTarget.HasValue && ego != null)
         {
             eventQueue.AddEventMove(ego, _arrivalWalkTarget.Value, _interruptable: false);
             _arrivalWalkTarget = null;
@@ -180,7 +195,7 @@ public partial class scene_script : Node2D
 
         // Spawn ego from GameConfig.EgoScene at the start_point position.
         // Guard: _EnterTree fires again on reparent (staging → main holder).
-        if (ego == null)
+        if (ego == null && !isInsert)
         {
             var startPoint = GetNodeOrNull<Node2D>("start_point");
             var egoPacked  = ResourceLoader.Load<PackedScene>(GameConfig.EgoScene);
@@ -247,8 +262,10 @@ public partial class scene_script : Node2D
         Mathf.Abs(pos.Y - zone.Center.Y) <= zone.HalfSize.Y;
 
     private static bool InsideZone(Vector2 pos, in AreaZone zone) =>
-        Mathf.Abs(pos.X - zone.Center.X) <= zone.HalfSize.X &&
-        Mathf.Abs(pos.Y - zone.Center.Y) <= zone.HalfSize.Y;
+        zone.Polygon != null
+            ? Geometry2D.IsPointInPolygon(pos, zone.Polygon)
+            : Mathf.Abs(pos.X - zone.Center.X) <= zone.HalfSize.X &&
+              Mathf.Abs(pos.Y - zone.Center.Y) <= zone.HalfSize.Y;
 
     // ---------------------------------------------------------------------------
     // Area zone setup — handles exits, move_into zones, and move_through zones.
@@ -264,42 +281,87 @@ public partial class scene_script : Node2D
 
         foreach (var kv in areas)
         {
-            bool through = false;
-            JsonArray actions = kv.Value?["move_into"]?.AsArray();
-            if (actions == null)
-            {
-                actions = kv.Value?["move_through"]?.AsArray();
-                if (actions != null) through = true;
-            }
-            if (actions == null) continue;
+            var areaData = kv.Value?.AsObject();
+            if (areaData == null) continue;
+
+            // Resolve the node — accept either CollisionShape2D or CollisionPolygon2D.
+            // Polygon is stored in world space for hit-testing.
+            Vector2   center   = Vector2.Zero;
+            Vector2   halfSize = Vector2.Zero;
+            Vector2[] polygon  = null;
 
             CollisionShape2D shape = GetNodeOrNull<CollisionShape2D>(kv.Key);
-            if (shape?.Shape is not RectangleShape2D rect) continue;
-
-            // Check for an "exit" action — if found, register as an exit zone.
-            JsonObject exitAction = null;
-            foreach (var item in actions)
+            if (shape?.Shape is RectangleShape2D rect)
             {
-                var obj = item?.AsObject();
-                if (obj?["action"]?.GetValue<string>() == "exit") { exitAction = obj; break; }
-            }
-
-            if (exitAction != null)
-            {
-                string dest = Scenes.Resolve(exitAction["destination"]?.GetValue<string>() ?? "");
-                if (string.IsNullOrEmpty(dest)) continue;
-                string arriveDir  = exitAction["arrive_dir"]?.GetValue<string>()  ?? "";
-                string arriveArea = exitAction["arrive_area"]?.GetValue<string>() ?? "";
-                var    arriveSeq  = exitAction["arrive_sequence"]?.AsArray();
-                bool   noWalk     = exitAction["no_walk"]?.GetValue<bool>() ?? false;
-                bool   arriveWalk = !noWalk && arriveSeq == null;
-                var    arrival    = new ArrivalData(displayName, arriveDir, arriveArea, arriveWalk, arriveSeq);
-                _exitZones.Add((kv.Key, new ExitZone(dest, shape.Position, rect.Size / 2f, arrival)));
+                center   = shape.Position;
+                halfSize = rect.Size / 2f;
             }
             else
             {
-                _areaZones.Add((kv.Key, new AreaZone(shape.Position, rect.Size / 2f, actions, through)));
+                CollisionPolygon2D cpoly = GetNodeOrNull<CollisionPolygon2D>(kv.Key);
+                if (cpoly == null) continue;
+                // Transform polygon points to parent (scene) space.
+                polygon = new Vector2[cpoly.Polygon.Length];
+                for (int i = 0; i < cpoly.Polygon.Length; i++)
+                    polygon[i] = cpoly.ToGlobal(cpoly.Polygon[i]) - GlobalPosition;
             }
+
+            // Walk / navigation verbs.
+            bool through = false;
+            JsonArray walkActions = areaData["move_into"]?.AsArray();
+            if (walkActions == null)
+            {
+                walkActions = areaData["move_through"]?.AsArray();
+                if (walkActions != null) through = true;
+            }
+
+            if (walkActions != null)
+            {
+                // Check for an "exit" action — if found, register as an exit zone.
+                JsonObject exitAction = null;
+                foreach (var item in walkActions)
+                {
+                    var obj = item?.AsObject();
+                    if (obj?["action"]?.GetValue<string>() == "exit") { exitAction = obj; break; }
+                }
+
+                if (exitAction != null)
+                {
+                    if (shape == null) continue; // exits require RectangleShape2D
+                    string dest = Scenes.Resolve(exitAction["destination"]?.GetValue<string>() ?? "");
+                    if (string.IsNullOrEmpty(dest)) continue;
+                    string arriveDir  = exitAction["arrive_dir"]?.GetValue<string>()  ?? "";
+                    string arriveArea = exitAction["arrive_area"]?.GetValue<string>() ?? "";
+                    bool   noWalk     = exitAction["no_walk"]?.GetValue<bool>() ?? false;
+                    bool   arriveWalk = !noWalk;
+                    var    arrival    = new ArrivalData(System.IO.Path.GetFileNameWithoutExtension(SceneFilePath), arriveDir, arriveArea, arriveWalk);
+                    _exitZones.Add((kv.Key, new ExitZone(dest, center, halfSize, arrival)));
+                }
+                else
+                {
+                    _areaZones.Add((kv.Key, new AreaZone(center, halfSize, walkActions, through, polygon)));
+                }
+                continue;
+            }
+
+            // Interaction verbs — use / look / talk.
+            JsonArray useActions  = areaData["use"]?.AsArray();
+            JsonArray lookActions = areaData["look"]?.AsArray();
+            JsonArray talkActions = areaData["talk"]?.AsArray();
+            if (useActions == null && lookActions == null && talkActions == null) continue;
+
+            // Build world-space polygon for hit-testing if we only have a rect.
+            if (polygon == null)
+            {
+                polygon =
+                [
+                    new Vector2(center.X - halfSize.X, center.Y - halfSize.Y),
+                    new Vector2(center.X + halfSize.X, center.Y - halfSize.Y),
+                    new Vector2(center.X + halfSize.X, center.Y + halfSize.Y),
+                    new Vector2(center.X - halfSize.X, center.Y + halfSize.Y),
+                ];
+            }
+            _interactiveAreas.Add(new InteractiveArea(polygon, useActions, lookActions, talkActions));
         }
     }
 
@@ -363,14 +425,8 @@ public partial class scene_script : Node2D
     public override void _UnhandledInput(InputEvent @event)
     {
         // Block while suspended, paused, dialog open, or inventory visible.
-        if (IsPaused() || isSceneInputSuspended || numberOfOpenDialogs > 0 || (inventoryUI?.Visible ?? false))
-        {
-            // Still pass input to open dialogs.
-            foreach (var child in GetChildren())
-                if (child is DialogBox db)
-                    db._Input(@event);
+        if (IsPaused() || isSceneInputSuspended || HasOpenDialog || (inventoryUI?.Visible ?? false))
             return;
-        }
 
         isMouseLeftButtonClicked = false;
 
@@ -392,11 +448,19 @@ public partial class scene_script : Node2D
                 }
                 else
                 {
+                    // Only count as a click if we also saw the press in _UnhandledInput.
+                    // If the press was consumed by a dialog, isMouseLeftButtonDown was
+                    // never set — so the release must be ignored to prevent a spurious
+                    // re-interaction on the frame after the dialog closes.
+                    bool wasPressing = isMouseLeftButtonDown;
                     isMouseLeftButtonDown = false;
-                    if (isMouseLeftButtonHeld)
-                        isMouseLeftButtonHeld = false;
-                    else
-                        isMouseLeftButtonClicked = true;
+                    if (wasPressing)
+                    {
+                        if (isMouseLeftButtonHeld)
+                            isMouseLeftButtonHeld = false;
+                        else
+                            isMouseLeftButtonClicked = true;
+                    }
                 }
             }
             else if (mouse.ButtonIndex == MouseButton.Right && mouse.Pressed)
@@ -414,11 +478,15 @@ public partial class scene_script : Node2D
             }
             else
             {
+                bool wasPressing = isMouseLeftButtonDown;
                 isMouseLeftButtonDown = false;
-                if (isMouseLeftButtonHeld)
-                    isMouseLeftButtonHeld = false;
-                else
-                    isMouseLeftButtonClicked = true;
+                if (wasPressing)
+                {
+                    if (isMouseLeftButtonHeld)
+                        isMouseLeftButtonHeld = false;
+                    else
+                        isMouseLeftButtonClicked = true;
+                }
             }
         }
         else if (@event is InputEventKey key && key.Pressed)
@@ -471,7 +539,7 @@ public partial class scene_script : Node2D
             IterateThingsToInteract(mousePosOnPress, mainScene.GetInteractMode());
 
         mousePosOnPress = new Vector2(-1, -1);
-        mainScene.SetInteractMode(Globals.InteractModes.walk);
+        mainScene.SetInteractMode(ego != null ? Globals.InteractModes.walk : Globals.InteractModes.look);
     }
 
     // ---------------------------------------------------------------------------
@@ -523,10 +591,11 @@ public partial class scene_script : Node2D
             // Clamp to bounds if a CameraClamp shape is present.
             if (cameraClamp != null)
             {
-                Vector2 tl = cameraClamp.Position - cameraClamp.Shape.GetRect().Size / 2f;
-                Vector2 br = cameraClamp.Position + cameraClamp.Shape.GetRect().Size / 2f;
-                tl += GetViewportRect().Size / 2f;
-                br -= GetViewportRect().Size / 2f;
+                Vector2 tl       = cameraClamp.Position - cameraClamp.Shape.GetRect().Size / 2f;
+                Vector2 br       = cameraClamp.Position + cameraClamp.Shape.GetRect().Size / 2f;
+                Vector2 halfView = GetViewportRect().Size / 2f / camera.Zoom;
+                tl += halfView;
+                br -= halfView;
                 newPos = newPos.Clamp(tl, br);
             }
 
@@ -613,20 +682,14 @@ public partial class scene_script : Node2D
                 mainScene.debugText.Text += $"\nfastwalk: {ego.isFastWalking}";
                 mainScene.debugText.Text += $"\nitem: {mainScene.usingItem}";
                 mainScene.debugText.Text += "\nevents:";
-                foreach (Event e in eventQueue.eventList)
-                    mainScene.debugText.Text += $"\n  {e.Type}";
+                foreach (var s in eventQueue.Steps)
+                    mainScene.debugText.Text += $"\n  {s.DebugName}";
                 QueueRedraw();
             }
         }
 
         // Tick event queue.
-        if (eventQueue != null && eventQueue.HasEventsWaiting())
-        {
-            eventQueue.ExecuteAll(
-                isSceneInputSuspended
-                    ? EventSequence.SuspendType.suspend_all
-                    : EventSequence.SuspendType.normal);
-        }
+        eventQueue?.Tick();
 
         // Hold timer.
         if (isMouseLeftButtonDown && !isMouseLeftButtonHeld)
@@ -686,6 +749,18 @@ public partial class scene_script : Node2D
                             new Vector3(-lightDir.X, lightDir.Y, _sceneLight.Height));
                         ((ShaderMaterial)tsprite.Material).SetShaderParameter("light_strength", finalStr);
                         ((ShaderMaterial)tsprite.Material).SetShaderParameter("is_flipped", tsprite.FlipH);
+
+                        // Radial hatch lines: compute the light's position in the sprite's
+                        // frame UV space so the shader can fan lines out from the exact
+                        // light position. Uses ToLocal() so scale/rotation are handled.
+                        Vector2 lightInSpriteLocal = tsprite.ToLocal(_sceneLight.GlobalPosition);
+                        Vector2 texSize   = new Vector2(tsprite.Texture.GetWidth(), tsprite.Texture.GetHeight());
+                        Vector2 frameSize = texSize / new Vector2(tsprite.Hframes, tsprite.Vframes);
+                        Vector2 frameTL   = tsprite.Offset - frameSize / 2f;
+                        Vector2 lightUV   = (lightInSpriteLocal - frameTL) / frameSize;
+                        ((ShaderMaterial)tsprite.Material).SetShaderParameter("light_pos_uv", lightUV);
+                        ((ShaderMaterial)tsprite.Material).SetShaderParameter("hframes",      tsprite.Hframes);
+                        ((ShaderMaterial)tsprite.Material).SetShaderParameter("vframes",      tsprite.Vframes);
                     }
 
                     // Shadow geometry.
@@ -758,6 +833,24 @@ public partial class scene_script : Node2D
                 return;
             }
         }
+
+        // Fall through to interactive areas (CollisionPolygon2D / CollisionShape2D
+        // regions in the scene JSON that declare use/look/talk rather than move verbs).
+        foreach (var area in _interactiveAreas)
+        {
+            if (!Geometry2D.IsPointInPolygon(pos, area.Polygon)) continue;
+            JsonArray actions = mode switch
+            {
+                Globals.InteractModes.use  => area.UseActions,
+                Globals.InteractModes.look => area.LookActions,
+                Globals.InteractModes.talk => area.TalkActions,
+                _                          => null,
+            };
+            if (actions == null) break;
+            eventQueue = new EventSequence(this);
+            PopulateEventQueue(eventQueue, actions, this);
+            break;
+        }
     }
 
     // ---------------------------------------------------------------------------
@@ -770,159 +863,10 @@ public partial class scene_script : Node2D
         sprite.Offset = new Vector2(xDiff * factor, yDiff * factor);
     }
 
-    // ---------------------------------------------------------------------------
-    // PopulateEventQueue — converts a JSON action array into EventSequence events.
-    // Shared by the entry-script system, thing interactions, and any other caller.
-    // Supports: move, look_at, change_facing, narrate, speak, think,
-    //           set_flag, wait, play_animation, add_to_inventory.
-    // self — the thing being interacted with (for "self" actor references and
-    //         add_to_inventory). Pass null when not applicable.
-    // ---------------------------------------------------------------------------
+    // Forwarding shim — kept for backward compatibility with existing callers.
+    // New code should call ScriptParser.PopulateEventQueue directly.
     public static void PopulateEventQueue(EventSequence queue, JsonArray actions, scene_script scene, thing self = null)
-    {
-        foreach (var item in actions)
-        {
-            var obj = item?.AsObject();
-            if (obj == null || !obj.ContainsKey("action")) continue;
-
-            if (obj.ContainsKey("if_flag") && !scene.GetFlag(obj["if_flag"].GetValue<string>()).Value.As<bool>())
-                continue;
-            if (obj.ContainsKey("if_not_flag") && scene.GetFlag(obj["if_not_flag"].GetValue<string>()).Value.As<bool>())
-                continue;
-
-            switch (obj["action"].GetValue<string>())
-            {
-                case "move": {
-                    NPC actor = ResolveNPCInScene(obj["actor"].GetValue<string>(), scene, self);
-                    Vector2 dest;
-                    if (obj.ContainsKey("target"))
-                    {
-                        string targetName = obj["target"].GetValue<string>();
-                        thing  target     = ResolveThingInScene(targetName, scene, self);
-                        if (target != null)
-                            dest = target.interactPoint;
-                        else
-                        {
-                            var node = scene.FindChild(targetName, true, false) as Node2D;
-                            dest = node?.Position ?? actor.Position;
-                        }
-                    }
-                    else if (obj.ContainsKey("to_area"))
-                    {
-                        dest = ResolveAreaCenter(obj["to_area"].GetValue<string>(), scene);
-                    }
-                    else
-                    {
-                        var to = obj["to"].AsArray();
-                        dest = new Vector2(to[0].GetValue<float>(), to[1].GetValue<float>());
-                    }
-                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
-                    queue.AddEventMove(actor, dest, !strict);
-                    break;
-                }
-                case "look_at": {
-                    NPC   actor  = ResolveNPCInScene(obj["actor"].GetValue<string>(), scene, self);
-                    thing target = ResolveThingInScene(obj["target"].GetValue<string>(), scene, self);
-                    if (actor != null && target != null)
-                        queue.AddEventChangeFacingToLookAt(actor, target);
-                    break;
-                }
-                case "narrate":
-                    queue.AddEventNarrate(obj["text"].GetValue<string>(), Vector2.Zero);
-                    break;
-                case "speak": {
-                    NPC actor = ResolveNPCInScene(obj["actor"].GetValue<string>(), scene, self);
-                    if (actor != null)
-                        queue.AddEventSpeak(actor, obj["text"].GetValue<string>(), Vector2.Zero);
-                    break;
-                }
-                case "think": {
-                    NPC actor = ResolveNPCInScene(obj["actor"].GetValue<string>(), scene, self);
-                    if (actor != null)
-                        queue.AddEventThink(actor, obj["text"].GetValue<string>(), Vector2.Zero);
-                    break;
-                }
-                case "set_flag": {
-                    string name = obj["name"].GetValue<string>();
-                    string val  = obj["value"]?.GetValue<string>() ?? "true";
-                    Variant v = (val == "true" || val == "false")
-                        ? Variant.From(val == "true")
-                        : Variant.From(val);
-                    queue.AddEventAddFlag(new Globals.SceneFlag(scene.Name, name, v));
-                    break;
-                }
-                case "change_facing": {
-                    NPC actor = ResolveNPCInScene(obj["actor"].GetValue<string>(), scene, self);
-                    if (actor != null)
-                        queue.AddEventChangeFacing(actor, obj["direction"].GetValue<string>() switch
-                        {
-                            "up"    => NPC.Direction.up,
-                            "left"  => NPC.Direction.left,
-                            "right" => NPC.Direction.right,
-                            _       => NPC.Direction.down,
-                        });
-                    break;
-                }
-                case "play_animation": {
-                    string actorName = obj["actor"]?.GetValue<string>() ?? "self";
-                    thing  actor     = ResolveThingInScene(actorName, scene, self);
-                    if (actor?.animationPlayer != null)
-                        queue.AddEventPlayAnimation(actor.animationPlayer, obj["animation"].GetValue<string>());
-                    break;
-                }
-                case "add_to_inventory": {
-                    if (self != null) queue.AddEventAddToInventory(self);
-                    break;
-                }
-                case "wait": {
-                    float seconds = obj["seconds"]?.GetValue<float>() ?? 1f;
-                    queue.AddEventWait(seconds);
-                    break;
-                }
-                case "remap_floor": {
-                    string navReg = obj["nav_region"]?.GetValue<string>() ?? "NavigationRegion2D";
-                    string polygon = obj["polygon"].GetValue<string>();
-                    queue.AddEventRemapFloor(navReg, polygon);
-                    break;
-                }
-                case "branch_on_flag": {
-                    string flagName   = obj["name"].GetValue<string>();
-                    bool   expected   = obj["is"]?.GetValue<bool>() ?? true;
-                    bool   actual     = scene.GetFlag(flagName).Value.As<bool>();
-                    var    branch     = (actual == expected ? obj["then"] : obj["else"])?.AsArray();
-                    if (branch != null)
-                        PopulateEventQueue(queue, branch, scene, self);
-                    break;
-                }
-                case "conversation": {
-                    string filePath = obj["file"].GetValue<string>();
-                    queue.AddEventConversation(filePath);
-                    break;
-                }
-            }
-        }
-    }
-
-    private static thing ResolveThingInScene(string name, scene_script scene, thing self = null)
-    {
-        if (name == "self")      return self;
-        if (name == "ego") return scene.ego;
-        return scene.FindChild(name, true, false) as thing;
-    }
-
-    private static NPC ResolveNPCInScene(string name, scene_script scene, thing self = null)
-    {
-        if (name == "self")      return self as NPC;
-        if (name == "ego") return scene.ego;
-        return scene.FindChild(name, true, false) as NPC;
-    }
-
-    // Returns the center of a named CollisionShape2D exit node in scene-local space.
-    private static Vector2 ResolveAreaCenter(string shapeName, scene_script scene)
-    {
-        var shape = scene.GetNodeOrNull<CollisionShape2D>(shapeName);
-        return shape?.Position ?? Vector2.Zero;
-    }
+        => ScriptParser.PopulateEventQueue(queue, actions, scene, self);
 
     // ---------------------------------------------------------------------------
     // CreateDialog — instantiate a DialogBox and add it as a child.
@@ -935,7 +879,8 @@ public partial class scene_script : Node2D
         Vector2? tailPos    = null,
         NPC.Direction? egoFacing = null,
         string[] _dialogChoices = null,
-        NPC actor           = null)
+        NPC actor           = null,
+        bool strict         = false)
     {
         bool hasTail = tailPos != null;
 
@@ -953,6 +898,7 @@ public partial class scene_script : Node2D
         db.dialogType      = _dialogType;
         db.parentScene     = this;
         db.trackActor      = actor;
+        db.isStrict        = strict;
 
         if (hasTail) db.tailPos = tailPos.Value;
 
@@ -980,13 +926,6 @@ public partial class scene_script : Node2D
     // Signal handlers
     // ---------------------------------------------------------------------------
 
-    public void _on_DialogBox_DialogClosed()       => WaitAfterDialog();
     public void _on_Ego_DestinationReached() { }
     public void _on_Ego_FacingChanged()      { }
-
-    public async void WaitAfterDialog()
-    {
-        await ToSignal(GetTree().CreateTimer(0.2f, true), "timeout");
-        numberOfOpenDialogs--;
-    }
 }

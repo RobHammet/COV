@@ -16,7 +16,7 @@ source_geometry_group_name = &"navigation_polygon_source_group"
 size = Vector2(173, 134)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4jr3t"]
-size = Vector2(1643, 917)
+size = Vector2(1646, 924.5)
 
 [node name="Basement" type="Node2D" unique_id=1974095929 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1_87u6t")
@@ -52,11 +52,12 @@ shape = SubResource("RectangleShape2D_cvolg")
 [node name="Camera2D" type="Camera2D" parent="." unique_id=902012367]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
-position = Vector2(559, 102)
+position = Vector2(477, 166)
 enabled = false
+zoom = Vector2(0.875, 0.875)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1404136847]
-position = Vector2(289, 246)
+position = Vector2(318, 242.25)
 shape = SubResource("RectangleShape2D_4jr3t")
 
 [node name="table" type="Node2D" parent="." unique_id=653143904]

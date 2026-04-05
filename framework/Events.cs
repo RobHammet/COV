@@ -1,235 +1,125 @@
-// Events.cs — the event system: Event and EventSequence.
+// Events.cs — the event system: step types and EventSequence.
 //
-// EventSequence is the async command queue used by every room scene.
-// Room scripts and thing overrides push events onto scene_script.eventQueue;
-// scene_script._Process() calls eventQueue.ExecuteAll() once per frame when
-// events are waiting.
+// EventSequence is the ordered step queue used by every room scene.
+// Room scripts and thing overrides push steps via AddEvent* helpers;
+// scene_script._Process() calls eventQueue.Tick() once per frame.
+//
+// STEP TYPES
+//   InstantStep      — fires an action and is immediately complete.
+//   SignalStep       — fires an action (returning the GodotObject to listen on),
+//                      then completes when the named signal fires.
+//   ConversationStep — runs a branching dialog JSON file; internal async is
+//                      fully contained, outer EventSequence just polls IsComplete.
 //
 // USAGE
 //   // In a thing override:
 //   parentScene.eventQueue.AddEventMove(character, doorPos);
 //   parentScene.eventQueue.AddEventSpeak(character, "IT'S LOCKED.");
 //   // scene_script._Process() will run them in order the next frame.
-//
-// SUSPEND TYPE
-//   normal       — suspend input for non-interruptable events, allow for interruptable ones
-//   suspend_all  — always suspend (used during transitions)
-//   unsuspend_all — always unsuspend (reserved)
 
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 // ---------------------------------------------------------------------------
-// Event — a single step in a sequence. Created by EventSequence.AddEvent*
-// helpers; never instantiated directly.
+// IEventStep — interface for a single step in a sequence.
 // ---------------------------------------------------------------------------
-public partial class Event : Node
+public interface IEventStep
 {
-    public enum EventType
+    void   Start();
+    bool   IsComplete    { get; }
+    bool   IsInterruptable { get; }
+    string DebugName     { get; }
+}
+
+// ---------------------------------------------------------------------------
+// InstantStep — executes an action synchronously; IsComplete is always true.
+// ---------------------------------------------------------------------------
+public class InstantStep : IEventStep
+{
+    private readonly Action _action;
+    public bool   IsInterruptable { get; }
+    public string DebugName       => "instant";
+
+    public InstantStep(Action action, bool interruptable = true)
     {
-        move                  = 0,
-        narrate               = 1,
-        character_speak       = 2,
-        change_facing         = 3,
-        play_animation        = 4,
-        add_to_inventory      = 5,
-        remove_from_inventory = 6,
-        character_think       = 7,
-        change_facing_lookat  = 8,
-        add_scene_flag        = 9,
-        conversation          = 10,
-        none                  = 11,
-        wait                  = 12,
-        remap_floor           = 13,
+        _action        = action;
+        IsInterruptable = interruptable;
     }
 
-    [Signal] public delegate void EventFinishedEventHandler();
+    public void Start()        => _action();
+    public bool IsComplete     => true;
+}
 
-    public string               Phrase               { get; set; }
-    public string               dialogFile;
-    public string               navRegionNodeName;
-    public string               guidePolygonNodeName;
-    public Vector2              Position             { get; set; }
-    public EventType            Type;
-    public Color                Color;
-    public bool                 IsFinished           { get; set; }
-    public bool                 IsInProgress         { get; set; }
-    public bool                 IsInterruptable      { get; set; }
-    public NPC                  ActingCharacter;
-    public AnimationPlayer      animationPlayer;
-    public string               animationToPlay;
-    public scene_script         ParentScene;
-    public NPC.Direction  NewFacing;
-    public thing                interactThing;
-    public InventoryItem.ItemType itemType;
-    public Globals.SceneFlag    sceneFlag;
-    public float                duration;
+// ---------------------------------------------------------------------------
+// SignalStep — calls a factory Func (which performs the action AND returns the
+// GodotObject to listen on), then completes when the named signal fires once.
+// ---------------------------------------------------------------------------
+public class SignalStep : IEventStep
+{
+    private readonly Func<GodotObject> _start;
+    private readonly StringName        _signal;
+    private bool                       _done;
 
-    // ---------------------------------------------------------------------------
-    // Execute — dispatch to the appropriate Execute* method.
-    // ---------------------------------------------------------------------------
-    public void Execute()
+    public bool   IsInterruptable { get; }
+    public string DebugName       { get; }
+
+    public SignalStep(Func<GodotObject> start, StringName signal,
+                      bool interruptable = false, string debugName = null)
     {
-        switch (Type)
-        {
-            case EventType.move:                  ExecuteMovement();          break;
-            case EventType.narrate:               ExecuteNarration();         break;
-            case EventType.character_speak:       ExecuteDialog();            break;
-            case EventType.character_think:       ExecuteThought();           break;
-            case EventType.conversation:          ExecuteConversation();      break;
-            case EventType.change_facing:         ExecuteChangeFacing();      break;
-            case EventType.change_facing_lookat:  ExecuteChangeFacingToLookAt(); break;
-            case EventType.play_animation:        ExecutePlayAnimation();     break;
-            case EventType.add_to_inventory:      ExecuteAddToInventory();    break;
-            case EventType.remove_from_inventory: ExecuteRemoveFromInventory(); break;
-            case EventType.add_scene_flag:        ExecuteAddFlag();           break;
-            case EventType.wait:                  ExecuteWait();              break;
-            case EventType.remap_floor:           ExecuteRemapFloor();        break;
-        }
+        _start          = start;
+        _signal         = signal;
+        IsInterruptable = interruptable;
+        DebugName       = debugName ?? signal.ToString();
     }
 
-    // --- Instant events (emit EventFinished immediately) --------------------
-
-    public void ExecuteRemapFloor()
+    public void Start()
     {
-        var navReg = ParentScene.GetNodeOrNull<NavigationRegion2D>(navRegionNodeName ?? "NavigationRegion2D");
-        if (navReg != null)
-        {
-            var guide = navReg.GetNodeOrNull<Polygon2D>(guidePolygonNodeName);
-            if (guide != null)
-            {
-                var poly = new NavigationPolygon();
-                poly.AddOutline(guide.Polygon);
-#pragma warning disable CS0618
-                poly.MakePolygonsFromOutlines();
-#pragma warning restore CS0618
-                navReg.NavigationPolygon = poly;
-            }
-        }
-        EmitSignal(SignalName.EventFinished);
+        var source = _start();
+        source?.Connect(_signal,
+                        Callable.From(() => _done = true),
+                        (uint)GodotObject.ConnectFlags.OneShot);
     }
 
-    public void ExecuteAddFlag()
+    public bool IsComplete => _done;
+}
+
+// ---------------------------------------------------------------------------
+// ConversationStep — runs a branching dialog JSON file. Internal async is
+// fully contained; the outer EventSequence just polls IsComplete each frame.
+// ---------------------------------------------------------------------------
+public class ConversationStep : IEventStep
+{
+    private readonly scene_script _scene;
+    private readonly string       _dialogFile;
+    private bool                  _done;
+
+    public bool   IsComplete      => _done;
+    public bool   IsInterruptable { get; }
+    public string DebugName       => $"conversation({_dialogFile})";
+
+    public ConversationStep(scene_script scene, string dialogFile, bool interruptable = false)
     {
-        ParentScene.AddFlag(sceneFlag.Name, sceneFlag.Value);
-        EmitSignal(SignalName.EventFinished);
+        _scene          = scene;
+        _dialogFile     = dialogFile;
+        IsInterruptable = interruptable;
     }
 
-    public void ExecuteAddToInventory()
+    public void Start() => RunAsync();
+
+    private async void RunAsync()
     {
-        IsInProgress = true;
-        interactThing.AddToInventory();
-        IsFinished = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public void ExecuteRemoveFromInventory()
-    {
-        IsInProgress = true;
-        var inv = ParentScene.mainScene.inventory;
-        for (int i = 0; i < inv.Count; i++)
-        {
-            if (inv[i].Type == itemType)
-            {
-                inv.RemoveAt(i);
-                break;
-            }
-        }
-        IsFinished = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public void ExecuteChangeFacing()
-    {
-        ActingCharacter.ChangeFacing(NewFacing);
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public void ExecuteChangeFacingToLookAt()
-    {
-        ActingCharacter.ChangeFacingToLookAt(interactThing);
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public void ExecutePlayAnimation()
-    {
-        animationPlayer.Play(animationToPlay);
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    // --- Async events (emit EventFinished after awaiting a signal) ----------
-
-    public async void ExecuteNarration()
-    {
-        IsInProgress = true;
-        DialogBox db = ParentScene.CreateDialog(Globals.DialogTypes.narration, Phrase, Color, Position);
-        await ToSignal(db, "DialogClosed");
-        IsFinished = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public async void ExecuteDialog()
-    {
-        IsInProgress = true;
-        DialogBox db = ActingCharacter.parentScene.CreateDialog(
-            Globals.DialogTypes.speaking, Phrase, Color, Position,
-            ActingCharacter.topPoint, ActingCharacter.Facing);
-        await ToSignal(db, "DialogClosed");
-        IsFinished = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public async void ExecuteThought()
-    {
-        IsInProgress = true;
-        var thinkPos = new Vector2(ActingCharacter.Position.X, ActingCharacter.topPoint.Y);
-        DialogBox db = ActingCharacter.parentScene.CreateDialog(
-            Globals.DialogTypes.thinking, Phrase, Color, Position,
-            thinkPos, ActingCharacter.Facing);
-        await ToSignal(db, "DialogClosed");
-        IsFinished = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public async void ExecuteMovement()
-    {
-        IsInProgress = true;
-        ActingCharacter.GoToLocation(Position);
-        await ToSignal(ActingCharacter, "DestinationReached");
-        IsFinished = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public async void ExecuteWait()
-    {
-        IsInProgress = true;
-        await ToSignal(ParentScene.GetTree().CreateTimer(duration, true), "timeout");
-        IsFinished   = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
-    }
-
-    public async void ExecuteConversation()
-    {
-        IsInProgress = true;
-
-        string jsonText = FileAccess.GetFileAsString($"res://{dialogFile}");
+        string jsonText = FileAccess.GetFileAsString($"res://{_dialogFile}");
         var doc = JsonNode.Parse(jsonText)?.AsObject();
-        if (doc == null) { EmitSignal(SignalName.EventFinished); return; }
+        if (doc == null) { _done = true; return; }
 
-        var allNodes  = doc["nodes"]?.AsObject();
-        string nodeId = doc["start"]?.GetValue<string>();
+        var    allNodes = doc["nodes"]?.AsObject();
+        string nodeId   = doc["start"]?.GetValue<string>();
 
-        var prevMode = ParentScene.mainScene.GetInteractMode();
-        ParentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
+        var prevMode = _scene.mainScene.GetInteractMode();
+        _scene.mainScene.SetInteractMode(Globals.InteractModes.walk);
 
         while (nodeId != null && allNodes != null)
         {
@@ -238,32 +128,37 @@ public partial class Event : Node
             nodeId = await RunDialogArray(allNodes, nodeArray);
         }
 
-        ParentScene.mainScene.SetInteractMode(prevMode);
-        IsFinished   = true;
-        IsInProgress = false;
-        EmitSignal(SignalName.EventFinished);
+        _scene.mainScene.SetInteractMode(prevMode);
+        _done = true;
     }
 
-    // Returns true if both flag conditions on obj are satisfied.
     private bool DialogConditionMet(JsonObject obj)
     {
-        if (obj.ContainsKey("if_flag")     &&  !ParentScene.GetFlag(obj["if_flag"].GetValue<string>()).Value.As<bool>())
+        if (obj.ContainsKey("if_flag")     && !_scene.GetFlag(obj["if_flag"].GetValue<string>()).Value.As<bool>())
             return false;
-        if (obj.ContainsKey("if_not_flag") &&   ParentScene.GetFlag(obj["if_not_flag"].GetValue<string>()).Value.As<bool>())
+        if (obj.ContainsKey("if_not_flag") &&  _scene.GetFlag(obj["if_not_flag"].GetValue<string>()).Value.As<bool>())
             return false;
         return true;
     }
 
-    private NPC   ResolveDialogNPC(string name)   => name == "character"
-        ? ParentScene.ego
-        : ParentScene.FindChild(name, true, false) as NPC;
+    private NPC ResolveDialogNPC(string name) =>
+        (name == "character" || name == "ego" || name == "ego_point")
+            ? _scene.ego
+            : _scene.FindChild(name, true, false) as NPC;
+
+    private (Vector2 tail, NPC.Direction facing, Color color)? ResolveActorAnchor(string name)
+    {
+        if (ResolveDialogNPC(name) is NPC npc)
+            return (npc.topPoint, npc.Facing, npc.dialogColor);
+        if (_scene.FindChild(name, true, false) is DialogAnchor anchor)
+            return (anchor.GlobalPosition, anchor.Facing, anchor.dialogColor);
+        return null;
+    }
 
     private thing ResolveDialogThing(string name) => name == "character"
-        ? ParentScene.ego
-        : ParentScene.FindChild(name, true, false) as thing;
+        ? _scene.ego
+        : _scene.FindChild(name, true, false) as thing;
 
-    // Executes one node array. Returns the next node id (from "call" or
-    // "choices"), or null when the array runs to completion.
     private async Task<string> RunDialogArray(JsonObject allNodes, JsonArray actions)
     {
         foreach (var item in actions)
@@ -293,11 +188,13 @@ public partial class Event : Node
                         nodeIds.Add(o["node"].GetValue<string>());
                     }
                     if (labels.Count == 0) break;
-                    NPC ch = ParentScene.ego;
-                    Vector2   tp = new Vector2(ch.Position.X, ch.topPoint.Y);
-                    DialogBox db = ParentScene.CreateDialog(
-                        Globals.DialogTypes.choice, null, null, null, tp, ch.Facing, labels.ToArray());
-                    Godot.Variant[] ret = await ToSignal(db, "DialogClosed");
+                    string        choiceActor = obj.ContainsKey("actor") ? obj["actor"].GetValue<string>() : "ego";
+                    var           ca          = ResolveActorAnchor(choiceActor);
+                    Vector2       tp          = ca?.tail   ?? Vector2.Zero;
+                    NPC.Direction facing      = ca?.facing ?? NPC.Direction.down;
+                    DialogBox db = _scene.CreateDialog(
+                        Globals.DialogTypes.choice, null, null, null, tp, facing, labels.ToArray());
+                    Godot.Variant[] ret = await _scene.ToSignal(db, "DialogClosed");
                     int idx = (int)ret[0];
                     if (idx >= 0 && idx < nodeIds.Count)
                         return nodeIds[idx];
@@ -305,30 +202,33 @@ public partial class Event : Node
                 }
 
                 case "speak": {
-                    NPC actor = ResolveDialogNPC(obj["actor"].GetValue<string>());
-                    if (actor == null) break;
-                    DialogBox db = ParentScene.CreateDialog(
+                    var a = ResolveActorAnchor(obj["actor"].GetValue<string>());
+                    if (a == null) break;
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    DialogBox db = _scene.CreateDialog(
                         Globals.DialogTypes.speaking, obj["text"].GetValue<string>(),
-                        actor.dialogColor, null, actor.topPoint, actor.Facing);
-                    await ToSignal(db, "DialogClosed");
+                        a.Value.color, null, a.Value.tail, a.Value.facing, strict: strict);
+                    await _scene.ToSignal(db, "DialogClosed");
                     break;
                 }
 
                 case "think": {
-                    NPC     actor = ResolveDialogNPC(obj["actor"].GetValue<string>());
-                    if (actor == null) break;
-                    Vector2 tp    = new Vector2(actor.Position.X, actor.topPoint.Y);
-                    DialogBox db  = ParentScene.CreateDialog(
+                    var a = ResolveActorAnchor(obj["actor"].GetValue<string>());
+                    if (a == null) break;
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    DialogBox db = _scene.CreateDialog(
                         Globals.DialogTypes.thinking, obj["text"].GetValue<string>(),
-                        actor.dialogColor, null, tp, actor.Facing);
-                    await ToSignal(db, "DialogClosed");
+                        a.Value.color, null, a.Value.tail, a.Value.facing, strict: strict);
+                    await _scene.ToSignal(db, "DialogClosed");
                     break;
                 }
 
                 case "narrate": {
-                    DialogBox db = ParentScene.CreateDialog(
-                        Globals.DialogTypes.narration, obj["text"].GetValue<string>(), Colors.Yellow);
-                    await ToSignal(db, "DialogClosed");
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    DialogBox db = _scene.CreateDialog(
+                        Globals.DialogTypes.narration, obj["text"].GetValue<string>(),
+                        Colors.Yellow, strict: strict);
+                    await _scene.ToSignal(db, "DialogClosed");
                     break;
                 }
 
@@ -365,33 +265,49 @@ public partial class Event : Node
                     else
                     {
                         var to = obj["to"].AsArray();
-                        dest   = new Vector2(to[0].GetValue<float>(), to[1].GetValue<float>());
+                        dest = new Vector2(to[0].GetValue<float>(), to[1].GetValue<float>());
                     }
                     actor.GoToLocation(dest);
-                    await ToSignal(actor, "DestinationReached");
+                    await _scene.ToSignal(actor, "DestinationReached");
                     break;
                 }
 
                 case "wait": {
                     float secs = obj["seconds"]?.GetValue<float>() ?? 1f;
-                    await ToSignal(ParentScene.GetTree().CreateTimer(secs, true), "timeout");
+                    await _scene.ToSignal(_scene.GetTree().CreateTimer(secs, true), "timeout");
+                    break;
+                }
+
+                case "toggle_exist": {
+                    string tname = obj.ContainsKey("target") ? obj["target"].GetValue<string>() : null;
+                    thing  t     = tname != null ? ResolveDialogThing(tname) : null;
+                    bool?  v     = obj.ContainsKey("value") ? obj["value"].GetValue<bool>() : null;
+                    t?.ToggleExist(v);
+                    break;
+                }
+
+                case "toggle_hide": {
+                    string tname = obj.ContainsKey("target") ? obj["target"].GetValue<string>() : null;
+                    thing  t     = tname != null ? ResolveDialogThing(tname) : null;
+                    bool?  v     = obj.ContainsKey("value") ? obj["value"].GetValue<bool>() : null;
+                    t?.ToggleHide(v);
                     break;
                 }
 
                 case "set_flag": {
-                    string name = obj["name"].GetValue<string>();
-                    string val  = obj["value"]?.GetValue<string>() ?? "true";
-                    Variant v   = (val == "true" || val == "false")
+                    string fname = obj["name"].GetValue<string>();
+                    string val   = obj["value"]?.GetValue<string>() ?? "true";
+                    Variant fv   = (val == "true" || val == "false")
                         ? Variant.From(val == "true")
                         : Variant.From(val);
-                    ParentScene.AddFlag(name, v);
+                    _scene.AddFlag(fname, fv);
                     break;
                 }
 
-                case "branch_on_flag": {
+                case "if_flag": {
                     string flagName = obj["name"].GetValue<string>();
                     bool   expected = obj["is"]?.GetValue<bool>() ?? true;
-                    bool   actual   = ParentScene.GetFlag(flagName).Value.As<bool>();
+                    bool   actual   = _scene.GetFlag(flagName).Value.As<bool>();
                     var    branch   = (actual == expected ? obj["then"] : obj["else"])?.AsArray();
                     if (branch != null)
                     {
@@ -407,251 +323,209 @@ public partial class Event : Node
 }
 
 // ---------------------------------------------------------------------------
-// EventSequence — ordered list of Events that runs one at a time.
-// Instantiate with a parent scene, push events with the AddEvent* helpers,
-// then call ExecuteAll(). scene_script._Process() calls this automatically.
+// EventSequence — ordered list of IEventStep, advanced by Tick() each frame.
+// Instantiate with a parent scene, push steps with the AddEvent* helpers.
+// scene_script._Process() calls eventQueue.Tick() automatically.
 // ---------------------------------------------------------------------------
-public partial class EventSequence
+public class EventSequence
 {
-    private scene_script parentScene;
-    private int          currentEvent = 0;
-    public  bool         isRunning    = false;
-    public  bool         isInterrupted = false;
-    public  List<Event>  eventList;
+    private readonly scene_script     _scene;
+    private readonly List<IEventStep> _steps        = new();
+    private          int              _current      = -1;
+    private          bool             _weDidSuspend;
 
-    // Events whose EventFinished signal is NOT awaited (they complete synchronously).
-    private static readonly HashSet<Event.EventType> instantTypes = new()
-    {
-        Event.EventType.add_scene_flag,
-        Event.EventType.change_facing,
-        Event.EventType.change_facing_lookat,
-        Event.EventType.play_animation,
-        Event.EventType.add_to_inventory,
-        Event.EventType.remove_from_inventory,
-        Event.EventType.remap_floor,
-    };
+    // Readable by external callers (thing.cs, scene_script.cs).
+    public bool isInterrupted { get; private set; }
+    public bool isRunning     => _steps.Count > 0;
 
-    public enum SuspendType { normal = 0, suspend_all = 1, unsuspend_all = 2 }
+    // Exposed for debug display in scene_script._Process().
+    public IReadOnlyList<IEventStep> Steps => _steps;
 
-    public EventSequence(scene_script _parentScene)
-    {
-        parentScene = _parentScene;
-        eventList   = new List<Event>();
-    }
+    public EventSequence(scene_script scene) => _scene = scene;
 
-    public EventSequence(scene_script _parentScene, List<Event> newEvents)
-    {
-        parentScene = _parentScene;
-        eventList   = new List<Event>();
-        foreach (Event e in newEvents)
-            AddEvent(e);
-    }
-
-    public int  Count()           => eventList.Count;
-    public Event GetCurrentEvent() => eventList[currentEvent];
-
-    public bool HasEventsWaiting() =>
-        eventList.Count > 0 && !isRunning;
-
-    public void Halt() => isRunning = false;
+    public int  Count() => _steps.Count;
 
     public void Clear()
     {
-        eventList.Clear();
-        eventList     = new List<Event>();
-        isRunning     = false;
-        isInterrupted = false;
-        currentEvent  = 0;
+        _steps.Clear();
+        _current       = -1;
+        isInterrupted  = false;
+        _weDidSuspend  = false;
     }
 
+    // Interrupt the running sequence if the current step allows it.
+    // Sets isInterrupted so callers know to act (stop walking, etc.).
     public void TryInterrupt()
     {
-        if (eventList.Count == 0 || !eventList[currentEvent].IsInterruptable)
-            return;
+        if (_steps.Count == 0 || _current < 0 || _current >= _steps.Count) return;
+        if (!_steps[_current].IsInterruptable) return;
+        _steps.Clear();
+        _current      = -1;
+        _weDidSuspend = false;
         isInterrupted = true;
     }
 
-    public async void ExecuteAll(SuspendType suspendType = SuspendType.normal)
+    // Called once per frame from scene_script._Process().
+    // Starts the next pending step or advances past a completed one.
+    public void Tick()
     {
-        isRunning    = true;
-        currentEvent = 0;
+        if (_steps.Count == 0) return;
 
-        for (int i = 0; i < eventList.Count; i++)
+        // First tick after steps were added: start the first step.
+        if (_current < 0)
         {
-            if (!isRunning)    return;
-            if (isInterrupted) { Halt(); Clear(); return; }
-
-            currentEvent = i;
-
-            switch (suspendType)
-            {
-                case SuspendType.normal:
-                    if (!eventList[i].IsInterruptable)
-                        parentScene.SuspendSceneInput();
-                    else if (parentScene.isSceneInputSuspended)
-                        parentScene.UnsuspendSceneInput();
-                    break;
-                case SuspendType.suspend_all:
-                    if (!parentScene.isSceneInputSuspended)
-                        parentScene.SuspendSceneInput();
-                    break;
-                case SuspendType.unsuspend_all:
-                    if (parentScene.isSceneInputSuspended)
-                        parentScene.UnsuspendSceneInput();
-                    break;
-            }
-
-            eventList[i].Execute();
-            if (!instantTypes.Contains(eventList[i].Type))
-                await eventList[i].ToSignal(eventList[i], "EventFinished");
+            _current = 0;
+            ApplySuspension(_steps[0]);
+            _steps[0].Start();
+            return;
         }
 
-        Halt();
+        if (_current >= _steps.Count) return;
+        if (!_steps[_current].IsComplete) return;
+
+        _current++;
+        if (_current >= _steps.Count)
+        {
+            Done();
+            return;
+        }
+
+        ApplySuspension(_steps[_current]);
+        _steps[_current].Start();
+    }
+
+    private void ApplySuspension(IEventStep step)
+    {
+        if (!step.IsInterruptable)
+        {
+            _scene.SuspendSceneInput();
+            _weDidSuspend = true;
+        }
+        else if (_weDidSuspend)
+        {
+            _scene.UnsuspendSceneInput();
+            _weDidSuspend = false;
+        }
+    }
+
+    private void Done()
+    {
+        bool wasSuspended = _weDidSuspend;
         Clear();
-
-        if (parentScene.isSceneInputSuspended && suspendType == SuspendType.normal)
-            parentScene.UnsuspendSceneInput();
+        if (wasSuspended)
+            _scene.UnsuspendSceneInput();
     }
 
     // -------------------------------------------------------------------------
-    // AddEvent — dispatch an existing Event object to the right typed helper.
+    // AddEvent* helpers — create an IEventStep and append it to the queue.
+    // Signatures are identical to the old Event-based helpers so call sites
+    // (thing overrides, scene scripts, PopulateEventQueue) need no changes.
     // -------------------------------------------------------------------------
-    public void AddEvent(Event e)
-    {
-        switch (e.Type)
+
+    public void AddEventWait(float seconds) =>
+        _steps.Add(new SignalStep(
+            () => _scene.GetTree().CreateTimer(seconds, true),
+            "timeout",
+            debugName: $"wait({seconds}s)"));
+
+    public void AddEventMove(NPC actor, Vector2 dest, bool _interruptable = false) =>
+        _steps.Add(new SignalStep(
+            () => { actor.GoToLocation(dest); return actor; },
+            "DestinationReached",
+            _interruptable,
+            debugName: "move"));
+
+    public void AddEventChangeFacing(NPC actor, NPC.Direction facing, bool _interruptable = false) =>
+        _steps.Add(new InstantStep(() => actor.ChangeFacing(facing), _interruptable));
+
+    public void AddEventChangeFacingToLookAt(NPC actor, Node2D target, bool _interruptable = false) =>
+        _steps.Add(new InstantStep(() => actor.ChangeFacingToLookAt(target as thing), _interruptable));
+
+    public void AddEventPlayAnimation(AnimationPlayer player, string animName, bool _interruptable = false) =>
+        _steps.Add(new InstantStep(() => player.Play(animName), _interruptable));
+
+    public void AddEventAddToInventory(thing t) =>
+        _steps.Add(new InstantStep(() => t.AddToInventory()));
+
+    public void AddEventRemoveFromInventory(InventoryItem.ItemType itemType) =>
+        _steps.Add(new InstantStep(() =>
         {
-            case Event.EventType.add_scene_flag:        AddEventAddFlag(e.sceneFlag); break;
-            case Event.EventType.wait:                  AddEventWait(e.duration); break;
-            case Event.EventType.move:                  AddEventMove(e.ActingCharacter, e.Position, e.IsInterruptable); break;
-            case Event.EventType.narrate:               AddEventNarrate(e.Phrase, e.Position, e.IsInterruptable); break;
-            case Event.EventType.character_speak:       AddEventSpeak(e.ActingCharacter, e.Phrase, e.Position, e.IsInterruptable); break;
-            case Event.EventType.character_think:       AddEventThink(e.ActingCharacter, e.Phrase, e.Position, e.IsInterruptable); break;
-            case Event.EventType.conversation:          AddEventConversation(e.dialogFile, _interruptable: e.IsInterruptable); break;
-            case Event.EventType.change_facing:         AddEventChangeFacing(e.ActingCharacter, e.NewFacing, e.IsInterruptable); break;
-            case Event.EventType.change_facing_lookat:  AddEventChangeFacingToLookAt(e.ActingCharacter, e.interactThing, e.IsInterruptable); break;
-            case Event.EventType.play_animation:        AddEventPlayAnimation(e.animationPlayer, e.animationToPlay, e.IsInterruptable); break;
-            case Event.EventType.add_to_inventory:      AddEventAddToInventory(e.interactThing); break;
-            case Event.EventType.remove_from_inventory: AddEventRemoveFromInventory(e.itemType); break;
-        }
-    }
+            var inv = _scene.mainScene.inventory;
+            for (int i = 0; i < inv.Count; i++)
+                if (inv[i].Type == itemType) { inv.RemoveAt(i); break; }
+        }));
 
-    // -------------------------------------------------------------------------
-    // AddEvent* typed helpers — each creates an Event, fills its fields, and
-    // appends it to eventList.
-    // -------------------------------------------------------------------------
+    public void AddEventAddFlag(Globals.SceneFlag flag) =>
+        _steps.Add(new InstantStep(() => _scene.AddFlag(flag.Name, flag.Value)));
 
-    private Event NewEvent(Event.EventType type, bool interruptable = false)
-    {
-        var e = new Event
+    public void AddEventToggleExist(thing t, bool? value = null) =>
+        _steps.Add(new InstantStep(() => t?.ToggleExist(value)));
+
+    public void AddEventToggleHide(thing t, bool? value = null) =>
+        _steps.Add(new InstantStep(() => t?.ToggleHide(value)));
+
+    public void AddEventExit(string dest, string arriveDir = "", string arriveArea = "", bool arriveWalk = true) =>
+        _steps.Add(new InstantStep(() =>
         {
-            ParentScene    = parentScene,
-            Type           = type,
-            IsFinished     = false,
-            IsInProgress   = false,
-            IsInterruptable = interruptable,
-        };
-        eventList.Add(e);
-        return e;
-    }
+            var arrival = new scene_script.ArrivalData(System.IO.Path.GetFileNameWithoutExtension(_scene.SceneFilePath), arriveDir, arriveArea, arriveWalk);
+            _scene.mainScene.ChangeSceneToFile(dest, arrival);
+        }));
 
-    public void AddEventAddFlag(Globals.SceneFlag flag)
-    {
-        var e = NewEvent(Event.EventType.add_scene_flag, interruptable: true);
-        e.sceneFlag = flag;
-    }
-
-    public void AddEventWait(float seconds)
-    {
-        var e = NewEvent(Event.EventType.wait);
-        e.duration = seconds;
-    }
-
-    public void AddEventAddToInventory(thing t)
-    {
-        var e = NewEvent(Event.EventType.add_to_inventory, interruptable: true);
-        e.interactThing = t;
-    }
-
-    public void AddEventRemoveFromInventory(InventoryItem.ItemType itemType)
-    {
-        var e = NewEvent(Event.EventType.remove_from_inventory, interruptable: true);
-        e.itemType = itemType;
-    }
-
-    public void AddEventMove(NPC character, Vector2 position, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.move, _interruptable);
-        e.ActingCharacter = character;
-        e.Position        = position;
-    }
-
-    public void AddEventChangeFacing(NPC character, NPC.Direction facing, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.change_facing, _interruptable);
-        e.ActingCharacter = character;
-        e.NewFacing       = facing;
-    }
-
-    public void AddEventChangeFacingToLookAt(NPC character, Node2D target, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.change_facing_lookat, _interruptable);
-        e.ActingCharacter = character;
-        e.interactThing   = target as thing;
-    }
-
-    public void AddEventSpeak(NPC character, string phrase, Vector2? position = null, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.character_speak, _interruptable);
-        e.ActingCharacter = character;
-        e.Color           = character.dialogColor;
-        e.Phrase          = phrase;
-        e.Position        = position ?? Vector2.Zero;
-    }
-
-    public void AddEventThink(NPC character, string phrase, Vector2? position = null, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.character_think, _interruptable);
-        e.ActingCharacter = character;
-        e.Color           = character.dialogColor;
-        e.Phrase          = phrase;
-        e.Position        = position ?? Vector2.Zero;
-    }
-
-    public void AddEventNarrate(string phrase, Vector2? position = null, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.narrate, _interruptable);
-        e.Color    = Colors.Yellow;
-        e.Phrase   = phrase;
-        e.Position = position ?? Vector2.Zero;
-    }
-
-    public void AddEventConversation(string dialogFile, Vector2? position = null, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.conversation, _interruptable);
-        e.dialogFile = dialogFile;
-        e.Color                 = Colors.White;
-        e.Position              = position ?? Vector2.Zero;
-    }
-
-    public void AddEventRemapFloor(string navRegionNodeName, string guidePolygonNodeName)
-    {
-        var e = new Event
+    public void AddEventRemapFloor(string navRegionNodeName, string guidePolygonNodeName) =>
+        _steps.Add(new InstantStep(() =>
         {
-            ParentScene          = parentScene,
-            Type                 = Event.EventType.remap_floor,
-            IsFinished           = false,
-            IsInProgress         = false,
-            IsInterruptable      = true,
-            navRegionNodeName    = navRegionNodeName,
-            guidePolygonNodeName = guidePolygonNodeName,
-        };
-        eventList.Add(e);
-    }
+            var navReg = _scene.GetNodeOrNull<NavigationRegion2D>(navRegionNodeName ?? "NavigationRegion2D");
+            if (navReg == null) return;
+            var guide = navReg.GetNodeOrNull<Polygon2D>(guidePolygonNodeName);
+            if (guide == null) return;
+            var poly = new NavigationPolygon();
+            poly.AddOutline(guide.Polygon);
+#pragma warning disable CS0618
+            poly.MakePolygonsFromOutlines();
+#pragma warning restore CS0618
+            navReg.NavigationPolygon = poly;
+        }));
 
-    public void AddEventPlayAnimation(AnimationPlayer player, string animName, bool _interruptable = false)
-    {
-        var e = NewEvent(Event.EventType.play_animation, _interruptable);
-        e.animationPlayer = player;
-        e.animationToPlay = animName;
-    }
+    public void AddEventSpeak(NPC actor, string phrase, Vector2? position = null,
+                              bool _interruptable = false, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => actor.parentScene.CreateDialog(
+                Globals.DialogTypes.speaking, phrase, actor.dialogColor, position,
+                actor.topPoint, actor.Facing, strict: strict),
+            "DialogClosed", _interruptable, "speak"));
+
+    public void AddEventThink(NPC actor, string phrase, Vector2? position = null,
+                              bool _interruptable = false, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => actor.parentScene.CreateDialog(
+                Globals.DialogTypes.thinking, phrase, actor.dialogColor, position,
+                new Vector2(actor.Position.X, actor.topPoint.Y), actor.Facing, strict: strict),
+            "DialogClosed", _interruptable, "think"));
+
+    public void AddEventSpeakFromAnchor(DialogAnchor anchor, string phrase,
+                                        bool _interruptable = false, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => _scene.CreateDialog(
+                Globals.DialogTypes.speaking, phrase, anchor.dialogColor, null,
+                anchor.GlobalPosition, anchor.Facing, strict: strict),
+            "DialogClosed", _interruptable, "speak(anchor)"));
+
+    public void AddEventThinkFromAnchor(DialogAnchor anchor, string phrase,
+                                        bool _interruptable = false, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => _scene.CreateDialog(
+                Globals.DialogTypes.thinking, phrase, anchor.dialogColor, null,
+                anchor.GlobalPosition, anchor.Facing, strict: strict),
+            "DialogClosed", _interruptable, "think(anchor)"));
+
+    public void AddEventNarrate(string phrase, Vector2? position = null,
+                                bool _interruptable = false, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => _scene.CreateDialog(Globals.DialogTypes.narration, phrase,
+                                      Colors.Yellow, position, strict: strict),
+            "DialogClosed", _interruptable, "narrate"));
+
+    public void AddEventConversation(string dialogFile, Vector2? position = null,
+                                     bool _interruptable = false) =>
+        _steps.Add(new ConversationStep(_scene, dialogFile, _interruptable));
 }
