@@ -119,6 +119,7 @@ shader_parameter/white_cutoff = 0.775
 
 [node name="MainScene" type="Node2D" unique_id=1285218856]
 script = ExtResource("1_2l4hu")
+showDebugTools = true
 
 [node name="EventManager" type="Node" parent="." unique_id=1527263301]
 
@@ -188,13 +189,29 @@ cursorTextureSize = Vector2i(6, 1)
 itemTexture = ExtResource("9_wyabt")
 itemTextureSize = Vector2i(6, 6)
 
-[node name="DebugText" type="RichTextLabel" parent="." unique_id=2057632062]
-z_index = 10
-offset_left = 16.0
-offset_top = 4.0
-offset_right = 637.0
-offset_bottom = 647.0
+[node name="DebugLayer" type="CanvasLayer" parent="." unique_id=2057632060]
+layer = 200
+
+[node name="DebugPanel" type="Panel" parent="DebugLayer" unique_id=2057632061]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 420.0
+offset_bottom = 500.0
 mouse_filter = 2
-text = "DEBUG TEXT"
+
+[node name="DebugText" type="RichTextLabel" parent="DebugLayer/DebugPanel" unique_id=2057632062]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 4.0
+offset_right = -6.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 
 [connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]

@@ -1,0 +1,15 @@
+{
+  "areas": {
+    "exit_shape": {
+      "use": [{
+        "action": "exit",
+        "destination": "REPLACE_ME",
+        "arrive_dir": "down"
+      }]
+    }
+  },
+  "things": {},
+  "sequences": {},
+  "on_arrive_from": {},
+  "default": []
+}

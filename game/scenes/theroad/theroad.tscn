@@ -101,7 +101,8 @@ shape = SubResource("2")
 [node name="Candle" type="Node2D" parent="." unique_id=1637498701]
 z_index = 1
 z_as_relative = false
-position = Vector2(1081, 460)
+position = Vector2(856, 469)
+scale = Vector2(1.6650901, 1.8915019)
 script = ExtResource("7")
 displayName = "candle"
 castsShadow = true
@@ -145,14 +146,14 @@ polygon = PackedVector2Array(401, 300, 403, 336, 332, 329, 336, 296)
 position = Vector2(387, 460)
 
 [node name="someguy" parent="." unique_id=1779810606 instance=ExtResource("10_gjxlk")]
-position = Vector2(489, 508)
+position = Vector2(576, 511)
 dialogColor = Color(1, 0.886275, 0.223529, 1)
 Facing = 4
 speed = 85.0
 castsShadow = true
 lookClosely = false
 lookText = PackedStringArray("HE SEEMS FAMILIAR...")
-startingScaleAsBaseline = false
+startingScaleAsBaseline = true
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=73297095]
 modulate = Color(1, 0, 0, 1)

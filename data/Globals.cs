@@ -33,8 +33,11 @@ public partial class Globals : Node
         choice    = 3,
     }
 
-    // Set to true in the editor or at startup to show debug overlays.
-    public static bool showDebugTools = false;
+    // Set to true in the editor or at startup to enable all debug features.
+    public static bool showDebugTools    = false;
+    // Sub-toggles (only meaningful when showDebugTools is true):
+    public static bool showDebugGraphics = true;   // F2 — polygons/gizmos on things & NPCs
+    public static bool showDebugPanel    = true;   // F3 — info panel (pos/events/flags/inventory)
 
     // One saved flag per scene: tracks puzzle state across scene changes.
     // Saved as JSON by MainScene.Save() / Load().

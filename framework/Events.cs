@@ -464,10 +464,10 @@ public class EventSequence
     public void AddEventToggleHide(thing t, bool? value = null) =>
         _steps.Add(new InstantStep(() => t?.ToggleHide(value)));
 
-    public void AddEventExit(string dest, string arriveDir = "", string arriveArea = "", bool arriveWalk = true) =>
+    public void AddEventExit(string dest, string arriveDir = "", string arriveArea = "", bool arriveWalk = true, string arriveThing = "") =>
         _steps.Add(new InstantStep(() =>
         {
-            var arrival = new scene_script.ArrivalData(System.IO.Path.GetFileNameWithoutExtension(_scene.SceneFilePath), arriveDir, arriveArea, arriveWalk);
+            var arrival = new scene_script.ArrivalData(System.IO.Path.GetFileNameWithoutExtension(_scene.SceneFilePath), arriveDir, arriveArea, arriveWalk, arriveThing);
             _scene.mainScene.ChangeSceneToFile(dest, arrival);
         }));
 

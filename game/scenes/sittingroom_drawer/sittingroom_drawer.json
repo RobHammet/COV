@@ -1,11 +1,11 @@
 {
   "areas": {
     "exit_shape": {
-      "use": [{
+      "walk|use": [{
         "action": "exit",
         "destination": "sittingroom",
         "arrive_dir": "down",
-        "arrive_thing": "exit_to_theporch"
+        "arrive_thing": "drawers"
       }]
     }
   },

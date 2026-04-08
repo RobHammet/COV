@@ -152,10 +152,11 @@ public static class ScriptParser
                 case "exit": {
                     string dest      = Scenes.Resolve(obj["destination"]?.GetValue<string>() ?? "");
                     if (string.IsNullOrEmpty(dest)) break;
-                    string arriveDir  = obj["arrive_dir"]?.GetValue<string>()  ?? "";
-                    string arriveArea = obj["arrive_area"]?.GetValue<string>() ?? "";
-                    bool   noWalk     = obj["no_walk"]?.GetValue<bool>() ?? false;
-                    queue.AddEventExit(dest, arriveDir, arriveArea, !noWalk);
+                    string arriveDir   = obj["arrive_dir"]?.GetValue<string>()   ?? "";
+                    string arriveArea  = obj["arrive_area"]?.GetValue<string>()  ?? "";
+                    string arriveThing = obj["arrive_thing"]?.GetValue<string>() ?? "";
+                    bool   noWalk      = obj["no_walk"]?.GetValue<bool>() ?? false;
+                    queue.AddEventExit(dest, arriveDir, arriveArea, !noWalk, arriveThing);
                     break;
                 }
                 case "run_sequence": {

@@ -64,6 +64,12 @@ public static class Scenes
         { "basement",     BASEMENT     },
     };
 
+    // All scenes as (shortName, path) pairs — used by the debug menu.
+    public static System.Collections.Generic.IEnumerable<(string name, string path)> All()
+    {
+        foreach (var kv in _byName) yield return (kv.Key, kv.Value);
+    }
+
     // Accepts either a short display name ("kitchen") or a full res:// path.
     public static string Resolve(string nameOrPath) =>
         _byName.TryGetValue(nameOrPath.ToLowerInvariant(), out var path) ? path : nameOrPath;

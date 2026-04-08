@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://template_insert_001"]
+
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_ins"]
+[ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="2_ins"]
+[ext_resource type="Script" uid="uid://165o7srds63d" path="res://framework/DialogAnchor.cs" id="3_ins"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_clamp"]
+size = Vector2(1152, 648)
+
+[node name="template_insert" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+script = ExtResource("1_ins")
+displayName = "TEMPLATE INSERT"
+isInsert = true
+parallaxSprites = []
+
+[node name="background" type="Sprite2D" parent="."]
+offset = Vector2(576, 324)
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+position = Vector2(576, 200)
+energy = 5.0
+texture = ExtResource("2_ins")
+texture_scale = 5.0
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(576, 324)
+
+[node name="CameraClamp" type="CollisionShape2D" parent="."]
+position = Vector2(576, 324)
+shape = SubResource("RectangleShape2D_clamp")
+
+[node name="exit_shape" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(-576, -324, 576, -324, 576, 324, -576, 324)
+
+[node name="ego_point" type="Node2D" parent="."]
+position = Vector2(576, 450)
+script = ExtResource("3_ins")

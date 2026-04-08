@@ -72,7 +72,7 @@ public partial class thing : Node2D
     public override void _Draw()
     {
         base._Draw();
-        if (!Globals.showDebugTools) return;
+        if (!Globals.showDebugTools || !Globals.showDebugGraphics) return;
         if (clickPolygon != null && clickPolygon.Length > 0)
         {
             var pts = new Vector2[clickPolygon.Length + 1];
@@ -259,6 +259,7 @@ public partial class thing : Node2D
         if (!isExist) return;
         switch (mode)
         {
+            case Globals.InteractModes.walk: TryWalk(); break;
             case Globals.InteractModes.look: TryLook(); break;
             case Globals.InteractModes.talk: TryTalk(); break;
             case Globals.InteractModes.use:  TryUse();  break;
@@ -343,6 +344,13 @@ public partial class thing : Node2D
             if (ego != null) parentScene.eventQueue.AddEventSpeak(ego, fb, Vector2.Zero);
             else             parentScene.eventQueue.AddEventNarrate(fb);
         }
+    }
+
+    public void TryWalk()
+    {
+        if (_interactionData?.ContainsKey("walk") != true) return;
+        parentScene.eventQueue = new EventSequence(parentScene);
+        scene_script.PopulateEventQueue(parentScene.eventQueue, _interactionData["walk"].AsArray(), parentScene, this);
     }
 
     public virtual bool SpecificLook(NPC ego, EventSequence eventSequence)

@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://template_scene_001"]
+
+[ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_tmpl"]
+[ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="2_tmpl"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="3_tmpl"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_tmpl"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_clamp"]
+size = Vector2(1152, 648)
+
+[node name="template_scene" type="Node2D" node_paths=PackedStringArray("parallaxSprites")]
+script = ExtResource("1_tmpl")
+displayName = "TEMPLATE"
+parallaxSprites = []
+
+[node name="background" type="Sprite2D" parent="."]
+offset = Vector2(576, 324)
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_tmpl")
+
+[node name="ScalerStick" type="Line2D" parent="."]
+points = PackedVector2Array(576, 100, 576, 400, 576, 600)
+width = 4.0
+default_color = Color(1, 1, 1, 0)
+script = ExtResource("3_tmpl")
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+position = Vector2(576, 200)
+energy = 5.0
+texture = ExtResource("2_tmpl")
+texture_scale = 5.0
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(576, 324)
+
+[node name="CameraClamp" type="CollisionShape2D" parent="."]
+position = Vector2(576, 324)
+shape = SubResource("RectangleShape2D_clamp")
+
+[node name="start_point" type="Node2D" parent="."]
+position = Vector2(576, 450)

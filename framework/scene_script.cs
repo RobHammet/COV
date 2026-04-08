@@ -90,7 +90,8 @@ public partial class scene_script : Node2D
         string SourceName,
         string Dir,
         string Area,
-        bool   Walk
+        bool   Walk,
+        string Thing = ""
     );
 
     private readonly record struct ExitZone(string Dest, Vector2 Center, Vector2 HalfSize, ArrivalData Arrival);
@@ -104,7 +105,7 @@ public partial class scene_script : Node2D
 
     // Interactive areas — CollisionShape2D or CollisionPolygon2D regions in the
     // scene JSON that respond to use/look/talk clicks rather than walk triggers.
-    private readonly record struct InteractiveArea(Vector2[] Polygon, JsonArray UseActions, JsonArray LookActions, JsonArray TalkActions);
+    private readonly record struct InteractiveArea(Vector2[] Polygon, JsonArray WalkActions, JsonArray UseActions, JsonArray LookActions, JsonArray TalkActions);
     private readonly List<InteractiveArea> _interactiveAreas = new();
 
     // Cached scene light — resolved once in _EnterTree() to avoid GetNode every frame.
@@ -206,7 +207,7 @@ public partial class scene_script : Node2D
                 {
                     ego.parentScene = this;
                     AddChild(ego);
-                    ego.Position    = startPoint?.Position ?? Vector2.Zero;
+                    ego.Position    = startPoint?.Position ?? NavCentroid();
                     egoOriginalModulate = ego.Modulate;
                 }
             }
@@ -255,6 +256,18 @@ public partial class scene_script : Node2D
     {
         base._Ready();
         SetupAreaZones();
+    }
+
+    private Vector2 NavCentroid()
+    {
+        var nav = GetNodeOrNull<NavigationRegion2D>("NavigationRegion2D");
+        if (nav?.NavigationPolygon == null || nav.NavigationPolygon.GetOutlineCount() == 0)
+            return Vector2.Zero;
+        var outline = nav.NavigationPolygon.GetOutline(0);
+        if (outline.Length == 0) return Vector2.Zero;
+        Vector2 sum = Vector2.Zero;
+        foreach (var pt in outline) sum += pt;
+        return sum / outline.Length;
     }
 
     private static bool InsideZone(Vector2 pos, in ExitZone zone) =>
@@ -330,11 +343,12 @@ public partial class scene_script : Node2D
                     if (shape == null) continue; // exits require RectangleShape2D
                     string dest = Scenes.Resolve(exitAction["destination"]?.GetValue<string>() ?? "");
                     if (string.IsNullOrEmpty(dest)) continue;
-                    string arriveDir  = exitAction["arrive_dir"]?.GetValue<string>()  ?? "";
-                    string arriveArea = exitAction["arrive_area"]?.GetValue<string>() ?? "";
-                    bool   noWalk     = exitAction["no_walk"]?.GetValue<bool>() ?? false;
-                    bool   arriveWalk = !noWalk;
-                    var    arrival    = new ArrivalData(System.IO.Path.GetFileNameWithoutExtension(SceneFilePath), arriveDir, arriveArea, arriveWalk);
+                    string arriveDir   = exitAction["arrive_dir"]?.GetValue<string>()   ?? "";
+                    string arriveArea  = exitAction["arrive_area"]?.GetValue<string>()  ?? "";
+                    string arriveThing = exitAction["arrive_thing"]?.GetValue<string>() ?? "";
+                    bool   noWalk      = exitAction["no_walk"]?.GetValue<bool>() ?? false;
+                    bool   arriveWalk  = !noWalk;
+                    var    arrival     = new ArrivalData(System.IO.Path.GetFileNameWithoutExtension(SceneFilePath), arriveDir, arriveArea, arriveWalk, arriveThing);
                     _exitZones.Add((kv.Key, new ExitZone(dest, center, halfSize, arrival)));
                 }
                 else
@@ -344,11 +358,20 @@ public partial class scene_script : Node2D
                 continue;
             }
 
-            // Interaction verbs — use / look / talk.
-            JsonArray useActions  = areaData["use"]?.AsArray();
-            JsonArray lookActions = areaData["look"]?.AsArray();
-            JsonArray talkActions = areaData["talk"]?.AsArray();
-            if (useActions == null && lookActions == null && talkActions == null) continue;
+            // Interaction verbs — walk / use / look / talk.
+            // Keys may be pipe-separated to share actions across modes, e.g. "walk|use".
+            static JsonArray VerbActions(JsonObject d, string verb) {
+                if (d.ContainsKey(verb)) return d[verb]?.AsArray();
+                foreach (var pair in d)
+                    if (pair.Key.Contains('|') && Array.IndexOf(pair.Key.Split('|'), verb) >= 0)
+                        return pair.Value?.AsArray();
+                return null;
+            }
+            JsonArray walkActions2 = VerbActions(areaData, "walk");
+            JsonArray useActions   = VerbActions(areaData, "use");
+            JsonArray lookActions  = VerbActions(areaData, "look");
+            JsonArray talkActions  = VerbActions(areaData, "talk");
+            if (walkActions2 == null && useActions == null && lookActions == null && talkActions == null) continue;
 
             // Build world-space polygon for hit-testing if we only have a rect.
             if (polygon == null)
@@ -361,7 +384,7 @@ public partial class scene_script : Node2D
                     new Vector2(center.X - halfSize.X, center.Y + halfSize.Y),
                 ];
             }
-            _interactiveAreas.Add(new InteractiveArea(polygon, useActions, lookActions, talkActions));
+            _interactiveAreas.Add(new InteractiveArea(polygon, walkActions2, useActions, lookActions, talkActions));
         }
     }
 
@@ -509,8 +532,7 @@ public partial class scene_script : Node2D
         if (mainScene.currentInputMode != Globals.InputModes.verbtray) return;
         int next = (int)mainScene.GetInteractMode() + 1;
         if (next > 4) next = 0;
-        // Skip walk if scene has no ego.
-        if (next == 0 && ego == null) next = 1;
+        if (next == 0 && ego == null && !isInsert) next = 1;
         mainScene.SetInteractMode((Globals.InteractModes)next);
     }
 
@@ -675,15 +697,44 @@ public partial class scene_script : Node2D
         // Debug overlay.
         if (mainScene != null)
         {
-            mainScene.debugText.Visible = Globals.showDebugTools;
-            if (Globals.showDebugTools && ego != null)
+            mainScene._debugPanel.Visible = Globals.showDebugTools && Globals.showDebugPanel;
+            if (Globals.showDebugTools)
             {
-                mainScene.debugText.Text  = $"pos: {ego.Position}";
-                mainScene.debugText.Text += $"\nfastwalk: {ego.isFastWalking}";
-                mainScene.debugText.Text += $"\nitem: {mainScene.usingItem}";
-                mainScene.debugText.Text += "\nevents:";
-                foreach (var s in eventQueue.Steps)
-                    mainScene.debugText.Text += $"\n  {s.DebugName}";
+                var sb = new System.Text.StringBuilder();
+
+                sb.AppendLine($"[b]SCENE[/b]  {Name}");
+                if (ego != null)
+                {
+                    sb.AppendLine($"x: {ego.Position.X,7:F1}  y: {ego.Position.Y,7:F1}");
+                    sb.AppendLine($"facing: {ego.Facing,-5}  fastwalk: {ego.isFastWalking}");
+                    sb.AppendLine($"mode: {mainScene.GetInteractMode()}  item: {mainScene.usingItem}");
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("[b]EVENTS[/b]");
+                if (eventQueue.Steps.Count == 0)
+                    sb.AppendLine("  (none)");
+                else
+                    foreach (var s in eventQueue.Steps)
+                        sb.AppendLine($"  {s.DebugName}");
+
+                sb.AppendLine();
+                sb.AppendLine("[b]INVENTORY[/b]");
+                if (mainScene.inventory.Count == 0)
+                    sb.AppendLine("  (empty)");
+                else
+                    foreach (var item in mainScene.inventory)
+                        sb.AppendLine($"  {item.Type}");
+
+                sb.AppendLine();
+                sb.AppendLine("[b]FLAGS[/b]");
+                if (mainScene.sceneFlags.Count == 0)
+                    sb.AppendLine("  (none)");
+                else
+                    foreach (var f in mainScene.sceneFlags)
+                        sb.AppendLine($"  [{f.sceneName}] {f.Name} = {f.Value}");
+
+                mainScene.debugText.Text = sb.ToString();
                 QueueRedraw();
             }
         }
@@ -841,6 +892,7 @@ public partial class scene_script : Node2D
             if (!Geometry2D.IsPointInPolygon(pos, area.Polygon)) continue;
             JsonArray actions = mode switch
             {
+                Globals.InteractModes.walk => area.WalkActions,
                 Globals.InteractModes.use  => area.UseActions,
                 Globals.InteractModes.look => area.LookActions,
                 Globals.InteractModes.talk => area.TalkActions,

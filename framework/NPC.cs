@@ -98,7 +98,7 @@ public partial class NPC : thing
     public override void _Draw()
     {
         base._Draw();
-        if (Globals.showDebugTools)
+        if (Globals.showDebugTools && Globals.showDebugGraphics)
             DrawCircle(ToLocal(topPoint), 5, Colors.DarkRed);
     }
 

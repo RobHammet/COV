@@ -109,6 +109,7 @@ target_desired_distance = 5.0
 polygon = PackedVector2Array(0, -200.26, 20.0421, -185.711, 28.2947, -3.42325, 7.07369, 0, -21.2211, -2.56744, -22.4, -184)
 
 [node name="InteractPoint" type="Node2D" parent="." unique_id=349800385]
+position = Vector2(-73, -1)
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=82946357]
 stream = ExtResource("5_u0bnw")

@@ -45,6 +45,8 @@ public partial class MainScene : Node2D
     [Export] bool forceMobile;
 
     public RichTextLabel debugText;
+    public Panel         _debugPanel;
+    private DebugMenu    _debugMenu;
 
     public List<Globals.SceneFlag> sceneFlags = [];
     public List<InventoryItem>     inventory  = [];
@@ -108,7 +110,11 @@ public partial class MainScene : Node2D
         Input.MouseMode = Input.MouseModeEnum.Hidden;
 
         cursor    = GetNode<Cursor>("Cursor");
-        debugText = GetNode<RichTextLabel>("DebugText");
+        _debugPanel = GetNode<Panel>("DebugLayer/DebugPanel");
+        debugText   = _debugPanel.GetNode<RichTextLabel>("DebugText");
+
+        _debugMenu             = new DebugMenu { mainScene = this };
+        GetNode<CanvasLayer>("DebugLayer").AddChild(_debugMenu);
 
         // Move cursor into its own CanvasLayer above the overlay (layer 10)
         // so it is always in front.
@@ -221,6 +227,26 @@ public partial class MainScene : Node2D
         {
             GD.Print("loading...");
             Load();
+        }
+        else if (Globals.showDebugTools &&
+                 inputEvent is InputEventKey key &&
+                 key.Pressed && !key.Echo)
+        {
+            switch (key.Keycode)
+            {
+                case Key.F1:
+                    Globals.showDebugPanel = !Globals.showDebugPanel;
+                    GetViewport().SetInputAsHandled();
+                    break;
+                case Key.F2:
+                    Globals.showDebugGraphics = !Globals.showDebugGraphics;
+                    GetViewport().SetInputAsHandled();
+                    break;
+                case Key.F3:
+                    _debugMenu.Toggle();
+                    GetViewport().SetInputAsHandled();
+                    break;
+            }
         }
     }
 
@@ -578,9 +604,14 @@ public partial class MainScene : Node2D
             }
         }
 
-        // Place character at the centre of the arrive zone.
+        // Place character at arrive_thing's interactPoint, or arrive_area's centre.
         CollisionShape2D arriveShape = null;
-        if (!string.IsNullOrEmpty(areaName))
+        if (!string.IsNullOrEmpty(arrival.Thing))
+        {
+            if (scene.FindChild(arrival.Thing, true, false) is thing t)
+                character.Position = t.interactPoint;
+        }
+        else if (!string.IsNullOrEmpty(areaName))
         {
             arriveShape = scene.GetNodeOrNull<CollisionShape2D>(areaName);
             if (arriveShape != null)
