@@ -5,7 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="6"]
 [ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7"]
 [ext_resource type="Texture2D" uid="uid://dcygbwi0aw4ja" path="res://game/scenes/theroad/candle_sprite-Sheet.png" id="8"]
-[ext_resource type="PackedScene" uid="uid://4vtqd6qa57n1" path="res://game/NPC/someguy.tscn" id="10_gjxlk"]
+[ext_resource type="PackedScene" uid="uid://c8x66k7i72djq" path="res://game/NPC/farmer.tscn" id="10_gjxlk"]
 [ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="RectangleShape2D" id="2"]
@@ -145,16 +145,6 @@ polygon = PackedVector2Array(401, 300, 403, 336, 332, 329, 336, 296)
 [node name="InteractPoint" type="Node2D" parent="house" unique_id=1984360920]
 position = Vector2(387, 460)
 
-[node name="someguy" parent="." unique_id=1779810606 instance=ExtResource("10_gjxlk")]
-position = Vector2(576, 511)
-dialogColor = Color(1, 0.886275, 0.223529, 1)
-Facing = 4
-speed = 85.0
-castsShadow = true
-lookClosely = false
-lookText = PackedStringArray("HE SEEMS FAMILIAR...")
-startingScaleAsBaseline = true
-
 [node name="Camera2D" type="Camera2D" parent="." unique_id=73297095]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
@@ -170,3 +160,6 @@ shape = SubResource("RectangleShape2D_3183a")
 
 [node name="start_point" type="Node2D" parent="." unique_id=332711221]
 position = Vector2(1000, 447)
+
+[node name="farmer" parent="." unique_id=682049652 instance=ExtResource("10_gjxlk")]
+position = Vector2(633, 513)

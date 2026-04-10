@@ -31,6 +31,17 @@ public partial class Globals : Node
         speaking  = 1,
         thinking  = 2,
         choice    = 3,
+        exclaim   = 4,
+    }
+
+    // Corner anchor for narration boxes.
+    public enum NarrationCorner
+    {
+        Auto        = 0,
+        TopLeft     = 1,
+        TopRight    = 2,
+        BottomLeft  = 3,
+        BottomRight = 4,
     }
 
     // Set to true in the editor or at startup to enable all debug features.

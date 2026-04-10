@@ -62,7 +62,7 @@ public partial class MainScene : Node2D
     public scene_script nextScene;
     public OverlayScene overlayScene;
     public Cursor       cursor;
-    private CanvasLayer _halftoneLayer;
+    private CanvasLayer _comicPageLayer;  // ComicPageLayer CanvasLayer (hidden during transitions)
 
     public bool isInTransition = false;
 
@@ -90,8 +90,11 @@ public partial class MainScene : Node2D
     public  int             CurrentPanelIndex => _currentPanelIndex;
     private ImageTexture[] _panelTextures     = new ImageTexture[6];
 
-    private const float PANEL_GUTTER_H = 8f;   // horizontal gap between panels
-    private const float PANEL_GUTTER_V = 18f;  // vertical gap between panels
+    private const float PAGE_ASPECT    = 8.5f / 11.0f; // portrait book proportions
+    private const float PAGE_MARGIN_H  = 16f;          // left/right page margin
+    private const float PAGE_MARGIN_V  = 18f;          // top/bottom page margin
+    private const float PANEL_GUTTER_H = 4f;           // thin horizontal gap between columns
+    private const float PANEL_GUTTER_V = 12f;          // vertical gap between rows
     private const float PAGE_SCALE_OUT = 0.88f;
 
     // Placeholder fill colors for unseen panels.
@@ -144,7 +147,14 @@ public partial class MainScene : Node2D
         // Detach OverlayScene from CurrentSceneHolder so it is never touched by
         // scene-transition code (scene frees, AddChild calls, etc.).
         // Black (the fade ColorRect) stays in CurrentSceneHolder for AnimationPlayer.
-        _halftoneLayer = GetNode<CanvasLayer>("HalftoneLayer");
+        _comicPageLayer = GetNode<CanvasLayer>("ComicPageLayer");
+        // The saved .tres material stores uv_noise_scale/uv_dirt_scale as float (old type).
+        // Force them to vec2(1,1) so the shader doesn't receive a zero vec2 and black out.
+        if (ComicPageMaterial != null)
+        {
+            ComicPageMaterial.SetShaderParameter("uv_noise_scale", Vector2.One);
+            ComicPageMaterial.SetShaderParameter("uv_dirt_scale",  Vector2.One);
+        }
         overlayScene = currentSceneHolder.GetNode<OverlayScene>("OverlayScene");
         currentSceneHolder.RemoveChild(overlayScene);
         AddChild(overlayScene);
@@ -272,8 +282,6 @@ public partial class MainScene : Node2D
     {
         if (isInTransition) return;
         isInTransition = true;
-        overlayScene?.HideForTransition();
-        if (_halftoneLayer != null) _halftoneLayer.Visible = false;
 
         switch (transitionType)
         {
@@ -323,30 +331,49 @@ public partial class MainScene : Node2D
         _panelTextures[toIndex] = await CaptureNextSceneThumbnail();
 
         // 3. Build the 6-panel page overlay, starting zoomed into fromIndex.
+        if (_comicPageLayer != null) _comicPageLayer.Visible = false;
         var overlay = new CanvasLayer { Layer = 100 };
         AddChild(overlay);
         overlay.AddChild(new ColorRect
         {
-            Color    = Colors.White,
+            Color    = new Color(0.12f, 0.12f, 0.12f),
             Size     = vp,
             Position = Vector2.Zero,
         });
 
-        Control page      = BuildPageContainer(vp, fromIndex);
+        Control page      = BuildPageContainer(vp);
         overlay.AddChild(page);
 
-        Vector2 panelSize = PanelSize(vp);
-        float   zoomIn    = ZoomInScale(panelSize, vp);
+        Vector2 panelSize  = PanelSize(vp);
+        float   zoomIn     = ZoomInScale(panelSize, vp);
+        Vector2 startPos   = ContainerPosForPanel(fromIndex, panelSize, zoomIn, vp);
         page.Scale    = new Vector2(zoomIn, zoomIn);
-        page.Position = ContainerPosForPanel(fromIndex, panelSize, zoomIn, vp);
+        page.Position = startPos;
+
+        // Match effectUV == SCREEN_UV so there is no jump from ComicPageLayer.
+        ShaderMaterial pageMat = GetPageShaderMat(page);
+        InitPageUVUniforms(pageMat, zoomIn, startPos, vp);
+
+        Vector2 fullPagePos        = ContainerPosForFullPage(vp);
+        Vector2 startNoiseScale    = NoiseScale(zoomIn,          vp);
+        Vector2 fullPageNoiseScale = NoiseScale(PAGE_SCALE_OUT,  vp);
+        Vector2 startNoiseOffset   = NoiseOffset(zoomIn,         startPos,    vp);
+        Vector2 fullPageNoiseOffset = NoiseOffset(PAGE_SCALE_OUT, fullPagePos, vp);
 
         // 4. Zoom out — ease-in-out for a smooth pull-back, not a whip.
         float dur      = RandomisedDuration(0.50f);
         Tween tweenOut = CreateTween().SetParallel(true);
         tweenOut.TweenProperty(page, "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), dur)
             .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
-        tweenOut.TweenProperty(page, "position", ContainerPosForFullPage(vp), dur)
+        tweenOut.TweenProperty(page, "position", fullPagePos, dur)
             .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+        if (pageMat != null)
+        {
+            tweenOut.TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
+                startNoiseScale, fullPageNoiseScale, dur).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+            tweenOut.TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
+                startNoiseOffset, fullPageNoiseOffset, dur).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+        }
         await ToSignal(tweenOut, Tween.SignalName.Finished);
 
         // 5. Pause — vary the beat length so it never feels mechanical.
@@ -355,22 +382,33 @@ public partial class MainScene : Node2D
         await ToSignal(pause, Tween.SignalName.Finished);
 
         // 6. Zoom in — cubic ease-out, no overshoot.
+        Vector2 toPos           = ContainerPosForPanel(toIndex, panelSize, zoomIn, vp);
+        Vector2 toNoiseScale    = NoiseScale(zoomIn, vp);
+        Vector2 toNoiseOffset   = NoiseOffset(zoomIn, toPos, vp);
         dur = RandomisedDuration(0.45f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(page, "scale",    new Vector2(zoomIn, zoomIn), dur)
             .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
-        tweenIn.TweenProperty(page, "position", ContainerPosForPanel(toIndex, panelSize, zoomIn, vp), dur)
+        tweenIn.TweenProperty(page, "position", toPos, dur)
             .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        if (pageMat != null)
+        {
+            tweenIn.TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
+                fullPageNoiseScale, toNoiseScale, dur).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+            tweenIn.TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
+                fullPageNoiseOffset, toNoiseOffset, dur).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        }
         await ToSignal(tweenIn, Tween.SignalName.Finished);
 
-        // 7. Finalise.
+        // 7. Finalise — align ComicPageLayer dirt UV to match the zoomed page container.
+        AlignDirtUV(zoomIn, toPos, vp);
         _currentPanelIndex = toIndex;
         SwitchCurrentSceneForNext();
         overlay.QueueFree();
         currentScene.UnsuspendSceneInput();
         isInTransition = false;
         overlayScene?.ShowAfterTransition();
-        if (_halftoneLayer != null) _halftoneLayer.Visible = true;
+        if (_comicPageLayer != null) _comicPageLayer.Visible = true;
     }
 
     // ---------------------------------------------------------------------------
@@ -388,39 +426,62 @@ public partial class MainScene : Node2D
         ImageTexture nextTex = await CaptureNextSceneThumbnail();
 
         // 3. Build the 6-panel page overlay, zoomed into the current panel.
+        if (_comicPageLayer != null) _comicPageLayer.Visible = false;
         var pageOverlay = new CanvasLayer { Layer = 100 };
         AddChild(pageOverlay);
         pageOverlay.AddChild(new ColorRect
         {
-            Color    = Colors.White,
+            Color    = new Color(0.12f, 0.12f, 0.12f),
             Size     = vp,
             Position = Vector2.Zero,
         });
 
-        Control page      = BuildPageContainer(vp, _currentPanelIndex);
+        Control page      = BuildPageContainer(vp);
         pageOverlay.AddChild(page);
 
         Vector2 panelSize = PanelSize(vp);
         float   zoomIn    = ZoomInScale(panelSize, vp);
+        Vector2 startPos  = ContainerPosForPanel(_currentPanelIndex, panelSize, zoomIn, vp);
         page.Scale    = new Vector2(zoomIn, zoomIn);
-        page.Position = ContainerPosForPanel(_currentPanelIndex, panelSize, zoomIn, vp);
+        page.Position = startPos;
+
+        ShaderMaterial pageMat = GetPageShaderMat(page);
+        InitPageUVUniforms(pageMat, zoomIn, startPos, vp);
+
+        Vector2 fullPagePos         = ContainerPosForFullPage(vp);
+        Vector2 startNoiseScale     = NoiseScale(zoomIn,         vp);
+        Vector2 fullPageNoiseScale  = NoiseScale(PAGE_SCALE_OUT, vp);
+        Vector2 startNoiseOffset    = NoiseOffset(zoomIn,         startPos,    vp);
+        Vector2 fullPageNoiseOffset = NoiseOffset(PAGE_SCALE_OUT, fullPagePos, vp);
 
         // 4. Zoom out to reveal the full page — ease-in-out, not a whip.
         float dur      = RandomisedDuration(0.40f);
         Tween tweenOut = CreateTween().SetParallel(true);
         tweenOut.TweenProperty(page, "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), dur)
             .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
-        tweenOut.TweenProperty(page, "position", ContainerPosForFullPage(vp), dur)
+        tweenOut.TweenProperty(page, "position", fullPagePos, dur)
             .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+        if (pageMat != null)
+        {
+            tweenOut.TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
+                startNoiseScale, fullPageNoiseScale, dur).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+            tweenOut.TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
+                startNoiseOffset, fullPageNoiseOffset, dur).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+        }
         await ToSignal(tweenOut, Tween.SignalName.Finished);
 
         Tween prePagePause = CreateTween();
         prePagePause.TweenInterval(RandomisedDuration(0.14f, 0.08f));
         await ToSignal(prePagePause, Tween.SignalName.Finished);
 
-        // 5. Capture the full-page view.
+        // 5. Capture the full-page view — crop to the portrait page area for the curl.
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        ImageTexture pageTex = ImageTexture.CreateFromImage(GetViewport().GetTexture().GetImage());
+        Vector2 pageSize2 = PageSize(vp);
+        Vector2 pageOff2  = PageOffset(vp);
+        Image   fullImg   = GetViewport().GetTexture().GetImage();
+        Image   pageImg   = fullImg.GetRegion(new Rect2I(
+            (int)pageOff2.X, (int)pageOff2.Y, (int)pageSize2.X, (int)pageSize2.Y));
+        ImageTexture pageTex = ImageTexture.CreateFromImage(pageImg);
 
         // 6. Build the new page at Layer 99 — it sits behind the curl so the
         //    shader reveals it as it peels. No blank frame ever appears.
@@ -432,18 +493,20 @@ public partial class MainScene : Node2D
         AddChild(newPageOverlay);
         newPageOverlay.AddChild(new ColorRect
         {
-            Color    = Colors.White,
+            Color    = new Color(0.12f, 0.12f, 0.12f),
             Size     = vp,
             Position = Vector2.Zero,
         });
 
         float   newZoomIn    = ZoomInScale(panelSize, vp);
-        Control newPage      = BuildPageContainer(vp, 0);
+        Control newPage      = BuildPageContainer(vp);
         newPageOverlay.AddChild(newPage);
         newPage.Scale    = new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT);
-        newPage.Position = ContainerPosForFullPage(vp);
+        newPage.Position = fullPagePos;
+        // New page starts at full-page scale — noise uniforms default (vec2.One / Zero) are correct.
+        ShaderMaterial newPageMat = GetPageShaderMat(newPage);
 
-        // 7. Curl the old page (Layer 100) away, revealing the new page beneath.
+        // 7. Curl the old page (Layer 100) away on the portrait rect only.
         pageOverlay.QueueFree();
 
         var curlOverlay = new CanvasLayer { Layer = 100 };
@@ -453,8 +516,8 @@ public partial class MainScene : Node2D
         {
             Texture     = pageTex,
             StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = vp,
-            Position    = Vector2.Zero,
+            Size        = pageSize2,
+            Position    = pageOff2,
         };
         curlOverlay.AddChild(rect);
 
@@ -477,21 +540,34 @@ public partial class MainScene : Node2D
         await ToSignal(postPagePause, Tween.SignalName.Finished);
 
         // 9. Zoom into panel 0 — cubic ease-out, no overshoot.
+        Vector2 panel0Pos        = ContainerPosForPanel(0, panelSize, newZoomIn, vp);
+        Vector2 newFullNoiseSc   = NoiseScale(PAGE_SCALE_OUT, vp);
+        Vector2 newFullNoiseOff  = NoiseOffset(PAGE_SCALE_OUT, fullPagePos, vp);
+        Vector2 panel0NoiseSc    = NoiseScale(newZoomIn, vp);
+        Vector2 panel0NoiseOff   = NoiseOffset(newZoomIn, panel0Pos, vp);
         dur = RandomisedDuration(0.45f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(newPage, "scale",    new Vector2(newZoomIn, newZoomIn), dur)
             .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
-        tweenIn.TweenProperty(newPage, "position", ContainerPosForPanel(0, panelSize, newZoomIn, vp), dur)
+        tweenIn.TweenProperty(newPage, "position", panel0Pos, dur)
             .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        if (newPageMat != null)
+        {
+            tweenIn.TweenMethod(Callable.From<Vector2>(v => newPageMat.SetShaderParameter("uv_noise_scale",  v)),
+                newFullNoiseSc, panel0NoiseSc, dur).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+            tweenIn.TweenMethod(Callable.From<Vector2>(o => newPageMat.SetShaderParameter("uv_noise_offset", o)),
+                newFullNoiseOff, panel0NoiseOff, dur).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        }
         await ToSignal(tweenIn, Tween.SignalName.Finished);
 
-        // 10. Finalise.
+        // 10. Finalise — align ComicPageLayer dirt UV to match the zoomed page container.
+        AlignDirtUV(newZoomIn, panel0Pos, vp);
         SwitchCurrentSceneForNext();
         newPageOverlay.QueueFree();
         currentScene.UnsuspendSceneInput();
         isInTransition = false;
         overlayScene?.ShowAfterTransition();
-        if (_halftoneLayer != null) _halftoneLayer.Visible = true;
+        if (_comicPageLayer != null) _comicPageLayer.Visible = true;
     }
 
     // ---------------------------------------------------------------------------
@@ -513,7 +589,7 @@ public partial class MainScene : Node2D
             currentScene.UnsuspendSceneInput();
             isInTransition = false;
         overlayScene?.ShowAfterTransition();
-        if (_halftoneLayer != null) _halftoneLayer.Visible = true;
+        if (_comicPageLayer != null) _comicPageLayer.Visible = true;
         }
     }
 
@@ -718,11 +794,26 @@ public partial class MainScene : Node2D
     // Panel layout helpers.
     // ---------------------------------------------------------------------------
 
-    // CellSize — the grid slot each panel occupies (gutter-based, fills the page).
-    private Vector2 CellSize(Vector2 vp) => new(
-        (vp.X - 3f * PANEL_GUTTER_H) / 2f,
-        (vp.Y - 4f * PANEL_GUTTER_V) / 3f
-    );
+    // PageSize — portrait-book rect (8.5:11) fitted inside the viewport.
+    private Vector2 PageSize(Vector2 vp)
+    {
+        float h = vp.Y, w = h * PAGE_ASPECT;
+        if (w > vp.X) { w = vp.X; h = w / PAGE_ASPECT; }
+        return new Vector2(w, h);
+    }
+
+    // PageOffset — top-left of the page rect within the container (centred).
+    private Vector2 PageOffset(Vector2 vp) => (vp - PageSize(vp)) * 0.5f;
+
+    // CellSize — the grid slot each panel occupies within the portrait page.
+    private Vector2 CellSize(Vector2 vp)
+    {
+        Vector2 page = PageSize(vp);
+        return new Vector2(
+            (page.X - 2f * PAGE_MARGIN_H - PANEL_GUTTER_H) / 2f,
+            (page.Y - 2f * PAGE_MARGIN_V - 2f * PANEL_GUTTER_V) / 3f
+        );
+    }
 
     // PanelSize — the actual panel rect, aspect-ratio matched to the viewport,
     // fitted inside the cell (letter-boxed if necessary).
@@ -736,13 +827,14 @@ public partial class MainScene : Node2D
         return new Vector2(w, h);
     }
 
-    // PanelTopLeft — top-left of the panel, centered within its cell.
+    // PanelTopLeft — top-left of the panel, centred within its cell.
     private Vector2 PanelTopLeft(int index, Vector2 panelSize, Vector2 vp)
     {
         Vector2 cell    = CellSize(vp);
+        Vector2 pageOff = PageOffset(vp);
         Vector2 cellPos = new(
-            PANEL_GUTTER_H + (index % 2) * (cell.X + PANEL_GUTTER_H),
-            PANEL_GUTTER_V + (index / 2) * (cell.Y + PANEL_GUTTER_V)
+            pageOff.X + PAGE_MARGIN_H + (index % 2) * (cell.X + PANEL_GUTTER_H),
+            pageOff.Y + PAGE_MARGIN_V + (index / 2) * (cell.Y + PANEL_GUTTER_V)
         );
         return cellPos + (cell - panelSize) * 0.5f;
     }
@@ -778,20 +870,21 @@ public partial class MainScene : Node2D
     }
 
     // ---------------------------------------------------------------------------
-    // CaptureViewportClean — hides cursor and OverlayScene for one GPU frame.
+    // CaptureViewportClean — hides cursor for one GPU frame, then captures.
+    // CelBorder is intentionally left visible: HideForTransition only hides
+    // _celBorder (not the CanvasLayer), so the old restore of overlayScene.Visible
+    // was always a no-op — meaning _celBorder stayed hidden for the entire
+    // transition and caused a visible flash at the start.
     // ---------------------------------------------------------------------------
     private async Task<ImageTexture> CaptureViewportClean()
     {
-        bool overlayWasVisible = overlayScene?.Visible ?? false;
         cursor.Visible = false;
-        overlayScene?.HideForTransition();
 
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
 
         Image img = GetViewport().GetTexture().GetImage();
 
         cursor.Visible = true;
-        if (overlayScene != null) overlayScene.Visible = overlayWasVisible;
 
         return ImageTexture.CreateFromImage(img);
     }
@@ -821,15 +914,17 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     // BuildPageContainer — 6-panel comic page as a Control tree.
     // ---------------------------------------------------------------------------
-    private ShaderMaterial HalftoneMaterial =>
-        _halftoneLayer?.GetNodeOrNull<ColorRect>("ColorRect")?.Material as ShaderMaterial;
+    private ShaderMaterial ComicPageMaterial =>
+        _comicPageLayer?.GetNodeOrNull<ColorRect>("ColorRect")?.Material as ShaderMaterial;
 
-    private float GetHalftoneParam(string name, float fallback) =>
-        HalftoneMaterial?.GetShaderParameter(name).AsSingle() ?? fallback;
+    private float GetComicPageParam(string name, float fallback) =>
+        ComicPageMaterial?.GetShaderParameter(name).AsSingle() ?? fallback;
 
-    private Control BuildPageContainer(Vector2 vp, int startPanelIndex = 0)
+    private Control BuildPageContainer(Vector2 vp)
     {
         Vector2 panelSize = PanelSize(vp);
+        Vector2 pageSize  = PageSize(vp);
+        Vector2 pageOff   = PageOffset(vp);
 
         var container = new Control
         {
@@ -837,11 +932,18 @@ public partial class MainScene : Node2D
             PivotOffset = Vector2.Zero,
         };
 
+        // Dark background fills the container; the portrait page sits centred within it.
+        container.AddChild(new ColorRect
+        {
+            Color    = new Color(0.12f, 0.12f, 0.12f),
+            Size     = vp,
+            Position = Vector2.Zero,
+        });
         container.AddChild(new ColorRect
         {
             Color    = Colors.White,
-            Size     = vp,
-            Position = Vector2.Zero,
+            Size     = pageSize,
+            Position = pageOff,
         });
 
         for (int i = 0; i < 6; i++)
@@ -873,36 +975,93 @@ public partial class MainScene : Node2D
             container.AddChild(overlayScene.MakePanelBorderOverlay(pos, panelSize));
         }
 
-        // Halftone inside the container so it scales/moves with the page ("part of the paper").
-        // frequency = HalftoneFrequency / panelScale so that when zoomed in (scale = 1/panelScale)
-        // the on-screen dot size equals exactly HalftoneFrequency — matching the main scene.
-        // uv_offset shifts the pattern origin to the start panel's position in page UV space,
-        // so the dots are continuous with the main scene on entry.
-        var halftoneShader = GD.Load<Shader>("res://shaders/halftone.gdshader");
-        if (halftoneShader != null)
+        // Shader covers only the portrait page area so effects scale with the page,
+        // not the full landscape viewport.
+        // Halftone uses effectUV (= SCREEN_UV), so frequency and uv_offset need no
+        // per-panel adjustment — they match ComicPageLayer directly.
+        var comicPageShader = GD.Load<Shader>("res://shaders/comic_page.gdshader");
+        if (comicPageShader != null)
         {
-            float   panelScale = panelSize.X / vp.X;
-            Vector2 panelTL    = PanelTopLeft(startPanelIndex, panelSize, vp);
-            Vector2 uvOffset   = -panelTL / vp;   // in page UV space, panel TL is at this fraction
-
-            var mat = new ShaderMaterial { Shader = halftoneShader };
-            mat.SetShaderParameter("radius_c",  GetHalftoneParam("radius_c",  0.2f));
-            mat.SetShaderParameter("radius_m",  GetHalftoneParam("radius_m", -0.3f));
-            mat.SetShaderParameter("radius_y",  GetHalftoneParam("radius_y",  0.0f));
-            mat.SetShaderParameter("radius_k",  GetHalftoneParam("radius_k",  0.785f));
-            mat.SetShaderParameter("frequency", GetHalftoneParam("frequency", 463.46f) / panelScale);
-            mat.SetShaderParameter("uv_offset", uvOffset);
+            var mat = new ShaderMaterial { Shader = comicPageShader };
+            mat.SetShaderParameter("radius_c",         GetComicPageParam("radius_c",         4.0f));
+            mat.SetShaderParameter("radius_m",         GetComicPageParam("radius_m",         5.0f));
+            mat.SetShaderParameter("radius_y",         GetComicPageParam("radius_y",         6.0f));
+            mat.SetShaderParameter("radius_k",         GetComicPageParam("radius_k",         7.0f));
+            mat.SetShaderParameter("frequency",        GetComicPageParam("frequency",        330.0f));
+            mat.SetShaderParameter("halftone_blend",   GetComicPageParam("halftone_blend",   0.3f));
+            mat.SetShaderParameter("noise_scale",      GetComicPageParam("noise_scale",      2.256f));
+            mat.SetShaderParameter("vignette_strength",GetComicPageParam("vignette_strength",0.1f));
+            mat.SetShaderParameter("sepia_strength",   GetComicPageParam("sepia_strength",   0.0f));
+            mat.SetShaderParameter("contrast",         GetComicPageParam("contrast",         1.0f));
+            mat.SetShaderParameter("glow_range",       GetComicPageParam("glow_range",       2.783f));
+            mat.SetShaderParameter("glow_strength",    GetComicPageParam("glow_strength",    0.184f));
+            mat.SetShaderParameter("glow_falloff",     GetComicPageParam("glow_falloff",     2.16f));
+            mat.SetShaderParameter("dirt_strength",    GetComicPageParam("dirt_strength",    0.559f));
+            mat.SetShaderParameter("dirt_scale",       GetComicPageParam("dirt_scale",       61.721f));
+            mat.SetShaderParameter("uv_noise_scale",   Vector2.One);
+            mat.SetShaderParameter("uv_noise_offset",  Vector2.Zero);
             container.AddChild(new ColorRect
             {
                 Material    = mat,
-                Size        = vp,
-                Position    = Vector2.Zero,
+                Size        = pageSize,
+                Position    = pageOff,
                 MouseFilter = Control.MouseFilterEnum.Ignore,
                 Color       = Colors.Black,
             });
         }
 
         return container;
+    }
+
+    // Returns the ShaderMaterial on the comic-page ColorRect overlay (last child).
+    private ShaderMaterial GetPageShaderMat(Control page)
+    {
+        int n = page.GetChildCount();
+        return n > 0 && page.GetChild(n - 1) is ColorRect cr ? cr.Material as ShaderMaterial : null;
+    }
+
+    // Noise UV helpers — page-space UV requires vec2 scale because portrait page X/Y
+    // ratios differ from the landscape viewport.
+    //
+    // For a shader ColorRect at pageOff (size=pageSize) in a container at (scale, pos):
+    //   UV.xy = ((SCREEN_UV * vp - pos) / scale - pageOff) / pageSize
+    //   effectUV = UV * noiseScale + noiseOffset  ==  SCREEN_UV
+    //   → noiseScale  = scale * pageSize / vp   (component-wise)
+    //   → noiseOffset = (pos + scale * pageOff) / vp   (component-wise)
+    private Vector2 NoiseScale(float containerScale, Vector2 vp)
+    {
+        Vector2 ps = PageSize(vp);
+        return new Vector2(containerScale * ps.X / vp.X, containerScale * ps.Y / vp.Y);
+    }
+
+    private Vector2 NoiseOffset(float containerScale, Vector2 containerPos, Vector2 vp)
+    {
+        Vector2 po = PageOffset(vp);
+        return new Vector2((containerPos.X + containerScale * po.X) / vp.X,
+                           (containerPos.Y + containerScale * po.Y) / vp.Y);
+    }
+
+    // AlignDirtUV — sets ComicPageLayer dirt uniforms so dirtUV matches the page
+    // container's UV at the given zoom/position, keeping the pattern continuous.
+    // UV_container = ((SCREEN_UV * vp - pos) / scale - pageOff) / pageSize
+    // → dirtScale = vp / (scale * pageSize),  dirtOffset = -pos/(scale*pageSize) - pageOff/pageSize
+    private void AlignDirtUV(float scale, Vector2 pos, Vector2 vp)
+    {
+        if (ComicPageMaterial == null) return;
+        Vector2 ps = PageSize(vp);
+        Vector2 po = PageOffset(vp);
+        ComicPageMaterial.SetShaderParameter("uv_dirt_scale",
+            new Vector2(vp.X / (scale * ps.X), vp.Y / (scale * ps.Y)));
+        ComicPageMaterial.SetShaderParameter("uv_dirt_offset",
+            new Vector2(-pos.X / (scale * ps.X) - po.X / ps.X,
+                        -pos.Y / (scale * ps.Y) - po.Y / ps.Y));
+    }
+
+    private void InitPageUVUniforms(ShaderMaterial mat, float scale, Vector2 pos, Vector2 vp)
+    {
+        if (mat == null) return;
+        mat.SetShaderParameter("uv_noise_scale",  NoiseScale(scale, vp));
+        mat.SetShaderParameter("uv_noise_offset", NoiseOffset(scale, pos, vp));
     }
 
     // ---------------------------------------------------------------------------

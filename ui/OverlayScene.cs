@@ -26,12 +26,9 @@ public partial class OverlayScene : CanvasLayer
         _celBorder.Material = MakeBorderMaterial(GetInnerRect());
 
         // Sync the InnerWindow visual guide to match BorderWidth.
-        var inner = GetNodeOrNull<Control>("CelBorder/InnerWindow");
-        if (inner != null)
-        {
-            inner.Position = Vector2.One * BorderWidth;
-            inner.Size     = vp - Vector2.One * BorderWidth * 2f;
-        }
+        var inner = GetNode<Control>("CelBorder/InnerWindow");
+        inner.Position = Vector2.One * BorderWidth;
+        inner.Size     = vp - Vector2.One * BorderWidth * 2f;
 
         verbPanel.Scale        = Vector2.One;
         verbPanel.AnchorLeft   = 0f;

@@ -60,16 +60,25 @@ public static class ScriptParser
                         queue.AddEventChangeFacingToLookAt(actor, target);
                     break;
                 }
-                case "narrate":
-                    queue.AddEventNarrate(obj["text"].GetValue<string>(), Vector2.Zero);
+                case "narrate": {
+                    Globals.NarrationCorner corner = obj["corner"]?.GetValue<string>() switch {
+                        "topleft"     => Globals.NarrationCorner.TopLeft,
+                        "topright"    => Globals.NarrationCorner.TopRight,
+                        "bottomleft"  => Globals.NarrationCorner.BottomLeft,
+                        "bottomright" => Globals.NarrationCorner.BottomRight,
+                        _             => Globals.NarrationCorner.Auto,
+                    };
+                    queue.AddEventNarrate(obj["text"].GetValue<string>(), Vector2.Zero, corner: corner);
                     break;
+                }
                 case "speak": {
                     string actorName = obj["actor"].GetValue<string>();
                     NPC actor = ResolveNPC(actorName, scene, self);
+                    (Globals.DialogTypes dialogType, DialogBox.TailStyle? tailStyle) = ParseSpeakStyle(obj["style"]?.GetValue<string>());
                     if (actor != null)
-                        queue.AddEventSpeak(actor, obj["text"].GetValue<string>(), Vector2.Zero);
+                        queue.AddEventSpeak(actor, obj["text"].GetValue<string>(), Vector2.Zero, tailStyle: tailStyle, dialogType: dialogType);
                     else if (scene.FindChild(actorName, true, false) is DialogAnchor sa)
-                        queue.AddEventSpeakFromAnchor(sa, obj["text"].GetValue<string>());
+                        queue.AddEventSpeakFromAnchor(sa, obj["text"].GetValue<string>(), tailStyle: tailStyle, dialogType: dialogType);
                     break;
                 }
                 case "think": {
@@ -172,6 +181,24 @@ public static class ScriptParser
                 }
             }
         }
+    }
+
+    private static (Globals.DialogTypes type, DialogBox.TailStyle? tail) ParseSpeakStyle(string raw)
+    {
+        if (string.IsNullOrEmpty(raw))
+            return (Globals.DialogTypes.speaking, null);
+        var type = Globals.DialogTypes.speaking;
+        DialogBox.TailStyle? tail = null;
+        foreach (var token in raw.Split('|'))
+            switch (token.Trim())
+            {
+                case "exclaim":   type = Globals.DialogTypes.exclaim;   break;
+                case "straight":  tail = DialogBox.TailStyle.Straight;  break;
+                case "wavy":      tail = DialogBox.TailStyle.Wavy;      break;
+                case "lightning": tail = DialogBox.TailStyle.Lightning; break;
+                case "curved":    tail = DialogBox.TailStyle.Curved;    break;
+            }
+        return (type, tail);
     }
 
     private static thing ResolveThing(string name, scene_script scene, thing self = null)

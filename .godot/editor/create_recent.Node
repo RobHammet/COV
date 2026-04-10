@@ -1,9 +1,9 @@
-CollisionPolygon2D
+Sprite2D
 Node2D
+CollisionPolygon2D
 PointLight2D
 CollisionShape2D
 Camera2D
-Sprite2D
 Polygon2D
 SubViewport
 SubViewportContainer

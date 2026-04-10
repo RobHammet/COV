@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://bcx7vwyowlagt"]
+[gd_scene format=3 uid="uid://c8x66k7i72djq"]
 
 [ext_resource type="Script" uid="uid://bm38qqc3nw3xg" path="res://framework/NPC.cs" id="1_0b3ql"]
 [ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="2_2kksh"]
@@ -87,11 +87,11 @@ _data = {
 radius = 2.0
 height = 4.0
 
-[node name="someguy" type="Node2D" unique_id=682049652]
+[node name="farmer" type="Node2D" unique_id=682049652]
 z_index = 1
 position = Vector2(0, 3)
 script = ExtResource("1_0b3ql")
-displayName = "NPCguy"
+displayName = "Farmer"
 lookClosely = true
 startingScaleAsBaseline = false
 

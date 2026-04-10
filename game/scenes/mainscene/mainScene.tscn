@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dfafh8o0gxnib"]
 
 [ext_resource type="Script" uid="uid://xf10pfaw8kt6" path="res://game/scenes/mainscene/MainScene.cs" id="1_2l4hu"]
-[ext_resource type="Shader" uid="uid://b7nksb82tvvlw" path="res://shaders/halftone.gdshader" id="2_iv7us"]
+[ext_resource type="Shader" uid="uid://5ir70ssclfta" path="res://shaders/comic_page.gdshader" id="2_iv7us"]
 [ext_resource type="PackedScene" uid="uid://dvps1fw2iy2x5" path="res://ui/OverlayScene.tscn" id="3"]
 [ext_resource type="PackedScene" uid="uid://b84ee338jtnq0" path="res://ui/title_splash.tscn" id="3_obykk"]
 [ext_resource type="Texture2D" uid="uid://p6cw75t3n0kx" path="res://game/art/cursors2.png" id="4"]
@@ -10,15 +10,30 @@
 [ext_resource type="Shader" uid="uid://de8n5ojo75oa3" path="res://shaders/blackwhiteshader.gdshader" id="6_0empv"]
 [ext_resource type="Script" uid="uid://cf7f7l4e3gopb" path="res://ui/Cursor.cs" id="8_apspx"]
 [ext_resource type="Texture2D" uid="uid://obw8hjgtwuym" path="res://game/art/items.png" id="9_wyabt"]
+[ext_resource type="Texture2D" uid="uid://dqsp5vydy7rwe" path="res://game/scenes/housefront/frontyard_bg.png" id="11_w3gyr"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2dqqq"]
 shader = ExtResource("2_iv7us")
-shader_parameter/radius_c = 4.0
-shader_parameter/radius_m = 5.0
-shader_parameter/radius_y = 6.0
-shader_parameter/radius_k = 7.0
-shader_parameter/frequency = 330.0
+shader_parameter/radius_c = 8.0
+shader_parameter/radius_m = 4.0
+shader_parameter/radius_y = 2.0
+shader_parameter/radius_k = 6.0
+shader_parameter/frequency = 215.0
 shader_parameter/uv_offset = Vector2(0, 0)
+shader_parameter/halftone_blend = 0.250000011875
+shader_parameter/noise_scale = 4.62800017233
+shader_parameter/vignette_strength = 0.10000000149012
+shader_parameter/sepia_strength = 0.022000001045
+shader_parameter/contrast = 1.00000002375
+shader_parameter/glow_range = 1.0
+shader_parameter/glow_strength = 0.0390000018525
+shader_parameter/glow_falloff = 2.7970001091075
+shader_parameter/dirt_strength = 0.27200001292
+shader_parameter/dirt_scale = 15.29200067887
+shader_parameter/uv_noise_scale = Vector2(1, 1)
+shader_parameter/uv_noise_offset = Vector2(0, 0)
+shader_parameter/uv_dirt_scale = Vector2(1, 1)
+shader_parameter/uv_dirt_offset = Vector2(0, 0)
 
 [sub_resource type="Animation" id="4"]
 tracks/0/type = "value"
@@ -119,7 +134,6 @@ shader_parameter/white_cutoff = 0.775
 
 [node name="MainScene" type="Node2D" unique_id=1285218856]
 script = ExtResource("1_2l4hu")
-showDebugTools = true
 
 [node name="EventManager" type="Node" parent="." unique_id=1527263301]
 
@@ -133,10 +147,10 @@ visible = false
 position = Vector2(-1, -2)
 script = ExtResource("4_1dlpk")
 
-[node name="HalftoneLayer" type="CanvasLayer" parent="." unique_id=1286740619]
+[node name="ComicPageLayer" type="CanvasLayer" parent="." unique_id=1286740619]
 layer = 15
 
-[node name="ColorRect" type="ColorRect" parent="HalftoneLayer" unique_id=474647823]
+[node name="ColorRect" type="ColorRect" parent="ComicPageLayer" unique_id=474647823]
 material = SubResource("ShaderMaterial_2dqqq")
 anchors_preset = 15
 anchor_right = 1.0
@@ -213,5 +227,10 @@ mouse_filter = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
+
+[node name="Test_BG" type="Sprite2D" parent="." unique_id=724008342]
+visible = false
+position = Vector2(504, 299)
+texture = ExtResource("11_w3gyr")
 
 [connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]

@@ -1,6 +1,6 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://cw88ejpibrtcb"]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cw88ejpibrtcb"]
 
-[ext_resource type="Shader" path="res://shaders/halftone.gdshader" id="1"]
+[ext_resource type="Shader" path="res://shaders/comic_page.gdshader" id="1"]
 
 [resource]
 shader = ExtResource("1")

@@ -1,40 +1,55 @@
 using Godot;
-using System;
 
 public partial class VerbCoin : Control
 {
-    // Declare member variables here. Examples:
-    // private int a = 2;
-    // private string b = "text";
-
-    // Called when the node enters the scene tree for the first time.
-
     public scene_script parentScene;
-   // public Globals.InteractModes chosenMode = Globals.InteractModes.walk;
+
+    private TextureButton _lookButton;
+    private TextureButton _talkButton;
+    private TextureButton _useButton;
+    private TextureButton _itemButton;
+
     public override void _Ready()
     {
-        parentScene = (scene_script)this.GetParent();
-      //  chosenMode = Globals.InteractModes.walk;
+        parentScene = GetParent<scene_script>();
 
-        // parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
+        var node2d = GetNode<Node2D>("VerbCoin_Node2D");
+        _lookButton = node2d.GetNode<TextureButton>("LookButton");
+        _talkButton = node2d.GetNode<TextureButton>("TalkButton");
+        _useButton  = node2d.GetNode<TextureButton>("UseButton");
+        _itemButton = node2d.GetNode<TextureButton>("ItemButton");
+
         parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
-
-
     }
 
-//  // Called every frame. 'delta' is the elapsed time since the previous frame.
-//  public override void _Process(float delta)
-//  {
-//      
-//  }
+    // Desktop — mouse hover
+    public void _on_LookButton_mouse_entered() => parentScene.mainScene.SetInteractMode(Globals.InteractModes.look);
+    public void _on_LookButton_mouse_exited()  => parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
+    public void _on_TalkButton_mouse_entered() => parentScene.mainScene.SetInteractMode(Globals.InteractModes.talk);
+    public void _on_TalkButton_mouse_exited()  => parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
+    public void _on_UseButton_mouse_entered()  => parentScene.mainScene.SetInteractMode(Globals.InteractModes.use);
+    public void _on_UseButton_mouse_exited()   => parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
+    public void _on_ItemButton_mouse_entered() => parentScene.mainScene.SetInteractMode(Globals.InteractModes.item);
+    public void _on_ItemButton_mouse_exited()  => parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
 
-    public void _on_LookButton_mouse_entered() {
-        parentScene.mainScene.SetInteractMode(Globals.InteractModes.look);
-       // chosenMode = Globals.InteractModes.look;
+    // Mobile — drag to select
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventScreenDrag drag)
+            UpdateModeFromTouchPos(drag.Position);
     }
 
-    public void _on_LookButton_mouse_exited() {
-        parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
-      //  chosenMode = Globals.InteractModes.walk;
+    private void UpdateModeFromTouchPos(Vector2 globalPos)
+    {
+        if (_lookButton.GetGlobalRect().HasPoint(globalPos))
+            parentScene.mainScene.SetInteractMode(Globals.InteractModes.look);
+        else if (_talkButton.GetGlobalRect().HasPoint(globalPos))
+            parentScene.mainScene.SetInteractMode(Globals.InteractModes.talk);
+        else if (_useButton.GetGlobalRect().HasPoint(globalPos))
+            parentScene.mainScene.SetInteractMode(Globals.InteractModes.use);
+        else if (_itemButton.GetGlobalRect().HasPoint(globalPos))
+            parentScene.mainScene.SetInteractMode(Globals.InteractModes.item);
+        else
+            parentScene.mainScene.SetInteractMode(Globals.InteractModes.walk);
     }
 }

@@ -68,6 +68,8 @@ public partial class scene_script : Node2D
     public MainScene               mainScene;
     public bool HasOpenDialog => GetChildren().OfType<DialogBox>().Any();
 
+    private PackedScene _dialogBoxScene;
+
     // Scene JSON data — loaded in _EnterTree (parent-first, before child _Ready()).
     // Used by exit area handling and thing interaction data lookup.
     public JsonObject _sceneData;
@@ -255,6 +257,7 @@ public partial class scene_script : Node2D
     public override void _Ready()
     {
         base._Ready();
+        _dialogBoxScene = GD.Load<PackedScene>("res://ui/DialogBox.tscn");
         SetupAreaZones();
     }
 
@@ -932,7 +935,9 @@ public partial class scene_script : Node2D
         NPC.Direction? egoFacing = null,
         string[] _dialogChoices = null,
         NPC actor           = null,
-        bool strict         = false)
+        bool strict         = false,
+        DialogBox.TailStyle? tailStyle = null,
+        Globals.NarrationCorner corner = Globals.NarrationCorner.Auto)
     {
         bool hasTail = tailPos != null;
 
@@ -942,8 +947,7 @@ public partial class scene_script : Node2D
         else if (egoFacing == NPC.Direction.right)
             facingOffset = 64f;
 
-        var packed = GD.Load<PackedScene>("res://ui/DialogBox.tscn");
-        DialogBox db = packed.Instantiate() as DialogBox;
+        DialogBox db = _dialogBoxScene.Instantiate() as DialogBox;
 
         db.dialogColor     = color ?? Colors.White;
         db.offsetForFacing = facingOffset;
@@ -951,6 +955,8 @@ public partial class scene_script : Node2D
         db.parentScene     = this;
         db.trackActor      = actor;
         db.isStrict        = strict;
+        db.narrationCorner = corner;
+        if (tailStyle.HasValue) db.SpeechTailStyle = tailStyle.Value;
 
         if (hasTail) db.tailPos = tailPos.Value;
 
