@@ -1,12 +1,44 @@
 [gd_scene format=3 uid="uid://dq6j1wrrf8vq2"]
 
 [ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="2"]
+[ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="2_n0ltr"]
 [ext_resource type="Texture2D" uid="uid://c1xg7g2xu8up2" path="res://game/scenes/theroad/hwy86prettycolors.png" id="4"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="6"]
 [ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7"]
 [ext_resource type="Texture2D" uid="uid://dcygbwi0aw4ja" path="res://game/scenes/theroad/candle_sprite-Sheet.png" id="8"]
 [ext_resource type="PackedScene" uid="uid://c8x66k7i72djq" path="res://game/NPC/farmer.tscn" id="10_gjxlk"]
 [ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_n0ltr"]
+shader = ExtResource("2_n0ltr")
+shader_parameter/sprite_texture = ExtResource("4")
+shader_parameter/enable_shadows = true
+shader_parameter/enable_halftone = true
+shader_parameter/dark_threshold = 0.15
+shader_parameter/hatch_threshold = 0.35
+shader_parameter/hatch_spacing = 1.0
+shader_parameter/hatch_thickness = 1.8
+shader_parameter/hatch_roughness = 0.05
+shader_parameter/hatch_taper = 0.5
+shader_parameter/light_pos_uv = Vector2(0.5, -2)
+shader_parameter/hframes = 1
+shader_parameter/vframes = 1
+shader_parameter/light_strength = 0.0
+shader_parameter/light_direction = Vector3(0, 0, 0)
+shader_parameter/is_flipped = false
+shader_parameter/overall_dark = 1.0
+shader_parameter/maintain_light = 0.0
+shader_parameter/angle_c = 0.3
+shader_parameter/angle_m = 1.3
+shader_parameter/angle_y = 1.6
+shader_parameter/angle_k = 0.8
+shader_parameter/halftone_dot_px = 3.5
+shader_parameter/halftone_blend = 0.2
+shader_parameter/halftone_luma_min = 0.08
+shader_parameter/halftone_luma_max = 0.9
+shader_parameter/dot_hardness = 0.1
+shader_parameter/dot_gain = -0.02
+shader_parameter/black_crush = 0.0
 
 [sub_resource type="RectangleShape2D" id="2"]
 size = Vector2(105, 58)
@@ -56,7 +88,7 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(329, 346, 329, 330, 491
 source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3bukr"]
-size = Vector2(1153, 648)
+size = Vector2(1553, 739)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3183a"]
 size = Vector2(99, 20)
@@ -68,6 +100,7 @@ displayName = "theroad"
 parallaxSprites = []
 
 [node name="background" type="Sprite2D" parent="." unique_id=260995694]
+material = SubResource("ShaderMaterial_n0ltr")
 position = Vector2(-1, 0)
 scale = Vector2(1.80312, 1.35208)
 texture = ExtResource("4")
@@ -151,7 +184,7 @@ self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=213966145]
-position = Vector2(576, 324)
+position = Vector2(645.5, 360.5)
 shape = SubResource("RectangleShape2D_3bukr")
 
 [node name="towards_house" type="CollisionShape2D" parent="." unique_id=120527646]
@@ -163,3 +196,4 @@ position = Vector2(1000, 447)
 
 [node name="farmer" parent="." unique_id=682049652 instance=ExtResource("10_gjxlk")]
 position = Vector2(633, 513)
+castsShadow = true

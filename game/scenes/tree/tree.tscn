@@ -1,22 +1,23 @@
 [gd_scene format=3 uid="uid://cf1q08vo0bw4q"]
 
 [ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_q1img"]
-[ext_resource type="Texture2D" uid="uid://c2o4cj3mqs2ps" path="res://game/scenes/tree/tree.png" id="2_f1bi8"]
+[ext_resource type="Texture2D" uid="uid://chfsaa1hynmys" path="res://game/scenes/tree/tree2.png" id="3_hnjuy"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="3_q8vu4"]
-[ext_resource type="Script" uid="uid://ca44amv4g84w7" path="res://game/scenes/tree/treething.cs" id="5_mfev6"]
-[ext_resource type="Script" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
+[ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="6_64txb"]
+[ext_resource type="Script" uid="uid://djlnl3nloie3m" path="res://framework/DarkmapZone.cs" id="6_hnjuy"]
+[ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_2y616"]
-vertices = PackedVector2Array(1029, 700, -401, 711, -378, 443, 151, 528, 443, 443, 1040, 432, 437, 528, 109, 438, 271, 534, 272, 534)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 5, 0, 6), PackedInt32Array(2, 7, 3), PackedInt32Array(0, 3, 8), PackedInt32Array(0, 8, 9), PackedInt32Array(6, 0, 9)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(434, 434, 1051, 422, 1039, 710, -412, 722, -388, 434, 116, 428, 158, 518, 272, 524, 428, 518)])
+vertices = PackedVector2Array(320.85938, 584.1875, 217.92188, 526.4375, 372.60156, 508.8828, 476.09375, 486.97656, 1259.9375, 475.14844, 1258.0469, 845.97656, 316.3125, 599.5078, -621.9297, 844.0078, -620.0625, 557.1172, -385.1797, 559.96875, -329.92188, 584.64844, -175.17969, 610.77344, -63.617188, 641.2031, 104.64844, 616.5703, 147.67969, 588.2031)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2), PackedInt32Array(3, 4, 5, 6, 0, 2), PackedInt32Array(7, 8, 9, 10), PackedInt32Array(7, 10, 11, 12), PackedInt32Array(6, 5, 7, 12, 13), PackedInt32Array(6, 13, 14)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(371, 499, 475, 477, 1270, 465, 1268, 856, -632, 854, -630, 547, -383, 550, -327, 575, -173, 601, -63, 631, 101, 607, 145, 578, 309, 589, 186, 520)])
 source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_k5ffg"]
-size = Vector2(126, 396)
+size = Vector2(90, 371)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rr6uj"]
-size = Vector2(1433, 917)
+size = Vector2(1909, 1226)
 
 [node name="Tree" type="Node2D" unique_id=608336034 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1_q1img")
@@ -25,19 +26,20 @@ parallaxSprites = []
 
 [node name="background" type="Sprite2D" parent="." unique_id=283232955]
 position = Vector2(317, 241)
-texture = ExtResource("2_f1bi8")
+texture = ExtResource("3_hnjuy")
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=559955188]
 navigation_polygon = SubResource("NavigationPolygon_2y616")
 
 [node name="ScalerStick" type="Line2D" parent="." unique_id=1715839807]
+points = PackedVector2Array(1047, 366, 597, 482, -414, 814)
+default_color = Color(1, 1, 1, 0)
 script = ExtResource("ScalerStick_cs")
-points = PackedVector2Array(86, -93, 416, 261, 799, 644)
+ScaleMultiplier = 2.135
 
 [node name="PointLight2D" type="PointLight2D" parent="." unique_id=973383126]
-visible = false
 visibility_layer = 0
-position = Vector2(257, 19)
+position = Vector2(-878, -215)
 color = Color(0.435294, 0.752941, 0.721569, 1)
 energy = 14.06
 texture = ExtResource("3_q8vu4")
@@ -46,27 +48,53 @@ height = 460.0
 
 [node name="exit_to_housefront" type="CollisionShape2D" parent="." unique_id=1293547286]
 z_index = 1
-position = Vector2(975, 552)
+position = Vector2(1225, 660.5)
 shape = SubResource("RectangleShape2D_k5ffg")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1687195389]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(451, 108)
+zoom = Vector2(0.725, 0.725)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=873364046]
-position = Vector2(316.5, 239.5)
+position = Vector2(317.5, 241)
 shape = SubResource("RectangleShape2D_rr6uj")
-
-[node name="tree" type="Node2D" parent="." unique_id=584962683]
-script = ExtResource("5_mfev6")
-displayName = "tree"
-
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="tree" unique_id=1831134240]
-polygon = PackedVector2Array(240, -216, 228, 390, 156, 480, 204, 474, 198, 516, 300, 492, 348, 522, 390, 480, 414, 480, 360, 360, 366, -222)
-
-[node name="InteractPoint" type="Node2D" parent="tree" unique_id=1984633834]
-position = Vector2(120, 486)
 
 [node name="start_point" type="Node2D" parent="." unique_id=700106853]
 position = Vector2(903, 572)
+
+[node name="tree1" type="Node2D" parent="." unique_id=1972123374]
+script = ExtResource("6_64txb")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="tree1" unique_id=1859014116]
+polygon = PackedVector2Array(-316, -365, -337, 119, -312, 380, -249, 473, -230, 496, -262, 513, -334, 498, -318, 532, -419, 503, -524, 537, -514, 508, -585, 497, -514, 372, -490, 203, -477, -347)
+
+[node name="InteractPoint" type="Node2D" parent="tree1" unique_id=203334505]
+position = Vector2(-469, 577)
+
+[node name="tree2" type="Node2D" parent="." unique_id=881797414]
+script = ExtResource("6_64txb")
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="tree2" unique_id=2035639554]
+polygon = PackedVector2Array(-140, -332, 35, -372, 64, 253, 90, 374, 132, 496, 244, 569, 126, 558, 47, 567, -43, 608, -105, 596, -70, 550, -167, 589, -219, 581, -217, 564, -320, 562, -199, 469, -160, 353)
+
+[node name="InteractPoint" type="Node2D" parent="tree2" unique_id=867014728]
+position = Vector2(152, 607)
+
+[node name="tree3" type="Node2D" parent="." unique_id=584962683]
+script = ExtResource("6_64txb")
+displayName = "tree"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="tree3" unique_id=1831134240]
+polygon = PackedVector2Array(208, -361, 197, 361, 135, 467, 156, 480, 204, 474, 198, 516, 300, 492, 361, 488, 401, 482, 449, 472, 387, 377, 360, 280, 353, -369)
+
+[node name="InteractPoint" type="Node2D" parent="tree3" unique_id=1984633834]
+position = Vector2(484, 493)
+
+[node name="shadow" type="Polygon2D" parent="." unique_id=607560035]
+color = Color(0, 0, 0, 0.2959)
+polygon = PackedVector2Array(217, 430, -643, 454, -639, 549, -643, 596, -599, 586, -614, 561, -586, 560, -518, 593, -583, 607, -501, 617, -483, 581, -367, 603, -414, 615, -408, 637, -452, 663, -481, 661, -482, 672, -417, 680, -380, 671, -298, 676, -273, 660, -180, 682, -81, 649, 5, 645, 15, 633, 71, 647, 84, 659, 168, 634, 175, 621, 267, 612, 247, 585, 322, 584, 329, 563, 500, 557, 415, 538, 543, 526, 535.2494, 495.5938, 583, 478)
+script = ExtResource("6_hnjuy")
+Darkness = 0.538
+Falloff = 43.767

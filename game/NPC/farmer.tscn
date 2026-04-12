@@ -2,24 +2,24 @@
 
 [ext_resource type="Script" uid="uid://bm38qqc3nw3xg" path="res://framework/NPC.cs" id="1_0b3ql"]
 [ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="2_2kksh"]
-[ext_resource type="Texture2D" uid="uid://c4rfb5vhcr2ea" path="res://game/art/walkman_new_normal1.png" id="3_8u0ma"]
+[ext_resource type="Texture2D" uid="uid://f5tkxjhg54cx" path="res://game/art/farmerSheet_nm.png" id="3_yimyq"]
 [ext_resource type="Texture2D" uid="uid://nsb7ermfjg4" path="res://game/art/farmerSheet.png" id="4_klq5y"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="4_xs23k"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_s8pxs"]
 shader = ExtResource("2_2kksh")
 shader_parameter/sprite_texture = ExtResource("4_klq5y")
-shader_parameter/normal_map = ExtResource("3_8u0ma")
-shader_parameter/dark_threshold = -0.015
-shader_parameter/hatch_threshold = 0.55
-shader_parameter/hatch_spacing = 8.0
-shader_parameter/hatch_thickness = 0.36
-shader_parameter/hatch_roughness = 0.5
-shader_parameter/hatch_taper = 3.0
+shader_parameter/normal_map = ExtResource("3_yimyq")
+shader_parameter/dark_threshold = 0.174000008265
+shader_parameter/hatch_threshold = 0.3490000165775
+shader_parameter/hatch_spacing = 2.01000009221512
+shader_parameter/hatch_thickness = 1.806000085785
+shader_parameter/hatch_roughness = 0.0570000027075
+shader_parameter/hatch_taper = 0.5
 shader_parameter/light_pos_uv = Vector2(0.5, -2)
 shader_parameter/hframes = 1
 shader_parameter/vframes = 1
-shader_parameter/light_strength = 0.126
+shader_parameter/light_strength = 1.0
 shader_parameter/light_direction = Vector3(11.285, 1.79, 3.38)
 shader_parameter/is_flipped = false
 shader_parameter/overall_dark = 1.0

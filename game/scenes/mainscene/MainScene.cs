@@ -37,7 +37,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
 
-public enum TransitionType { NextPanel, PageTurn, FadeToBlack }
+public enum TransitionType { NextPanel, PageTurn, FadeToBlack, CoverTurn }
 
 public partial class MainScene : Node2D
 {
@@ -90,7 +90,26 @@ public partial class MainScene : Node2D
     public  int             CurrentPanelIndex => _currentPanelIndex;
     private ImageTexture[] _panelTextures     = new ImageTexture[6];
 
-    private const float PAGE_ASPECT    = 8.5f / 11.0f; // portrait book proportions
+    private const float PAGE_ASPECT    = 8.5f / 11.0f; // fallback if no CoverArea found
+    // Set once in _Ready() from the CoverArea shape (single source of truth).
+    // All PageSize/PageOffset/panel helpers read this; change CoverArea in editor to update all transitions.
+    private float _activePageAspect = PAGE_ASPECT;
+
+    // Set by Load() before a scene transition; consumed by SwitchCurrentSceneForNext()
+    // to place the ego at the saved position/facing instead of start_point.
+    private Vector2?       _pendingLoadPosition;
+    private NPC.Direction? _pendingLoadFacing;
+    // Set by Load() so SwitchCurrentSceneForNext skips CaptureThingState — loaded
+    // states must not be overwritten by the current (fresh/unmodified) scene.
+    private bool           _skipNextCapture;
+
+    // Per-session thing state store: scene SceneFilePath → (thing Name → ThingState).
+    // Only contains scenes that have been visited and had at least one thing change.
+    // Captured when leaving a scene; applied when re-entering, before thumbnail capture.
+    private record ThingState(
+        bool IsExist, bool IsHidden, Vector2 Position, NPC.Direction? Facing,
+        string Animation, int? Frame, bool? AnimPlaying);
+    private readonly Dictionary<string, Dictionary<string, ThingState>> _thingStates = new();
     private const float PAGE_MARGIN_H  = 16f;          // left/right page margin
     private const float PAGE_MARGIN_V  = 18f;          // top/bottom page margin
     private const float PANEL_GUTTER_H = 4f;           // thin horizontal gap between columns
@@ -129,12 +148,19 @@ public partial class MainScene : Node2D
         currentSceneHolder = GetNode<Node2D>("CurrentSceneHolder");
         nextSceneHolder    = GetNode<Node2D>("NextSceneHolder");
 
-        // Load the starting scene from game_config.json.
+        // Load the starting scene (or cover page if configured) from game_config.json.
         string configJson = FileAccess.GetFileAsString("res://game/game_config.json");
         var    config     = JsonNode.Parse(configJson).AsObject();
+        string coverPath  = config["cover_scene"]?.GetValue<string>() ?? "";
         string startPath  = config["start_scene"].GetValue<string>();
-        currentScene      = ResourceLoader.Load<PackedScene>(startPath).Instantiate() as scene_script;
+        string initialPath = !string.IsNullOrEmpty(coverPath) ? coverPath : startPath;
+        currentScene      = ResourceLoader.Load<PackedScene>(initialPath).Instantiate() as scene_script;
         currentSceneHolder.AddChild(currentScene);
+
+        // Derive page aspect from CoverArea shape — single source of truth for all transitions.
+        var coverAreaNode = currentScene.GetNodeOrNull<CollisionShape2D>("CoverArea");
+        if (coverAreaNode?.Shape is RectangleShape2D coverShapeRect)
+            _activePageAspect = coverShapeRect.Size.X / coverShapeRect.Size.Y;
 
         // The starting scene's camera is disabled in _EnterTree (same as all
         // scenes) — re-enable it here now that it is the live scene.
@@ -159,6 +185,10 @@ public partial class MainScene : Node2D
         currentSceneHolder.RemoveChild(overlayScene);
         AddChild(overlayScene);
         overlayScene.Layer = 10;
+
+        // Hide the verb/inventory overlay while the cover page is showing.
+        if (!string.IsNullOrEmpty(coverPath))
+            overlayScene.Hide();
 
         // Shift the camera view so scene content starts at the CelBorderEdge inner
         // boundary. Camera2D.Offset displaces what the camera renders in screen space
@@ -185,7 +215,8 @@ public partial class MainScene : Node2D
                 Vector2 br = currentScene.cameraClamp.Position + currentScene.cameraClamp.Shape.GetRect().Size / 2f;
                 tl += halfView;
                 br -= halfView;
-                snapped = snapped.Clamp(tl, br);
+                if (tl.X <= br.X && tl.Y <= br.Y)
+                    snapped = snapped.Clamp(tl, br);
             }
             currentScene.camera.Position = snapped;
         }
@@ -290,6 +321,9 @@ public partial class MainScene : Node2D
                 break;
             case TransitionType.PageTurn:
                 PageTurnTransition(roomPath, arrival);
+                break;
+            case TransitionType.CoverTurn:
+                CoverTurnTransition(roomPath, arrival);
                 break;
             default:
                 FadeTransition(roomPath, arrival);
@@ -571,6 +605,165 @@ public partial class MainScene : Node2D
     }
 
     // ---------------------------------------------------------------------------
+    // CoverTurn transition — full cover page curls away to reveal the first game page.
+    //
+    // Skips the panel zoom-out used by PageTurnTransition; the cover IS the full
+    // page, so we capture it, curl it directly, then zoom into panel 0 of the
+    // incoming scene's fresh page layout.
+    // ---------------------------------------------------------------------------
+    private async void CoverTurnTransition(string roomPath, scene_script.ArrivalData arrival)
+    {
+        try
+        {
+        await CoverTurnTransitionImpl(roomPath, arrival);
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"CoverTurnTransition failed: {ex.Message}\n{ex.StackTrace}");
+            isInTransition = false;
+        }
+    }
+
+    private async Task CoverTurnTransitionImpl(string roomPath, scene_script.ArrivalData arrival)
+    {
+        Vector2 vp        = GetViewportRect().Size;
+        Rect2   coverRect = new Rect2(Vector2.Zero, vp);  // fallback: full viewport
+
+        // ── 1. Zoom cover camera to show the full CoverArea + background margin ──
+        var coverArea = currentScene.GetNodeOrNull<CollisionShape2D>("CoverArea");
+        if (coverArea?.Shape is RectangleShape2D coverShape)
+        {
+            var coverCam = currentScene.camera;
+            if (coverCam != null)
+            {
+                coverCam.Enabled = true;
+                coverCam.MakeCurrent();
+
+                Vector2 coverCenter = coverArea.GlobalPosition;
+                float   targetZoom  = Mathf.Min(
+                    vp.X / (coverShape.Size.X * 1.15f),
+                    vp.Y / (coverShape.Size.Y * 1.15f));
+
+                Tween zoomOut = CreateTween().SetParallel(true);
+                zoomOut.TweenProperty(coverCam, "zoom",     new Vector2(targetZoom, targetZoom), 0.55f)
+                       .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+                zoomOut.TweenProperty(coverCam, "position", coverCenter, 0.55f)
+                       .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+                await ToSignal(zoomOut, Tween.SignalName.Finished);
+
+                // Compute coverRect directly from the known final camera state.
+                // After the tween: camera is centred on CoverArea, so the CoverArea
+                // is screen-centred.  No GetFinalTransform() needed.
+                Vector2 screenHalf = coverShape.Size / 2f * targetZoom;
+                coverRect = new Rect2(vp / 2f - screenHalf, screenHalf * 2f);
+            }
+        }
+
+        // ── 2. Capture the viewport (cover scene, no comicPageLayer interference) ─
+        // Hide _comicPageLayer first — it sits at layer 15 and would pollute the
+        // snapshot if left visible.  Use the raw FramePostDraw+GetImage path
+        // (same technique as PageTurnTransition step 5) rather than CaptureViewportClean.
+        if (_comicPageLayer != null) _comicPageLayer.Visible = false;
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        Image rawImg = GetViewport().GetTexture().GetImage();
+
+        // Crop to the CoverArea screen rect.
+        Vector2I vpI   = rawImg.GetSize();
+        Rect2I   cropI = new Rect2I((int)coverRect.Position.X, (int)coverRect.Position.Y,
+                                     (int)coverRect.Size.X,     (int)coverRect.Size.Y)
+                         .Intersection(new Rect2I(Vector2I.Zero, vpI));
+        if (cropI.Size.X <= 0 || cropI.Size.Y <= 0)
+            cropI = new Rect2I(Vector2I.Zero, vpI);
+        ImageTexture pageTex = ImageTexture.CreateFromImage(rawImg.GetRegion(cropI));
+
+        // ── 3. Stage the incoming scene ───────────────────────────────────────────
+        PrepareNextScene(roomPath, arrival);
+        ImageTexture nextTex = await CaptureNextSceneThumbnail();
+        if (_comicPageLayer != null) _comicPageLayer.Visible = false;
+
+        // ── 4. Build panel page at Layer 99 (behind the curl) ────────────────────
+        // Layer 99's dark ColorRect provides the surround visible outside CoverArea
+        // and is also what shows through the curl's transparent pixels as it peels.
+        _panelTextures     = new ImageTexture[6];
+        _panelTextures[0]  = nextTex;
+        _currentPanelIndex = 0;
+
+        var newPageOverlay = new CanvasLayer { Layer = 99 };
+        AddChild(newPageOverlay);
+        newPageOverlay.AddChild(new ColorRect
+            { Color = new Color(0.12f, 0.12f, 0.12f), Size = vp, Position = Vector2.Zero });
+
+        // Scale the panel page so PageSize height matches the CoverArea screen height.
+        float   coverPageScale = coverRect.Size.Y / vp.Y;
+        Vector2 coverPagePos   = coverRect.GetCenter() - vp * coverPageScale * 0.5f;
+
+        Vector2 panelSize   = PanelSize(vp);
+        float   newZoomIn   = ZoomInScale(panelSize, vp);
+        Control newPage     = BuildPageContainer(vp);
+        newPageOverlay.AddChild(newPage);
+        newPage.Scale    = new Vector2(coverPageScale, coverPageScale);
+        newPage.Position = coverPagePos;
+        ShaderMaterial newPageMat = GetPageShaderMat(newPage);
+
+        // ── 5. Curl Layer (100): CoverArea portrait only ─────────────────────────
+        // Transparent shader pixels reveal Layer 99's panel layout underneath.
+        var curlOverlay = new CanvasLayer { Layer = 100 };
+        AddChild(curlOverlay);
+
+        var curlRect = new TextureRect
+        {
+            Texture     = pageTex,
+            StretchMode = TextureRect.StretchModeEnum.Scale,
+            Size        = coverRect.Size,
+            Position    = coverRect.Position,
+        };
+        curlOverlay.AddChild(curlRect);
+
+        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
+        mat.SetShaderParameter("progress", 0.0f);
+        curlRect.Material = mat;
+
+        Tween curl = CreateTween();
+        curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
+            0.0f, 1.0f, 0.85)
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+        await ToSignal(curl, Tween.SignalName.Finished);
+        curlOverlay.QueueFree();
+
+        // ── 6. Pause on the full panel page ──────────────────────────────────────
+        await ToSignal(CreateTween().TweenInterval(RandomisedDuration(0.50f, 0.10f)),
+            Tween.SignalName.Finished);
+
+        // ── 7. Zoom into panel 0 ──────────────────────────────────────────────────
+        Vector2 panel0Pos = ContainerPosForPanel(0, panelSize, newZoomIn, vp);
+        float   dur       = RandomisedDuration(0.45f);
+        Tween tweenIn = CreateTween().SetParallel(true);
+        tweenIn.TweenProperty(newPage, "scale",    new Vector2(newZoomIn, newZoomIn), dur)
+               .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        tweenIn.TweenProperty(newPage, "position", panel0Pos, dur)
+               .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        if (newPageMat != null)
+        {
+            tweenIn.TweenMethod(Callable.From<Vector2>(v => newPageMat.SetShaderParameter("uv_noise_scale",  v)),
+                NoiseScale(coverPageScale, vp), NoiseScale(newZoomIn, vp), dur)
+                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+            tweenIn.TweenMethod(Callable.From<Vector2>(o => newPageMat.SetShaderParameter("uv_noise_offset", o)),
+                NoiseOffset(coverPageScale, coverPagePos, vp), NoiseOffset(newZoomIn, panel0Pos, vp), dur)
+                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        }
+        await ToSignal(tweenIn, Tween.SignalName.Finished);
+
+        // ── 8. Finalise ───────────────────────────────────────────────────────────
+        AlignDirtUV(newZoomIn, panel0Pos, vp);
+        SwitchCurrentSceneForNext();
+        newPageOverlay.QueueFree();
+        currentScene.UnsuspendSceneInput();
+        isInTransition = false;
+        overlayScene?.ShowAfterTransition();
+        if (_comicPageLayer != null) _comicPageLayer.Visible = true;
+    }
+
+    // ---------------------------------------------------------------------------
     // Fade-to-black transition.
     // ---------------------------------------------------------------------------
     private void FadeTransition(string roomPath, scene_script.ArrivalData arrival)
@@ -632,13 +825,13 @@ public partial class MainScene : Node2D
 
             if (nextScene.cameraClamp != null)
             {
-                Vector2 clampZoom = nextScene.camera.Zoom;
-                Vector2 halfView  = vp / 2f / clampZoom;
                 Vector2 tl = nextScene.cameraClamp.Position - nextScene.cameraClamp.Shape.GetRect().Size / 2f;
                 Vector2 br = nextScene.cameraClamp.Position + nextScene.cameraClamp.Shape.GetRect().Size / 2f;
+                Vector2 halfView = vp / 2f / nextScene.camera.Zoom;
                 tl += halfView;
                 br -= halfView;
-                snapped = snapped.Clamp(tl, br);
+                if (tl.X <= br.X && tl.Y <= br.Y)
+                    snapped = snapped.Clamp(tl, br);
             }
 
             nextScene.camera.Position = snapped;
@@ -653,6 +846,7 @@ public partial class MainScene : Node2D
             PrimeParallax(nextScene);
         }
 
+        ApplyThingState(nextScene);
         nextScene.SuspendSceneInput();
     }
 
@@ -753,11 +947,18 @@ public partial class MainScene : Node2D
 
     public void SwitchCurrentSceneForNext()
     {
+        if (_skipNextCapture)
+            _skipNextCapture = false;
+        else
+            CaptureThingState(currentScene);
         nextSceneHolder.RemoveChild(nextScene);
         currentSceneHolder.AddChild(nextScene);
         currentScene.QueueFree();
         currentScene = nextScene;
         nextScene    = null;
+
+        // Re-show overlay in case it was hidden by the cover page.
+        overlayScene?.Show();
 
         // Re-enable the camera — it was disabled in _EnterTree to prevent
         // Godot from auto-stealing the viewport during transition.
@@ -769,6 +970,18 @@ public partial class MainScene : Node2D
 
         ApplyCelBorderOffset(currentScene);
 
+        // Apply saved ego state from Load(), overriding the scene's start_point.
+        if (_pendingLoadPosition.HasValue && currentScene.ego != null)
+        {
+            currentScene.ego.Position = _pendingLoadPosition.Value;
+            _pendingLoadPosition = null;
+        }
+        if (_pendingLoadFacing.HasValue && currentScene.ego != null)
+        {
+            currentScene.ego.ChangeFacing(_pendingLoadFacing.Value);
+            _pendingLoadFacing = null;
+        }
+
         // Prime parallax so the first live frame matches the thumbnail.
         PrimeParallax(currentScene);
     }
@@ -777,6 +990,110 @@ public partial class MainScene : Node2D
     {
         if (scene?.camera != null)
             scene.camera.Offset = _celBorderOffset;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Thing state persistence (session-only).
+    //
+    // CaptureThingState — called when leaving a scene. Walks scene.things, skips
+    // the ego, and records any thing whose isExist/isHidden/Position (or NPC Facing)
+    // differs from the defaults captured at _Ready(). Stored under the scene's
+    // SceneFilePath so re-entry can restore the exact state the player left it in.
+    //
+    // ApplyThingState — called in PrepareNextScene after instantiation, before
+    // thumbnail capture. Restores stored state to matching things by name.
+    // ---------------------------------------------------------------------------
+    private void CaptureThingState(scene_script scene)
+    {
+        if (scene?.things == null) return;
+
+        _thingStates.TryGetValue(scene.SceneFilePath, out var prevStored);
+
+        var next = new Dictionary<string, ThingState>();
+        foreach (var t in scene.things)
+        {
+            if (t == scene.ego) continue;
+
+            bool existChanged  = t.isExist  != t._defaultIsExist;
+            bool hiddenChanged = t.isHidden != t._defaultIsHidden;
+            bool posChanged    = !t.Position.IsEqualApprox(t._defaultPosition);
+            NPC.Direction? facing = (t is NPC npc && npc.Facing != npc._defaultFacing)
+                                    ? npc.Facing : null;
+
+            string anim     = t.isAnimated ? t.animationPlayer.CurrentAnimation : "";
+            int?   frame    = t.hasSprite  ? t.sprite.Frame                     : null;
+            bool?  animPlay = t.isAnimated ? t.animationPlayer.IsPlaying()       : null;
+
+            bool anyChanged = existChanged || hiddenChanged || posChanged || facing.HasValue
+                           || (t.isAnimated && anim    != t._defaultAnimation)
+                           || (t.isAnimated && animPlay != t._defaultAnimPlaying)
+                           || (t.hasSprite  && frame    != t._defaultFrame);
+
+            // Store if state differs from defaults, OR if we had a stored entry for this
+            // thing from a prior visit — so a value reset back to default overwrites the
+            // stale entry rather than leaving it to be re-applied on the next visit.
+            bool prevHadEntry = prevStored != null && prevStored.ContainsKey(t.Name);
+            if (anyChanged || prevHadEntry)
+                next[t.Name] = new ThingState(
+                    t.isExist, t.isHidden, t.Position, facing,
+                    anim, frame, animPlay);
+        }
+
+        if (prevStored != null || next.Count > 0)
+            _thingStates[scene.SceneFilePath] = next;
+    }
+
+    // Returns one line per stored thing for the debug menu visualizer.
+    // Format: "  thingName  [gone]  [hidden]  animName▶/▮  facing"
+    public IEnumerable<(string scene, string thing, string summary)>
+        GetThingStateDebugLines()
+    {
+        foreach (var (scenePath, things) in _thingStates)
+        {
+            string sceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+            foreach (var (thingName, s) in things)
+            {
+                string line = "";
+                if (!s.IsExist)  line += " [gone]";
+                if (s.IsHidden)  line += " [hidden]";
+                if (!string.IsNullOrEmpty(s.Animation))
+                    line += $" {s.Animation}{(s.AnimPlaying == true ? "▶" : "▮")}";
+                if (s.Facing.HasValue)
+                    line += $" {s.Facing.Value}";
+                if (s.Frame.HasValue && string.IsNullOrEmpty(s.Animation))
+                    line += $" f{s.Frame.Value}";
+                yield return (sceneName, thingName, line.TrimStart());
+            }
+        }
+    }
+
+    private void ApplyThingState(scene_script scene)
+    {
+        if (scene?.things == null) return;
+        if (!_thingStates.TryGetValue(scene.SceneFilePath, out var stored)) return;
+
+        foreach (var t in scene.things)
+        {
+            if (t == scene.ego) continue;
+            if (!stored.TryGetValue(t.Name, out var state)) continue;
+
+            t.Position = state.Position;
+            t.ToggleExist(state.IsExist);
+            t.ToggleHide(state.IsHidden);
+            if (state.Facing.HasValue && t is NPC npc)
+                npc.ChangeFacing(state.Facing.Value);
+            if (!string.IsNullOrEmpty(state.Animation) && t.isAnimated)
+            {
+                if (state.AnimPlaying == true)
+                    t.animationPlayer.Play(state.Animation);  // plays from start
+                else
+                    t.animationPlayer.Stop(false);            // stop without reset; frame set below
+            }
+            // Set frame after Play so a stopped animation lands on the right frame.
+            // For a playing animation this is overridden by the animation system anyway.
+            if (state.Frame.HasValue && t.hasSprite)
+                t.sprite.Frame = state.Frame.Value;
+        }
     }
 
     // PrimeParallax — applies the parallax offset for every parallax sprite
@@ -797,8 +1114,8 @@ public partial class MainScene : Node2D
     // PageSize — portrait-book rect (8.5:11) fitted inside the viewport.
     private Vector2 PageSize(Vector2 vp)
     {
-        float h = vp.Y, w = h * PAGE_ASPECT;
-        if (w > vp.X) { w = vp.X; h = w / PAGE_ASPECT; }
+        float h = vp.Y, w = h * _activePageAspect;
+        if (w > vp.X) { w = vp.X; h = w / _activePageAspect; }
         return new Vector2(w, h);
     }
 
@@ -1132,39 +1449,164 @@ public partial class MainScene : Node2D
 
     // ---------------------------------------------------------------------------
     // Save / Load.
+    //
+    // Save() writes one JSON object to user://savegame.save with:
+    //   save_name    — display name for the slot (caller can pass one; default provided)
+    //   scene_path   — res:// path of the current scene
+    //   ego_position — { x, y } local position of the ego node
+    //   ego_facing   — NPC.Direction int (0=up 1=down 3=left 4=right)
+    //   inventory    — array of InventoryItem.ItemType ints
+    //   scene_flags  — array of { scene_name, name, value } objects
+    //   thing_states — object: scene_path → object: thing_name → state fields
+    //
+    // Load() restores all of the above and transitions to the saved scene via Fade.
     // ---------------------------------------------------------------------------
-    public void Save()
+    public void Save(string saveName = "Save 1")
     {
-        using var file = FileAccess.Open("user://savegame.save", FileAccess.ModeFlags.Write);
+        // Capture current scene's thing state before saving so it's up to date.
+        CaptureThingState(currentScene);
+
+        var ego    = currentScene?.ego;
+        var posObj = new Godot.Collections.Dictionary<string, Variant>
+        {
+            { "x", ego?.Position.X ?? 0f },
+            { "y", ego?.Position.Y ?? 0f }
+        };
+
+        var invArr = new Godot.Collections.Array<Variant>();
+        foreach (var item in inventory)
+            invArr.Add((int)item.Type);
+
+        var flagsArr = new Godot.Collections.Array<Variant>();
         foreach (var flag in sceneFlags)
         {
-            var dict = new Godot.Collections.Dictionary<string, Variant>
+            var fd = new Godot.Collections.Dictionary<string, Variant>
             {
-                { "sceneName", flag.sceneName },
-                { "Name",      flag.Name      },
-                { "Value",     flag.Value     }
+                { "scene_name", flag.sceneName },
+                { "name",       flag.Name      },
+                { "value",      flag.Value     }
             };
-            file.StoreLine(Json.Stringify(dict));
+            flagsArr.Add(Json.ParseString(Json.Stringify(fd)));
         }
+
+        // thing_states: { "res://...tscn": { "thingName": { fields }, ... }, ... }
+        var thingStatesObj = new Godot.Collections.Dictionary<string, Variant>();
+        foreach (var (scenePath, things) in _thingStates)
+        {
+            var sceneObj = new Godot.Collections.Dictionary<string, Variant>();
+            foreach (var (thingName, state) in things)
+            {
+                var td = new Godot.Collections.Dictionary<string, Variant>
+                {
+                    { "is_exist",    state.IsExist  },
+                    { "is_hidden",   state.IsHidden },
+                    { "pos_x",       state.Position.X },
+                    { "pos_y",       state.Position.Y },
+                    { "facing",       state.Facing.HasValue ? (int)state.Facing.Value : -1 },
+                    { "animation",    state.Animation ?? ""                               },
+                    { "frame",        state.Frame     ?? -1                               },
+                    { "anim_playing", state.AnimPlaying ?? false                          }
+                };
+                sceneObj[thingName] = Json.ParseString(Json.Stringify(td));
+            }
+            thingStatesObj[scenePath] = Json.ParseString(Json.Stringify(sceneObj));
+        }
+
+        var save = new Godot.Collections.Dictionary<string, Variant>
+        {
+            { "save_name",    saveName                                  },
+            { "scene_path",   currentScene?.SceneFilePath ?? ""        },
+            { "ego_position", posObj                                   },
+            { "ego_facing",   (int)(ego?.Facing ?? NPC.Direction.down) },
+            { "inventory",    invArr                                   },
+            { "scene_flags",  flagsArr                                 },
+            { "thing_states", Json.ParseString(Json.Stringify(thingStatesObj)) }
+        };
+
+        using var file = FileAccess.Open("user://savegame.save", FileAccess.ModeFlags.Write);
+        file.StoreString(Json.Stringify(save));
     }
 
     public void Load()
     {
-        if (!FileAccess.FileExists("user://savegame.save")) return;
+        const string path = "user://savegame.save";
+        if (!FileAccess.FileExists(path)) return;
 
-        using var file = FileAccess.Open("user://savegame.save", FileAccess.ModeFlags.Read);
-        while (file.GetPosition() < file.GetLength())
+        var json = new Json();
+        if (json.Parse(FileAccess.GetFileAsString(path)) != Error.Ok) return;
+
+        var root = new Godot.Collections.Dictionary<string, Variant>(
+            (Godot.Collections.Dictionary)json.Data);
+
+        // ── Restore scene flags ───────────────────────────────────────────────
+        sceneFlags.Clear();
+        if (root.TryGetValue("scene_flags", out var flagsVar))
         {
-            var jsonString = file.GetLine();
-            var json       = new Json();
-            if (json.Parse(jsonString) != Error.Ok) continue;
+            foreach (Variant fv in (Godot.Collections.Array)flagsVar)
+            {
+                var fd = new Godot.Collections.Dictionary<string, Variant>(
+                    (Godot.Collections.Dictionary)fv);
+                sceneFlags.Add(new Globals.SceneFlag(
+                    fd["scene_name"].ToString(),
+                    fd["name"].ToString(),
+                    fd["value"]));
+            }
+        }
 
-            var data = new Godot.Collections.Dictionary<string, Variant>(
-                (Godot.Collections.Dictionary)json.Data);
-            sceneFlags.Add(new Globals.SceneFlag(
-                data["sceneName"].ToString(),
-                data["Name"].ToString(),
-                data["Value"]));
+        // ── Restore inventory ─────────────────────────────────────────────────
+        inventory.Clear();
+        if (root.TryGetValue("inventory", out var invVar))
+        {
+            foreach (Variant iv in (Godot.Collections.Array)invVar)
+                inventory.Add(new InventoryItem((InventoryItem.ItemType)(int)iv));
+        }
+
+        // ── Restore thing states ──────────────────────────────────────────────
+        _thingStates.Clear();
+        if (root.TryGetValue("thing_states", out var tsVar))
+        {
+            var scenesDict = new Godot.Collections.Dictionary<string, Variant>(
+                (Godot.Collections.Dictionary)tsVar);
+            foreach (var (savedScenePath, sceneVal) in scenesDict)
+            {
+                var thingsDict = new Godot.Collections.Dictionary<string, Variant>(
+                    (Godot.Collections.Dictionary)sceneVal);
+                var things = new Dictionary<string, ThingState>();
+                foreach (var (thingName, thingVal) in thingsDict)
+                {
+                    var td = new Godot.Collections.Dictionary<string, Variant>(
+                        (Godot.Collections.Dictionary)thingVal);
+                    int    facingInt = (int)td["facing"];
+                    int    frameInt  = (int)td["frame"];
+                    things[thingName] = new ThingState(
+                        IsExist:     (bool)td["is_exist"],
+                        IsHidden:    (bool)td["is_hidden"],
+                        Position:    new Vector2((float)td["pos_x"], (float)td["pos_y"]),
+                        Facing:      facingInt >= 0 ? (NPC.Direction)facingInt : null,
+                        Animation:   td["animation"].ToString(),
+                        Frame:       frameInt  >= 0 ? frameInt : null,
+                        AnimPlaying: (bool)td["anim_playing"]);
+                }
+                _thingStates[savedScenePath] = things;
+            }
+        }
+
+        // ── Queue ego state for SwitchCurrentSceneForNext ─────────────────────
+        if (root.TryGetValue("ego_position", out var posVar))
+        {
+            var pd = new Godot.Collections.Dictionary<string, Variant>(
+                (Godot.Collections.Dictionary)posVar);
+            _pendingLoadPosition = new Vector2((float)pd["x"], (float)pd["y"]);
+        }
+        if (root.TryGetValue("ego_facing", out var facingVar))
+            _pendingLoadFacing = (NPC.Direction)(int)facingVar;
+
+        // ── Transition to saved scene ─────────────────────────────────────────
+        string scenePath = root.TryGetValue("scene_path", out var sp) ? sp.ToString() : "";
+        if (!string.IsNullOrEmpty(scenePath))
+        {
+            _skipNextCapture = true;
+            ChangeSceneToFile(scenePath, default, TransitionType.FadeToBlack);
         }
     }
 }

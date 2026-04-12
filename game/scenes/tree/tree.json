@@ -1,6 +1,100 @@
 {
   "areas": {
-    "exit_to_housefront": { "move_into": [{ "action": "exit", "destination": "housefront", "arrive_dir": "right", "arrive_area": "exit_to_tree" }] }
+    "exit_to_housefront": {
+      "move_into": [{ "action": "exit", "destination": "housefront", "arrive_dir": "right", "arrive_area": "exit_to_tree" }]
+    }
   },
-  "default": {}
+  "things": {
+    "tree1": {
+      "look": [
+        { "action": "speak", "actor": "self", "text": "A TALL TREE WITH ROUGH BARK." }
+      ],
+      "use": [
+        {
+          "action": "if_flag",
+          "name": "talkedAboutDeadTrees",
+          "is": true,
+          "then": [
+            { "action": "speak", "actor": "self", "text": "THUMP!", "style": "straight" },
+            { "action": "narrate", "text": "THE SOUND IS SOLID." }
+          ],
+          "else": [
+            { "action": "think", "actor": "ego", "text": "[b]ROUGH BARK.[/b]", "style": "curved" }
+          ]
+        }
+      ],
+      "use_item": {
+        "axe": [
+          { "action": "speak", "actor": "self", "text": "[b]NO NEED TO CUT DOWN THAT LIVE TREE.[/b]" }
+        ]
+      }
+    },
+    "tree2": {
+      "look": [
+        { "action": "speak", "actor": "self", "text": "A TALL TREE WITH ROUGH BARK." }
+      ],
+      "use": [
+        {
+          "action": "if_flag",
+          "name": "talkedAboutDeadTrees",
+          "is": true,
+          "then": [
+            { "action": "speak", "actor": "self", "text": "THUMP!", "style": "straight" },
+            { "action": "narrate", "text": "THE SOUND IS SOLID." }
+          ],
+          "else": [
+            { "action": "think", "actor": "ego", "text": "[b]ROUGH BARK.[/b]", "style": "curved" }
+          ]
+        }
+      ],
+      "use_item": {
+        "axe": [
+          { "action": "speak", "actor": "self", "text": "[b]NO NEED TO CUT DOWN THAT LIVE TREE.[/b]" }
+        ]
+      }
+    },
+    "tree3": {
+      "look": [
+        { "action": "speak", "actor": "self", "text": "A TALL TREE WITH ROUGH BARK." }
+      ],
+      "use": [
+        {
+          "action": "if_flag",
+          "name": "talkedAboutDeadTrees",
+          "is": true,
+          "then": [
+            { "action": "speak", "actor": "self", "text": "THUNK!", "style": "exclaim|notail" },
+            { "action": "narrate", "text": "THE SOUND IS HOLLOW.", "corner": "bottomright" },
+            { "action": "set_flag", "name": "foundDeadTree", "value": "true" }
+          ],
+          "else": [
+            { "action": "think", "actor": "ego", "text": "[b]ROUGH BARK.[/b]", "style": "curved" }
+          ]
+        }
+      ],
+      "use_item": {
+        "axe": [        
+          {
+          "action": "if_flag",
+          "name": "foundDeadTree",
+          "is": true,
+          "then": [
+            { "action": "run_sequence", "name": "chop_dead_tree" }
+          ],
+          "else": [
+            { "action": "think", "actor": "ego", "text": "NOT SURE WHAT I'D DO THAT FOR.", "style": "curved" }
+          ]
+        }
+        ]
+      }
+    }
+  },
+  "sequences": {
+    "chop_dead_tree": [
+      { "action": "play_animation", "actor": "tree3", "animation": "shake" },
+      { "action": "wait", "seconds": 1 },
+      { "action": "narrate", "text": "THE TREE GROANS AND FALLS.", "corner": "bottomright" }
+    ]
+  },
+  "on_arrive_from": {}
 }

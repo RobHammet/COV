@@ -19,6 +19,7 @@ public partial class NPC : thing
 
     [Export] public Color     dialogColor      = Colors.White;
     [Export] public Direction Facing;
+    public Direction _defaultFacing;
     [Export(PropertyHint.Range, "0,200,")] public float speed = 100.0f;
 
     [Signal] public delegate void DestinationReachedEventHandler();
@@ -70,6 +71,7 @@ public partial class NPC : thing
 
         Connect("DestinationReached", new Callable(parentScene, "_on_Ego_DestinationReached"));
         Connect("FacingChanged",      new Callable(parentScene, "_on_Ego_FacingChanged"));
+        _defaultFacing = Facing;
     }
 
     // ---------------------------------------------------------------------------

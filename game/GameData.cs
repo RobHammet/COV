@@ -23,7 +23,7 @@ static class GameInteractionDefaults
 // ---------------------------------------------------------------------------
 public static class GameConfig
 {
-    public static string EgoScene = "res://game/character/Character.tscn";
+    public static string EgoScene = "res://game/character/ego.tscn";
 }
 
 // ---------------------------------------------------------------------------

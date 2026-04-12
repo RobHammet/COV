@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cov-scene-or-conversation",
+  "title": "COV Scene or Conversation File",
+  "oneOf": [
+    { "$ref": "#/$defs/SceneFile" },
+    { "$ref": "#/$defs/ConversationFile" }
+  ],
+
+  "$defs": {
+
+    "ActionArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Action" }
+    },
+
+    "SceneFile": {
+      "type": "object",
+      "properties": {
+        "areas": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/AreaEntry" }
+        },
+        "things": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/ThingEntry" }
+        },
+        "sequences": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/ActionArray" }
+        },
+        "on_arrive_from": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/ActionArray" }
+        },
+        "default": {}
+      }
+    },
+
+    "AreaEntry": {
+      "type": "object",
+      "properties": {
+        "move_into":    { "$ref": "#/$defs/ActionArray" },
+        "move_through": { "$ref": "#/$defs/ActionArray" }
+      }
+    },
+
+    "ThingEntry": {
+      "type": "object",
+      "properties": {
+        "use":  { "$ref": "#/$defs/ActionArray" },
+        "look": { "$ref": "#/$defs/ActionArray" },
+        "talk": { "$ref": "#/$defs/ActionArray" },
+        "use_item": {
+          "type": "object",
+          "description": "Keys are inventory item names.",
+          "additionalProperties": { "$ref": "#/$defs/ActionArray" }
+        }
+      }
+    },
+
+    "ConversationFile": {
+      "type": "object",
+      "required": ["start", "nodes"],
+      "properties": {
+        "start": {
+          "type": "string",
+          "description": "Name of the first node to run."
+        },
+        "nodes": {
+          "type": "object",
+          "description": "Keys are node names. Each value is an action array. Use 'call' to jump between nodes; omit it to end the conversation.",
+          "additionalProperties": { "$ref": "#/$defs/ActionArray" }
+        }
+      }
+    },
+
+    "Action": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "if_flag":     { "type": "string", "description": "Guard: skip this action if the named flag is false." },
+        "if_not_flag": { "type": "string", "description": "Guard: skip this action if the named flag is true." }
+      },
+      "oneOf": [
+        { "$ref": "#/$defs/ActionSpeak" },
+        { "$ref": "#/$defs/ActionThink" },
+        { "$ref": "#/$defs/ActionNarrate" },
+        { "$ref": "#/$defs/ActionMoveToTarget" },
+        { "$ref": "#/$defs/ActionMoveToCoords" },
+        { "$ref": "#/$defs/ActionMoveToArea" },
+        { "$ref": "#/$defs/ActionLookAt" },
+        { "$ref": "#/$defs/ActionChangeFacing" },
+        { "$ref": "#/$defs/ActionWait" },
+        { "$ref": "#/$defs/ActionSetFlag" },
+        { "$ref": "#/$defs/ActionIfFlag" },
+        { "$ref": "#/$defs/ActionPlayAnimation" },
+        { "$ref": "#/$defs/ActionAddToInventory" },
+        { "$ref": "#/$defs/ActionToggleExist" },
+        { "$ref": "#/$defs/ActionToggleHide" },
+        { "$ref": "#/$defs/ActionRemapFloor" },
+        { "$ref": "#/$defs/ActionExit" },
+        { "$ref": "#/$defs/ActionRunSequence" },
+        { "$ref": "#/$defs/ActionConversation" },
+        { "$ref": "#/$defs/ActionCall" },
+        { "$ref": "#/$defs/ActionChoices" }
+      ]
+    },
+
+    "ActionSpeak": {
+      "type": "object",
+      "required": ["action", "actor", "text"],
+      "properties": {
+        "action": { "const": "speak" },
+        "actor":  { "type": "string", "description": "\"ego\", \"self\", or any named scene node." },
+        "text":   { "type": "string", "description": "ALL CAPS convention. BBCode supported: [b]WORD[/b]." },
+        "style":  {
+          "type": "string",
+          "description": "Pipe-separated style tokens. Bubble shape: exclaim. Tail style: straight, curved (default), wavy, lightning, notail. Example: \"exclaim|lightning\"."
+        }
+      }
+    },
+
+    "ActionThink": {
+      "type": "object",
+      "required": ["action", "actor", "text"],
+      "properties": {
+        "action": { "const": "think" },
+        "actor":  { "type": "string", "description": "Usually \"ego\"." },
+        "text":   { "type": "string" }
+      }
+    },
+
+    "ActionNarrate": {
+      "type": "object",
+      "required": ["action", "text"],
+      "properties": {
+        "action": { "const": "narrate" },
+        "text":   { "type": "string" },
+        "corner": {
+          "type": "string",
+          "enum": ["topleft", "topright", "bottomleft", "bottomright"],
+          "description": "Caption box placement. Omit for auto."
+        }
+      }
+    },
+
+    "ActionMoveToTarget": {
+      "type": "object",
+      "required": ["action", "actor", "target"],
+      "properties": {
+        "action": { "const": "move" },
+        "actor":  { "type": "string" },
+        "target": { "type": "string", "description": "Name of a thing node or marker node in the scene." },
+        "strict": { "type": "boolean", "description": "true disables pathfinding shortcuts." }
+      }
+    },
+
+    "ActionMoveToCoords": {
+      "type": "object",
+      "required": ["action", "actor", "to"],
+      "properties": {
+        "action": { "const": "move" },
+        "actor":  { "type": "string" },
+        "to": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[x, y] pixel coordinates."
+        },
+        "strict": { "type": "boolean" }
+      }
+    },
+
+    "ActionMoveToArea": {
+      "type": "object",
+      "required": ["action", "actor", "to_area"],
+      "properties": {
+        "action":  { "const": "move" },
+        "actor":   { "type": "string" },
+        "to_area": { "type": "string", "description": "Name of a CollisionShape2D area node." },
+        "strict":  { "type": "boolean" }
+      }
+    },
+
+    "ActionLookAt": {
+      "type": "object",
+      "required": ["action", "actor", "target"],
+      "properties": {
+        "action": { "const": "look_at" },
+        "actor":  { "type": "string" },
+        "target": { "type": "string" }
+      }
+    },
+
+    "ActionChangeFacing": {
+      "type": "object",
+      "required": ["action", "actor", "direction"],
+      "properties": {
+        "action":    { "const": "change_facing" },
+        "actor":     { "type": "string" },
+        "direction": { "type": "string", "enum": ["up", "down", "left", "right"] }
+      }
+    },
+
+    "ActionWait": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action":  { "const": "wait" },
+        "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Defaults to 1.0." }
+      }
+    },
+
+    "ActionSetFlag": {
+      "type": "object",
+      "required": ["action", "name"],
+      "properties": {
+        "action": { "const": "set_flag" },
+        "name":   { "type": "string" },
+        "value":  { "type": "string", "description": "\"true\" or \"false\" (default \"true\"), or any string value." }
+      }
+    },
+
+    "ActionIfFlag": {
+      "type": "object",
+      "required": ["action", "name", "then"],
+      "properties": {
+        "action": { "const": "if_flag" },
+        "name":   { "type": "string" },
+        "is":     { "type": "boolean", "description": "Expected flag value. Defaults to true." },
+        "then":   { "type": "array", "description": "Action array to run when condition is met. (Recursive ref omitted to avoid circular schema.)" },
+        "else":   { "type": "array", "description": "Action array to run when condition is not met. Optional." }
+      }
+    },
+
+    "ActionPlayAnimation": {
+      "type": "object",
+      "required": ["action", "animation"],
+      "properties": {
+        "action":    { "const": "play_animation" },
+        "actor":     { "type": "string", "description": "Named thing node. Defaults to \"self\"." },
+        "animation": { "type": "string", "description": "AnimationPlayer animation name." }
+      }
+    },
+
+    "ActionAddToInventory": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "const": "add_to_inventory" },
+        "description": { "type": "string", "description": "Picks up the 'self' thing (the thing being interacted with)." }
+      }
+    },
+
+    "ActionToggleExist": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "const": "toggle_exist" },
+        "target": { "type": "string", "description": "Named thing node. Defaults to self." },
+        "value":  { "type": "boolean", "description": "true = add to scene, false = remove. Omit to toggle." }
+      }
+    },
+
+    "ActionToggleHide": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "const": "toggle_hide" },
+        "target": { "type": "string", "description": "Named thing node. Defaults to self." },
+        "value":  { "type": "boolean", "description": "true = hide, false = show. Omit to toggle." }
+      }
+    },
+
+    "ActionRemapFloor": {
+      "type": "object",
+      "required": ["action", "polygon"],
+      "properties": {
+        "action":     { "const": "remap_floor" },
+        "nav_region": { "type": "string", "description": "NavigationRegion2D node name. Defaults to \"NavigationRegion2D\"." },
+        "polygon":    { "type": "string", "description": "Name of the NavigationPolygon to switch to." }
+      }
+    },
+
+    "ActionExit": {
+      "type": "object",
+      "required": ["action", "destination"],
+      "properties": {
+        "action":       { "const": "exit" },
+        "destination":  { "type": "string", "description": "Scene name (e.g. \"housefront\", \"theroad\")." },
+        "arrive_dir":   { "type": "string", "enum": ["up", "down", "left", "right"], "description": "Side ego walks in from in the destination scene." },
+        "arrive_area":  { "type": "string", "description": "Area node in destination scene to arrive near." },
+        "arrive_thing": { "type": "string", "description": "Thing node in destination scene to arrive near." },
+        "no_walk":      { "type": "boolean", "description": "Skip the walk-in animation." }
+      }
+    },
+
+    "ActionRunSequence": {
+      "type": "object",
+      "required": ["action", "name"],
+      "properties": {
+        "action": { "const": "run_sequence" },
+        "name":   { "type": "string", "description": "Key in the scene file's 'sequences' block." }
+      }
+    },
+
+    "ActionConversation": {
+      "type": "object",
+      "required": ["action", "file"],
+      "properties": {
+        "action": { "const": "conversation" },
+        "file":   { "type": "string", "description": "Path to a conversation JSON file, e.g. \"game/data/dialogs/Chat.json\"." }
+      }
+    },
+
+    "ActionCall": {
+      "type": "object",
+      "required": ["action", "node"],
+      "description": "Conversation files only. Jump to another node.",
+      "properties": {
+        "action": { "const": "call" },
+        "node":   { "type": "string" }
+      }
+    },
+
+    "ActionChoices": {
+      "type": "object",
+      "required": ["action", "options"],
+      "description": "Conversation files only. Present a dialog menu.",
+      "properties": {
+        "action": { "const": "choices" },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ChoiceOption" }
+        }
+      }
+    },
+
+    "ChoiceOption": {
+      "type": "object",
+      "required": ["label", "node"],
+      "properties": {
+        "label":       { "type": "string", "description": "Text shown to the player. ALL CAPS convention." },
+        "node":        { "type": "string", "description": "Conversation node to jump to when selected." },
+        "if_flag":     { "type": "string", "description": "Show this option only if the named flag is true." },
+        "if_not_flag": { "type": "string", "description": "Show this option only if the named flag is false." }
+      }
+    }
+
+  }
+}

@@ -49,7 +49,7 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_right = 130.0
-offset_bottom = 16.0
+offset_bottom = 487.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -92,8 +92,8 @@ script = ExtResource("6_2agrc")
 
 [node name="DialogChoices" type="VBoxContainer" parent="DB_Text" unique_id=2126207448]
 layout_mode = 0
-offset_right = 242.0
-offset_bottom = 71.0
+offset_right = 482.0
+offset_bottom = 680.0
 mouse_filter = 2
 script = ExtResource("8_y7j7e")
 

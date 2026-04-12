@@ -22,7 +22,7 @@ outlines = Array[PackedVector2Array]([PackedVector2Array(370, 442, 617, 445, 630
 source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dib47"]
-size = Vector2(1437, 928)
+size = Vector2(1942, 928)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ik1yn"]
 size = Vector2(198, 107)
@@ -47,7 +47,7 @@ default_color = Color(1, 1, 1, 0)
 script = ExtResource("ScalerStick_cs")
 
 [node name="PointLight2D" type="PointLight2D" parent="." unique_id=1068127406]
-position = Vector2(16, 252)
+position = Vector2(-272, 218)
 scale = Vector2(0.5, 0.499999)
 energy = 13.98
 texture = ExtResource("1")
@@ -88,7 +88,7 @@ self_modulate = Color(1, 0, 0, 1)
 position = Vector2(742, 328)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1041973976]
-position = Vector2(718.5, 467)
+position = Vector2(702, 467)
 shape = SubResource("RectangleShape2D_dib47")
 
 [node name="exit_to_tree" type="CollisionShape2D" parent="." unique_id=1403829295]

@@ -178,6 +178,7 @@ public class ConversationStep : IEventStep
                 case "wavy":      tail = DialogBox.TailStyle.Wavy;           break;
                 case "lightning": tail = DialogBox.TailStyle.Lightning;      break;
                 case "curved":    tail = DialogBox.TailStyle.Curved;         break;
+                case "notail":    tail = DialogBox.TailStyle.NoTail;         break;
             }
         return (type, tail);
     }

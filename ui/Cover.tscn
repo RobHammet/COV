@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://wfr4rvl2d62k"]
+
+[ext_resource type="Script" uid="uid://bujkclce6xemg" path="res://ui/Cover.cs" id="1"]
+[ext_resource type="Texture2D" uid="uid://df1g572pr6ygd" path="res://game/art/cover.png" id="2_5b1da"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5b1da"]
+size = Vector2(4372, 3008)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_g230x"]
+size = Vector2(1012, 1457)
+
+[node name="cover" type="Node2D" unique_id=334363859 node_paths=PackedStringArray("parallaxSprites")]
+z_index = 6
+script = ExtResource("1")
+displayName = "cover"
+isInsert = true
+parallaxSprites = []
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=923532872]
+z_index = 1
+position = Vector2(900, 1008)
+texture = ExtResource("2_5b1da")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1741980536]
+offset_left = -844.0
+offset_top = -299.0
+offset_right = 3784.0
+offset_bottom = 2918.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=299782088]
+position = Vector2(1206, 1022)
+zoom = Vector2(0.32, 0.32)
+
+[node name="PointLight2D" type="PointLight2D" parent="." unique_id=1607474995]
+
+[node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=2061631669]
+position = Vector2(1387, 1262)
+shape = SubResource("RectangleShape2D_5b1da")
+
+[node name="CoverArea" type="CollisionShape2D" parent="." unique_id=72705871]
+position = Vector2(898, 1009.5)
+shape = SubResource("RectangleShape2D_g230x")

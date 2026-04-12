@@ -14,22 +14,22 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2dqqq"]
 shader = ExtResource("2_iv7us")
-shader_parameter/radius_c = 8.0
-shader_parameter/radius_m = 4.0
-shader_parameter/radius_y = 2.0
-shader_parameter/radius_k = 6.0
-shader_parameter/frequency = 215.0
-shader_parameter/uv_offset = Vector2(0, 0)
-shader_parameter/halftone_blend = 0.250000011875
-shader_parameter/noise_scale = 4.62800017233
-shader_parameter/vignette_strength = 0.10000000149012
-shader_parameter/sepia_strength = 0.022000001045
-shader_parameter/contrast = 1.00000002375
-shader_parameter/glow_range = 1.0
-shader_parameter/glow_strength = 0.0390000018525
-shader_parameter/glow_falloff = 2.7970001091075
-shader_parameter/dirt_strength = 0.27200001292
-shader_parameter/dirt_scale = 15.29200067887
+shader_parameter/noise_scale = 8.6050003612375
+shader_parameter/dirt_strength = 0.4650000220875
+shader_parameter/dirt_scale = 38.3150017724625
+shader_parameter/black_bleed_range = 4.0
+shader_parameter/black_bleed_strength = 0.15
+shader_parameter/angle_c = 0.2618
+shader_parameter/angle_m = 1.309
+shader_parameter/angle_y = 1.5708
+shader_parameter/angle_k = 0.7854
+shader_parameter/halftone_dot_px = 5.50000021375
+shader_parameter/halftone_blend = 0.0750000035625
+shader_parameter/halftone_luma_min = 0.0310000014725
+shader_parameter/halftone_luma_max = 0.9630000219925
+shader_parameter/dot_hardness = 0.15
+shader_parameter/dot_gain = 0.05
+shader_parameter/black_crush = 0.0
 shader_parameter/uv_noise_scale = Vector2(1, 1)
 shader_parameter/uv_noise_offset = Vector2(0, 0)
 shader_parameter/uv_dirt_scale = Vector2(1, 1)
@@ -134,6 +134,7 @@ shader_parameter/white_cutoff = 0.775
 
 [node name="MainScene" type="Node2D" unique_id=1285218856]
 script = ExtResource("1_2l4hu")
+showDebugTools = true
 
 [node name="EventManager" type="Node" parent="." unique_id=1527263301]
 

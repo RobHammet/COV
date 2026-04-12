@@ -189,8 +189,8 @@ In areas where perspective scaling should be disabled (e.g. a doorway, a porch s
 
 ### 4.11 Add the Character
 
-1. Add an **instance** of `game/character/Character.tscn` as a child
-2. Name it `Character` (exact name required — the framework finds it by this name)
+1. Add an **instance** of `game/character/ego.tscn` as a child
+2. Name it `ego` (exact name required — the framework finds it by this name)
 3. Set **Position** to a default starting position in the scene (will be overridden on scene entry by arrival data)
 4. Adjust **character_speed** if this scene warrants different movement speed (default: 85.0)
 5. Set `modulate` to a dark colour matching other scenes if the character should appear pre-shaded (e.g. `Color(0.17, 0.17, 0.17, 1)` for the current art style)

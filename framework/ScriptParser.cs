@@ -196,6 +196,7 @@ public static class ScriptParser
                 case "straight":  tail = DialogBox.TailStyle.Straight;  break;
                 case "wavy":      tail = DialogBox.TailStyle.Wavy;      break;
                 case "lightning": tail = DialogBox.TailStyle.Lightning; break;
+                case "notail":    tail = DialogBox.TailStyle.NoTail;    break;
                 case "curved":    tail = DialogBox.TailStyle.Curved;    break;
             }
         return (type, tail);

@@ -1,15 +1,16 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://vatugls1iglu"]
 
 [ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="1_5ue76"]
-[ext_resource type="Texture2D" uid="uid://divy0mvcxjgvv" path="res://game/art/walkman_spritesheet_leftdownup_n.png" id="2_khkqk"]
+[ext_resource type="Texture2D" uid="uid://dy77j2g6powbb" path="res://game/art/walkman_spritesheet_leftdownup_nm.png" id="2_y27dq"]
 [ext_resource type="Texture2D" uid="uid://l7oltibc5wtp" path="res://game/art/walkman_spritesheet_leftdownup.png" id="3_1achv"]
 
 [resource]
 shader = ExtResource("1_5ue76")
 shader_parameter/sprite_texture = ExtResource("3_1achv")
-shader_parameter/normal_map = ExtResource("2_khkqk")
-shader_parameter/dark_threshold = 0.174000008265
-shader_parameter/hatch_threshold = 0.4150000197125
+shader_parameter/normal_map = ExtResource("2_y27dq")
+shader_parameter/enable_shadows = true
+shader_parameter/dark_threshold = 0.150000007125
+shader_parameter/hatch_threshold = 0.3490000165775
 shader_parameter/hatch_spacing = 1.02000004519012
 shader_parameter/hatch_thickness = 1.806000085785
 shader_parameter/hatch_roughness = 0.0570000027075
@@ -20,5 +21,5 @@ shader_parameter/vframes = 1
 shader_parameter/light_strength = 1.0
 shader_parameter/light_direction = Vector3(-200, 200, 0)
 shader_parameter/is_flipped = false
-shader_parameter/overall_dark = 0.66
+shader_parameter/overall_dark = 1.0
 shader_parameter/maintain_light = 0.12

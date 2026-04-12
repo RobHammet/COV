@@ -16,7 +16,8 @@ public partial class DebugMenu : Control
     public MainScene mainScene;
 
     private Panel           _bg;
-    private VBoxContainer   _itemsBox;  // refreshed each toggle-open
+    private VBoxContainer   _itemsBox;       // refreshed each toggle-open
+    private VBoxContainer   _thingStatesBox; // refreshed each toggle-open
 
     public override void _Ready()
     {
@@ -79,6 +80,13 @@ public partial class DebugMenu : Control
         _itemsBox.AddThemeConstantOverride("separation", 4);
         root.AddChild(_itemsBox);
 
+        // ── THING STATES ─────────────────────────────────────────
+        root.AddChild(MakeSpacer());
+        root.AddChild(MakeHeader("THING STATES"));
+        _thingStatesBox = new VBoxContainer();
+        _thingStatesBox.AddThemeConstantOverride("separation", 2);
+        root.AddChild(_thingStatesBox);
+
         Hide();
     }
 
@@ -86,7 +94,39 @@ public partial class DebugMenu : Control
     {
         if (Visible) { Hide(); return; }
         RefreshItems();
+        RefreshThingStates();
         Show();
+    }
+
+    private void RefreshThingStates()
+    {
+        foreach (Node c in _thingStatesBox.GetChildren()) c.QueueFree();
+
+        string lastScene = null;
+        foreach (var (scene, thing, summary) in mainScene.GetThingStateDebugLines())
+        {
+            if (scene != lastScene)
+            {
+                if (lastScene != null) _thingStatesBox.AddChild(MakeSpacer());
+                var sceneLbl = new Label { Text = scene.ToUpper() };
+                sceneLbl.AddThemeColorOverride("font_color",    new Color(0.8f, 0.7f, 1f));
+                sceneLbl.AddThemeFontSizeOverride("font_size",  11);
+                _thingStatesBox.AddChild(sceneLbl);
+                lastScene = scene;
+            }
+            var lbl = new Label { Text = $"  {thing}  {summary}" };
+            lbl.AddThemeColorOverride("font_color",   new Color(0.75f, 0.9f, 0.75f));
+            lbl.AddThemeFontSizeOverride("font_size", 11);
+            _thingStatesBox.AddChild(lbl);
+        }
+
+        if (lastScene == null)
+        {
+            var empty = new Label { Text = "  (none)" };
+            empty.AddThemeColorOverride("font_color",   new Color(0.5f, 0.5f, 0.5f));
+            empty.AddThemeFontSizeOverride("font_size", 11);
+            _thingStatesBox.AddChild(empty);
+        }
     }
 
     private void RefreshItems()

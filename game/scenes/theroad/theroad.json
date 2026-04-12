@@ -18,6 +18,16 @@
     }
   },
   "things": {
+    "farmer": {
+      "talk": [
+        { "action": "conversation", "file": "game/data/dialogs/ChatWithFarmer.json" }
+      ],
+      "use_item": {
+        "key": [
+          { "action": "speak", "actor": "self", "text": "NO, THANKS. I GOT A KEY JUST LIKE THAT AT HOME." }
+        ]
+      }
+    },
     "Candle": {
       "use": [
         { "action": "think", "actor": "ego", "text": "MAYBE I'LL GO AHEAD AND LIGHT THIS CANDLE... LET'S SEE IF THAT WORKS." },

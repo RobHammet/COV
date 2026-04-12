@@ -1,4 +1,5 @@
 {
   "title": "COV",
+  "cover_scene": "res://ui/Cover.tscn",
   "start_scene": "res://game/scenes/theroad/theroad.tscn"
 }

@@ -18,7 +18,7 @@ size = Vector2(94, 37)
 size = Vector2(76.31201, 32)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_h0sj2"]
-size = Vector2(1153, 648)
+size = Vector2(1379, 720)
 
 [node name="barnfront" type="Node2D" unique_id=1187856 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1_nfn7c")
@@ -62,7 +62,7 @@ self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=493236963]
-position = Vector2(576, 324)
+position = Vector2(624.5, 360)
 shape = SubResource("RectangleShape2D_h0sj2")
 
 [node name="start_point" type="Node2D" parent="." unique_id=1685883866]

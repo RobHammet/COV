@@ -41,15 +41,14 @@ public partial class scene_script : Node2D
     // Insert scenes have no ego: walking is disabled and the ego is not spawned.
     [Export] public bool isInsert = false;
 
-    // Per-scene ambient darkness texture. Sampled at each thing's/ego's
-    // position; the result drives the shader's overall_dark parameter.
-    [Export] public Texture2D darkMap;
-
     // Sprites whose Offset is updated each frame for a parallax scroll effect.
     // Index 0 scrolls the least, higher indices scroll more.
     [Export] public Godot.Collections.Array<Sprite2D> parallaxSprites;
+    // Optional per-sprite scroll factors. If shorter than parallaxSprites,
+    // remaining entries fall back to (index + 0.075).
+    [Export] public Godot.Collections.Array<float> parallaxFactors;
 
-    public Image darkMapImage = null;
+    private List<DarkmapZone> _darkmapZones = new();
 
     // Set true to run camera follow logic in _Process(). False for scenes where
     // the camera is fixed or managed externally.
@@ -192,9 +191,8 @@ public partial class scene_script : Node2D
         try { _sceneLight = GetNode<PointLight2D>("PointLight2D"); }
         catch { _sceneLight = null; }
 
-        // Dark map image for per-pixel brightness sampling.
-        if (darkMap != null)
-            darkMapImage = darkMap.GetImage();
+        // Collect darkmap zones for ambient darkness sampling.
+        _darkmapZones = FindChildren("*", "", true, false).OfType<DarkmapZone>().ToList();
 
         // Spawn ego from GameConfig.EgoScene at the start_point position.
         // Guard: _EnterTree fires again on reparent (staging → main holder).
@@ -208,6 +206,7 @@ public partial class scene_script : Node2D
                 if (ego != null)
                 {
                     ego.parentScene = this;
+                    ego.Name        = "ego";
                     AddChild(ego);
                     ego.Position    = startPoint?.Position ?? NavCentroid();
                     egoOriginalModulate = ego.Modulate;
@@ -621,7 +620,10 @@ public partial class scene_script : Node2D
                 Vector2 halfView = GetViewportRect().Size / 2f / camera.Zoom;
                 tl += halfView;
                 br -= halfView;
-                newPos = newPos.Clamp(tl, br);
+                if (tl.X <= br.X && tl.Y <= br.Y)
+                    newPos = newPos.Clamp(tl, br);
+                else
+                    GD.PushWarning($"[{Name}] CameraClamp too small for viewport: clamp={cameraClamp.Shape.GetRect().Size}, halfView={halfView * 2f}");
             }
 
             camera.Position = newPos;
@@ -629,7 +631,12 @@ public partial class scene_script : Node2D
             // Parallax scroll.
             if (parallaxSprites != null)
                 for (int i = 0; i < parallaxSprites.Count; i++)
-                    DoParallax(parallaxSprites[i], (float)i + 0.075f);
+                {
+                    float factor = (parallaxFactors != null && i < parallaxFactors.Count)
+                        ? parallaxFactors[i]
+                        : (float)i + 0.075f;
+                    DoParallax(parallaxSprites[i], factor);
+                }
         }
 
         if (IsPaused()) return;
@@ -737,6 +744,21 @@ public partial class scene_script : Node2D
                     foreach (var f in mainScene.sceneFlags)
                         sb.AppendLine($"  [{f.sceneName}] {f.Name} = {f.Value}");
 
+                sb.AppendLine();
+                sb.AppendLine("[b]THING STATES[/b]");
+                string lastThingScene = null;
+                foreach (var (tScene, tThing, tSummary) in mainScene.GetThingStateDebugLines())
+                {
+                    if (tScene != lastThingScene)
+                    {
+                        sb.AppendLine($"  [{tScene}]");
+                        lastThingScene = tScene;
+                    }
+                    sb.AppendLine($"    {tThing}  {tSummary}");
+                }
+                if (lastThingScene == null)
+                    sb.AppendLine("  (none)");
+
                 mainScene.debugText.Text = sb.ToString();
                 QueueRedraw();
             }
@@ -785,13 +807,9 @@ public partial class scene_script : Node2D
                     Vector2  lightDir  = _sceneLight.Position.DirectionTo(things[i].Position);
                     float    lightDist = _sceneLight.Position.DistanceTo(things[i].Position);
 
-                    // Ambient darkness from the dark map.
-                    if (darkMapImage != null && tsprite.Material != null)
-                    {
-                        Color  sample = darkMapImage.GetPixelv((Vector2I)things[i].Position);
-                        float  avg    = (sample.R + sample.G + sample.B) / 3f;
-                        ((ShaderMaterial)tsprite.Material).SetShaderParameter("overall_dark", avg);
-                    }
+                    // Ambient darkness from darkmap zones.
+                    if (_darkmapZones.Count > 0 && tsprite.Material != null)
+                        ((ShaderMaterial)tsprite.Material).SetShaderParameter("overall_dark", SampleDarkness(things[i].Position));
 
                     // Directional light for toon/outline shaders.
                     if (tsprite.Material != null)
@@ -978,6 +996,42 @@ public partial class scene_script : Node2D
 
         db.InitDialogBox(pos ?? Vector2.Zero);
         return db;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Darkmap sampling
+    // ---------------------------------------------------------------------------
+
+    // Returns overall_dark value for the shader: 1.0 = fully lit, 0.0 = fully dark.
+    private float SampleDarkness(Vector2 worldPos)
+    {
+        float darkness = 0f;
+        foreach (var zone in _darkmapZones)
+        {
+            Vector2 local = zone.ToLocal(worldPos);
+            if (!Geometry2D.IsPointInPolygon(local, zone.Polygon)) continue;
+            float contribution = zone.Darkness;
+            if (zone.Falloff > 0f)
+            {
+                float dist = DistanceToPolygonEdge(local, zone.Polygon);
+                contribution *= Mathf.SmoothStep(0f, 1f, Mathf.Clamp(dist / zone.Falloff, 0f, 1f));
+            }
+            darkness = Mathf.Max(darkness, contribution);
+        }
+        return 1f - darkness;
+    }
+
+    private static float DistanceToPolygonEdge(Vector2 p, Vector2[] polygon)
+    {
+        float min = float.MaxValue;
+        for (int i = 0; i < polygon.Length; i++)
+        {
+            Vector2 a  = polygon[i];
+            Vector2 ab = polygon[(i + 1) % polygon.Length] - a;
+            float   t  = Mathf.Clamp(ab.Dot(p - a) / ab.LengthSquared(), 0f, 1f);
+            min = Mathf.Min(min, p.DistanceTo(a + ab * t));
+        }
+        return min;
     }
 
     // ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 public partial class DialogBox : Control
 {
-    public enum TailStyle { Straight, Curved, Wavy, Lightning }
+    public enum TailStyle { Straight, Curved, Wavy, Lightning, NoTail }
 
     [Signal] public delegate void DialogClosedEventHandler();
 
@@ -49,8 +49,11 @@ public partial class DialogBox : Control
 
     public DialogChoices dialogChoices;
 
+    private enum PlacementSide { Above, Below, Left, Right }
+    private PlacementSide _placement = PlacementSide.Above;
+
     private Rect2 drawRect;
-    private bool  _tailIsBelow;
+    private bool  _tailIsBelow;  // used by exclaim only
     private (Vector2 center, float rx, float ry)[] _speechOvoids;
     private float[] _speechPhases;
     private float[] _speechFreqs;
@@ -172,49 +175,32 @@ public partial class DialogBox : Control
     }
 
     public override void _Draw() {
-        if (dialogType == Globals.DialogTypes.speaking) {
+        if (dialogType == Globals.DialogTypes.speaking || dialogType == Globals.DialogTypes.exclaim) {
+            bool isExclaim = dialogType == Globals.DialogTypes.exclaim;
+            float animTime = isExclaim ? _exclaimTime : _speechTime;
             if (SpeechTailStyle == TailStyle.Wavy)     ComputeTailWavy();
-            if (SpeechTailStyle == TailStyle.Lightning) ComputeTailLightning(_speechTime);
+            if (SpeechTailStyle == TailStyle.Lightning) ComputeTailLightning(animTime);
+            if (SpeechTailStyle == TailStyle.Curved)    ComputeTailCurved();
+            if (SpeechTailStyle == TailStyle.Straight)  ComputeTailStraight();
             if (ShadowEnabled) {
-                DrawSpeechBubble(ShadowOffset, ShadowColor, 0f);
-                if (SpeechTailStyle == TailStyle.Wavy && _tailLeftCurve != null && _tailRightRaw != null) {
-                    var s3 = new[] { ShadowColor, ShadowColor, ShadowColor };
-                    int n = _tailLeftCurve.Length;
-                    for (int i = 0; i < n - 1; i++) {
-                        DrawPrimitive(new[] { _tailLeftCurve[i] + ShadowOffset,     _tailLeftCurve[i + 1] + ShadowOffset, _tailRightRaw[i + 1] + ShadowOffset }, s3, null);
-                        DrawPrimitive(new[] { _tailLeftCurve[i] + ShadowOffset,     _tailRightRaw[i + 1] + ShadowOffset,  _tailRightRaw[i] + ShadowOffset     }, s3, null);
-                    }
-                } else if (_tailFillPolygon != null) {
-                    var shadowTail = Array.ConvertAll(_tailFillPolygon, p => p + ShadowOffset);
-                    DrawPolygon(shadowTail, new[] { ShadowColor });
-                }
+                if (isExclaim) DrawExclaimBubble(ShadowOffset, ShadowColor, 0f);
+                else           DrawSpeechBubble(ShadowOffset, ShadowColor, 0f);
+                DrawTailShadow();
             }
-            DrawSpeechBubble(Vector2.Zero, Colors.White, 2.5f);
-            DrawTail();
-        } else if (dialogType == Globals.DialogTypes.exclaim) {
-            if (ShadowEnabled) {
-                DrawExclaimBubble(ShadowOffset, ShadowColor, 0f);
-                if (_tailFillPolygon != null) {
-                    var shadowTail = Array.ConvertAll(_tailFillPolygon, p => p + ShadowOffset);
-                    DrawPolygon(shadowTail, new[] { ShadowColor });
-                }
-            }
-            DrawExclaimBubble(Vector2.Zero, Colors.White, 4f);
-            if (SpeechTailStyle == TailStyle.Lightning) ComputeTailLightning(_exclaimTime);
-            DrawTail();
+            if (isExclaim) DrawExclaimBubble(Vector2.Zero, Colors.White, 4f);
+            else           DrawSpeechBubble(Vector2.Zero, Colors.White, 2.5f);
+            if (SpeechTailStyle != TailStyle.NoTail) DrawTail();
         } else if (dialogType == Globals.DialogTypes.narration) {
             if (ShadowEnabled)
                 DrawNarrationBubble(ShadowOffset, ShadowColor, 0f);
             DrawNarrationBubble(Vector2.Zero, Colors.White, 2.5f);
         } else if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice) {
             if (ShadowEnabled) {
-                if (_thoughtDotCenters != null)
-                    for (int i = 0; i < _thoughtDotCenters.Length; i++)
-                        DrawCircle(_thoughtDotCenters[i] + ShadowOffset, _thoughtDotRadii[i], ShadowColor);
                 DrawCloudShape(ShadowOffset, ShadowColor, 0f);
+                if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(ShadowOffset, ShadowColor);
             }
-            DrawThoughtTrail();
             DrawCloudShape(Vector2.Zero, Colors.White, 2.5f);
+            if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(Vector2.Zero, Colors.White);
         }
     }
 
@@ -299,10 +285,11 @@ public partial class DialogBox : Control
     private void DrawSpeechBubble(Vector2 offset, Color fill, float outlineW) {
         if (_speechOvoids == null) return;
 
-        // Fill pass — all ovoids, painter's algorithm covers seams automatically.
+        // Fill pass — expand by half the outline width so the fill meets the outer edge.
+        float fillGrow = outlineW * 0.5f;
         for (int oi = 0; oi < _speechOvoids.Length; oi++) {
             var (c, rx, ry) = AnimatedOvoid(oi);
-            DrawPolygon(SuperEllipsePoints(c + offset, rx, ry), new[] { fill });
+            DrawPolygon(SuperEllipsePoints(c + offset, rx + fillGrow, ry + fillGrow), new[] { fill });
         }
 
         // Outline pass — only draw the outer contour of each ovoid.
@@ -591,30 +578,19 @@ public partial class DialogBox : Control
         // Cover the tail-bubble junction with white so the bubble's animated contour
         // never shows through where the tail base meets the bubble edge.
         // Extend inward far enough to cover the full animation range + outline width.
-        Vector2 baseL  = tailPolygon[0];
-        Vector2 baseR  = tailPolygon[2];
-        float   inset  = SpeechAnimAmp + TailLineWidth + 3f;
-        Vector2 inDir  = _tailIsBelow ? new Vector2(0f, inset) : new Vector2(0f, -inset);
-        DrawPolygon(new Vector2[] { baseL, baseR, baseR + inDir, baseL + inDir },
+        float   inset = SpeechAnimAmp + TailLineWidth + 3f;
+        Vector2 inDir = (dialogType == Globals.DialogTypes.exclaim)
+            ? (_tailIsBelow ? new Vector2(0f, inset) : new Vector2(0f, -inset))
+            : _placement switch {
+                PlacementSide.Below => new Vector2(0f,    inset),
+                PlacementSide.Left  => new Vector2(-inset, 0f),
+                PlacementSide.Right => new Vector2( inset, 0f),
+                _                   => new Vector2(0f,   -inset),
+            };
+        DrawPolygon(new Vector2[] { _tailBaseL, _tailBaseR, _tailBaseR + inDir, _tailBaseL + inDir },
                     new[] { Colors.White });
         DrawTailOutline(_tailLeftCurve,  tipAtEnd: true);
         DrawTailOutline(_tailRightCurve, tipAtEnd: false);
-    }
-
-    // Returns the t value where segment p0→p1 crosses rect boundary, or -1 if none.
-    // Only considers entry into the rect (from outside to inside).
-    private static float SegmentRectEntryT(Vector2 p0, Vector2 p1, Rect2 r) {
-        Vector2 d = p1 - p0;
-        float tEnter = 0f, tExit = 1f;
-        float[] slabs = {
-            d.X != 0f ? (r.Position.X - p0.X) / d.X : (p0.X < r.Position.X ? float.NegativeInfinity : float.PositiveInfinity),
-            d.X != 0f ? (r.End.X      - p0.X) / d.X : (p0.X > r.End.X      ? float.NegativeInfinity : float.PositiveInfinity),
-            d.Y != 0f ? (r.Position.Y - p0.Y) / d.Y : (p0.Y < r.Position.Y ? float.NegativeInfinity : float.PositiveInfinity),
-            d.Y != 0f ? (r.End.Y      - p0.Y) / d.Y : (p0.Y > r.End.Y      ? float.NegativeInfinity : float.PositiveInfinity),
-        };
-        tEnter = Mathf.Max(tEnter, Mathf.Max(Mathf.Min(slabs[0], slabs[1]), Mathf.Min(slabs[2], slabs[3])));
-        tExit  = Mathf.Min(tExit,  Mathf.Min(Mathf.Max(slabs[0], slabs[1]), Mathf.Max(slabs[2], slabs[3])));
-        return (tEnter < tExit) ? tEnter : -1f;
     }
 
     private static bool PointInPoly(Vector2 p, Vector2[] poly) {
@@ -627,9 +603,24 @@ public partial class DialogBox : Control
         return inside;
     }
 
-    // Returns the first t in [0,1] where segment a→b crosses any polygon edge, or -1.
-    private static float SegmentPolyFirstCrossT(Vector2 a, Vector2 b, Vector2[] poly) {
-        float best = float.MaxValue;
+    private void DrawTailShadow() {
+        if (SpeechTailStyle == TailStyle.NoTail) return;
+        if (SpeechTailStyle == TailStyle.Wavy && _tailLeftCurve != null && _tailRightRaw != null) {
+            var s3 = new[] { ShadowColor, ShadowColor, ShadowColor };
+            int n = _tailLeftCurve.Length;
+            for (int i = 0; i < n - 1; i++) {
+                DrawPrimitive(new[] { _tailLeftCurve[i] + ShadowOffset,     _tailLeftCurve[i + 1] + ShadowOffset, _tailRightRaw[i + 1] + ShadowOffset }, s3, null);
+                DrawPrimitive(new[] { _tailLeftCurve[i] + ShadowOffset,     _tailRightRaw[i + 1] + ShadowOffset,  _tailRightRaw[i] + ShadowOffset     }, s3, null);
+            }
+        } else if (_tailFillPolygon != null) {
+            var shadowTail = Array.ConvertAll(_tailFillPolygon, p => p + ShadowOffset);
+            DrawPolygon(shadowTail, new[] { ShadowColor });
+        }
+    }
+
+    // All t values in (0,1) where segment a→b crosses the polygon, sorted ascending.
+    private static List<float> SegmentPolyCrossings(Vector2 a, Vector2 b, Vector2[] poly) {
+        var ts = new List<float>();
         Vector2 r = b - a;
         int n = poly.Length;
         for (int i = 0; i < n; i++) {
@@ -639,52 +630,68 @@ public partial class DialogBox : Control
             Vector2 diff = c - a;
             float t = (diff.X * s.Y - diff.Y * s.X) / denom;
             float u = (diff.X * r.Y - diff.Y * r.X) / denom;
-            if (t >= 0f && t <= 1f && u >= 0f && u <= 1f && t < best) best = t;
+            if (t > 1e-4f && t < 1f - 1e-4f && u >= 0f && u <= 1f) ts.Add(t);
         }
-        return best < float.MaxValue ? best : -1f;
+        ts.Sort();
+        return ts;
+    }
+
+    // All t values in (0,1) where segment a→b crosses the rect, sorted ascending.
+    private static List<float> SegmentRectCrossings(Vector2 a, Vector2 b, Rect2 r) {
+        var ts = new List<float>();
+        Vector2 d = b - a;
+        void CheckEdge(float t, float coord, float lo, float hi) {
+            if (t > 1e-4f && t < 1f - 1e-4f && coord >= lo && coord <= hi) ts.Add(t);
+        }
+        if (Mathf.Abs(d.X) > 1e-6f) {
+            float tx0 = (r.Position.X - a.X) / d.X; CheckEdge(tx0, a.Y + tx0 * d.Y, r.Position.Y, r.End.Y);
+            float tx1 = (r.End.X      - a.X) / d.X; CheckEdge(tx1, a.Y + tx1 * d.Y, r.Position.Y, r.End.Y);
+        }
+        if (Mathf.Abs(d.Y) > 1e-6f) {
+            float ty0 = (r.Position.Y - a.Y) / d.Y; CheckEdge(ty0, a.X + ty0 * d.X, r.Position.X, r.End.X);
+            float ty1 = (r.End.Y      - a.Y) / d.Y; CheckEdge(ty1, a.X + ty1 * d.X, r.Position.X, r.End.X);
+        }
+        ts.Sort();
+        return ts;
     }
 
     private void DrawTailOutline(Vector2[] pts, bool tipAtEnd) {
         if (pts == null || pts.Length < 2) return;
         int last = pts.Length - 1;
-        // For exclaim use the actual starburst polygon; all others use the bounding rect.
         bool usePolyClip = dialogType == Globals.DialogTypes.exclaim && _exclaimPolyCache != null;
         Rect2 clip = _bubbleRect.Grow(-2f);
         for (int i = 0; i < last; i++) {
             Vector2 a = pts[i], b = pts[i + 1];
-            bool aIn = usePolyClip ? PointInPoly(a, _exclaimPolyCache) : clip.HasPoint(a);
-            bool bIn = usePolyClip ? PointInPoly(b, _exclaimPolyCache) : clip.HasPoint(b);
-            if (aIn && bIn) continue;
-            if (aIn) {
-                // Clip a back to the boundary: find where b→a exits the poly/rect.
-                float t = usePolyClip
-                    ? SegmentPolyFirstCrossT(b, a, _exclaimPolyCache)
-                    : SegmentRectEntryT(b, a, clip);
-                if (t >= 0f) a = b.Lerp(a, t);
-            }
-            if (bIn) {
-                float t = usePolyClip
-                    ? SegmentPolyFirstCrossT(a, b, _exclaimPolyCache)
-                    : SegmentRectEntryT(a, b, clip);
-                if (t >= 0f) b = a.Lerp(b, t);
-            }
             float tTaper = tipAtEnd ? (float)i / last : 1f - (float)i / last;
-            DrawLine(a, b, Colors.Black, Mathf.Lerp(TailLineWidth, 0.5f, tTaper));
+            float width  = Mathf.Lerp(TailLineWidth, 0.5f, tTaper);
+            // Collect all boundary crossings along a→b, walk them toggling inside/outside.
+            List<float> crossings = usePolyClip
+                ? SegmentPolyCrossings(a, b, _exclaimPolyCache)
+                : SegmentRectCrossings(a, b, clip);
+            bool inside = usePolyClip ? PointInPoly(a, _exclaimPolyCache) : clip.HasPoint(a);
+            float tPrev = 0f;
+            foreach (float t in crossings) {
+                if (!inside) DrawLine(a.Lerp(b, tPrev), a.Lerp(b, t), Colors.Black, width);
+                inside = !inside;
+                tPrev  = t;
+            }
+            if (!inside) DrawLine(a.Lerp(b, tPrev), b, Colors.Black, width);
         }
     }
 
-    public void DrawThoughtTrail() {
+    public void DrawThoughtTrail(Vector2 offset, Color fill) {
         if (_thoughtDotCenters == null) return;
         const int blobVerts = 14;
-        var black3 = new[] { Colors.Black, Colors.Black, Colors.Black };
-        var white3 = new[] { Colors.White, Colors.White, Colors.White };
+        bool isShadow = fill != Colors.White;
+        Color[] outline3 = { Colors.Black, Colors.Black, Colors.Black };
+        Color[] fill3    = { fill, fill, fill };
         for (int i = 0; i < _thoughtDotCenters.Length; i++) {
             float phase = _cloudTime * 2.8f + i * 1.4f;
-            Vector2 pos = _thoughtDotCenters[i] + new Vector2(Mathf.Sin(phase) * 0.6f, Mathf.Sin(phase) * 1.2f);
+            Vector2 pos = _thoughtDotCenters[i] + offset
+                        + new Vector2(Mathf.Sin(phase) * 0.6f, Mathf.Sin(phase) * 1.2f);
             float rx = _thoughtDotRx[i], ry = _thoughtDotRy[i];
             float tilt = _thoughtDotAngle[i];
             float outlineW = 2f;
-            // Build blob polygon: ellipse + per-vertex noise, rotated by tilt.
             var poly = new Vector2[blobVerts];
             for (int v = 0; v < blobVerts; v++) {
                 float a  = v * Mathf.Tau / blobVerts;
@@ -694,17 +701,18 @@ public partial class DialogBox : Control
                 poly[v]  = pos + new Vector2(lx * Mathf.Cos(tilt) - ly * Mathf.Sin(tilt),
                                              lx * Mathf.Sin(tilt) + ly * Mathf.Cos(tilt));
             }
-            // Outline: dilate each vertex outward from pos.
-            var outer = new Vector2[blobVerts];
-            for (int v = 0; v < blobVerts; v++) {
-                Vector2 d = poly[v] - pos;
-                float   r = d.Length();
-                outer[v]  = r > 0.01f ? pos + d * ((r + outlineW) / r) : poly[v];
+            if (!isShadow) {
+                var outer = new Vector2[blobVerts];
+                for (int v = 0; v < blobVerts; v++) {
+                    Vector2 d = poly[v] - pos;
+                    float   r = d.Length();
+                    outer[v]  = r > 0.01f ? pos + d * ((r + outlineW) / r) : poly[v];
+                }
+                for (int v = 0; v < blobVerts; v++)
+                    DrawPrimitive(new[] { pos, outer[v], outer[(v + 1) % blobVerts] }, outline3, null);
             }
             for (int v = 0; v < blobVerts; v++)
-                DrawPrimitive(new[] { pos, outer[v], outer[(v + 1) % blobVerts] }, black3, null);
-            for (int v = 0; v < blobVerts; v++)
-                DrawPrimitive(new[] { pos, poly[v], poly[(v + 1) % blobVerts] }, white3, null);
+                DrawPrimitive(new[] { pos, poly[v], poly[(v + 1) % blobVerts] }, fill3, null);
         }
     }
 
@@ -768,20 +776,37 @@ public partial class DialogBox : Control
         float maxX = inner.End.X      + cam.X - rect.Size.X - marginSize * 2;
         float maxY = inner.End.Y      + cam.Y - rect.Size.Y - marginSize * 2;
 
-        float y = tailPos.Y > rect.Size.Y + marginSize * 4
-            ? tailPos.Y - marginSize * 8
-            : tailPos.Y + marginSize * 8;
-        float x = tailPos.X - rect.Size.X / 2 + offsetForFacing;
+        float clearance = trackActor != null
+            ? trackActor.Position.DistanceTo(trackActor.topPoint) * 0.5f
+            : marginSize * 8f;
+        float sideGap   = marginSize * 2f;
+        float xCentered = Mathf.Clamp(tailPos.X - rect.Size.X / 2f + offsetForFacing, minX, maxX);
+        float yMid      = Mathf.Clamp(tailPos.Y - rect.Size.Y / 2f, minY, maxY);
 
-        return new Vector2(
-            (float)Mathf.Clamp((int)x, (int)minX, (int)maxX),
-            (float)Mathf.Clamp((int)y, (int)minY, (int)maxY)
-        );
+        // 1. Prefer above
+        float yAbove = tailPos.Y - clearance - rect.Size.Y;
+        if (yAbove >= minY)
+        { _placement = PlacementSide.Above; return new Vector2(xCentered, yAbove); }
+
+        // 2. Left of actor
+        float xLeft = tailPos.X - rect.Size.X - sideGap;
+        if (xLeft >= minX)
+        { _placement = PlacementSide.Left; return new Vector2(xLeft, yMid); }
+
+        // 3. Right of actor
+        float xRight = tailPos.X + sideGap;
+        if (xRight <= maxX)
+        { _placement = PlacementSide.Right; return new Vector2(xRight, yMid); }
+
+        // 4. Below (last resort)
+        _placement = PlacementSide.Below;
+        return new Vector2(xCentered, Mathf.Clamp(tailPos.Y + sideGap, minY, maxY));
     }
 
     // ── Tail / thought-trail geometry ─────────────────────────────────────────────
 
     private Vector2[] _tailFillPolygon;
+    private Vector2   _tailBaseL, _tailBaseR;  // actual base endpoints used by the cover rect
     private Vector2[] _tailLeftCurve;
     private Vector2[] _tailRightCurve;
     private Vector2[] _tailRightRaw;   // right curve in b→tip order (before reverse), for triangle strip
@@ -830,13 +855,16 @@ public partial class DialogBox : Control
         static Vector2 Perp(Vector2 from, Vector2 to)
             => new Vector2(-(to - from).Normalized().Y, (to - from).Normalized().X);
 
-        Vector2 n01 = Perp(wp0, wp1);
-        Vector2 n12 = (Perp(wp0, wp1) + Perp(wp1, wp2)).Normalized();
+        // n01 uses overall perp so the base is a flat horizontal line.
+        Vector2 n01 = perp;
+        Vector2 n12 = (perp + Perp(wp1, wp2)).Normalized();
         Vector2 n23 = (Perp(wp1, wp2) + Perp(wp2, wp3)).Normalized();
-        Vector2 n34 = Perp(wp3, wp4);  // always perpendicular to dir
+        Vector2 n34 = Perp(wp3, wp4);
 
         float w1 = baseW * 0.60f, w2 = baseW * 0.28f, w3 = baseW * 0.10f;
 
+        _tailBaseL = wp0 - n01 * baseW;
+        _tailBaseR = wp0 + n01 * baseW;
         _tailLeftCurve  = new[] { wp0 + n01*baseW, wp1 + n12*w1, wp2 + n23*w2, wp3 + n34*w3, wp4 };
         _tailRightCurve = new[] { wp0 - n01*baseW, wp1 - n12*w1, wp2 - n23*w2, wp3 - n34*w3, wp4 };
         _tailFillPolygon = new[] {
@@ -846,15 +874,32 @@ public partial class DialogBox : Control
     }
 
     private void ComputeTailStraight() {
-        Vector2 a = tailPolygon[0], tip = tailPolygon[1], b = tailPolygon[2];
-        _tailLeftCurve   = new[] { a, tip };
-        _tailRightCurve  = new[] { tip, b };
-        _tailFillPolygon = new[] { a, tip, b };
+        Vector2 tip     = tailPolygon[1];
+        Vector2 midBase = (tailPolygon[0] + tailPolygon[2]) * 0.5f;
+        Vector2 dir     = tip - midBase;
+        Vector2 perp    = dir.Length() > 0.1f ? new Vector2(-dir.Y, dir.X).Normalized() : Vector2.Right;
+        const float baseHalf = 10f;
+        Vector2 a = midBase - perp * baseHalf;
+        Vector2 b = midBase + perp * baseHalf;
+        float   skew    = Mathf.Sin(_speechTime * 1.3f) * 1.5f;
+        Vector2 animTip = tip + perp * skew;
+        _tailBaseL = a; _tailBaseR = b;
+        _tailLeftCurve   = new[] { a, animTip };
+        _tailRightCurve  = new[] { animTip, b };
+        _tailFillPolygon = new[] { a, animTip, b };
     }
 
     private void ComputeTailCurved() {
-        Vector2 a = tailPolygon[0], tip = tailPolygon[1], b = tailPolygon[2];
-        Vector2 ctrl = ((a + b) * 0.5f).Lerp(tip, 0.5f);
+        Vector2 tip     = tailPolygon[1];
+        Vector2 midBase = (tailPolygon[0] + tailPolygon[2]) * 0.5f;
+        Vector2 dir     = tip - midBase;
+        Vector2 perp    = dir.Length() > 0.1f ? new Vector2(-dir.Y, dir.X).Normalized() : Vector2.Right;
+        const float baseHalf = 10f;
+        Vector2 a = midBase - perp * baseHalf;
+        Vector2 b = midBase + perp * baseHalf;
+        _tailBaseL = a; _tailBaseR = b;
+        float   skew = Mathf.Sin(_speechTime * 1.3f) * 1.5f;
+        Vector2 ctrl = ((a + b) * 0.5f).Lerp(tip, 0.5f) + perp * skew;
         const int steps = 18;
         _tailLeftCurve  = new Vector2[steps + 1];
         _tailRightCurve = new Vector2[steps + 1];
@@ -869,12 +914,15 @@ public partial class DialogBox : Control
     }
 
     private void ComputeTailWavy() {
-        Vector2 a = tailPolygon[0], tip = tailPolygon[1], b = tailPolygon[2];
-        Vector2 midBase = (a + b) * 0.5f;
-        Vector2 perp    = new Vector2(-(tip - midBase).Normalized().Y, (tip - midBase).Normalized().X);
-        float   baseHalf = (b - a).Length() * 0.5f;
-        const int steps = 28; const float waves = 2.5f, ampMax = 0.15f, ampCapPx = 6f;
-        float amp = Mathf.Min(baseHalf * ampMax, ampCapPx);
+        Vector2 tip = tailPolygon[1];
+        Vector2 midBase = (tailPolygon[0] + tailPolygon[2]) * 0.5f;
+        Vector2 dir  = (tip - midBase).Normalized();
+        Vector2 perp = new Vector2(-dir.Y, dir.X);
+        const float baseHalf = 10f;
+        Vector2 a = midBase - perp * baseHalf;
+        Vector2 b = midBase + perp * baseHalf;
+        _tailBaseL = a; _tailBaseR = b;
+        const int steps = 28; const float waves = 2.5f, amp = 4f;
         _tailLeftCurve  = new Vector2[steps + 1];
         _tailRightCurve = new Vector2[steps + 1];
         for (int i = 0; i <= steps; i++) {
@@ -895,7 +943,11 @@ public partial class DialogBox : Control
 
     private void ComputeThoughtDots() {
         float dist = anchorAvg.DistanceTo(tailPos);
-        int count = dist < 30f ? 1 : dist < 60f ? 2 : 3;
+        int count  = Mathf.Clamp(Mathf.RoundToInt(dist / 22f), 2, 5);
+
+        // Bezier control point: sweeps horizontally toward the dialog's X first,
+        // then arcs up to the dialog anchor — gives a natural floating curve.
+        Vector2 ctrl = new Vector2(anchorAvg.X, tailPos.Y);
 
         _thoughtDotCenters = new Vector2[count];
         _thoughtDotRadii   = new float[count];
@@ -910,19 +962,18 @@ public partial class DialogBox : Control
         var rng = new RandomNumberGenerator { Seed = seed + 99u };
 
         for (int i = 0; i < count; i++) {
+            // t=0 → tailPos (character head, small), t=1 → anchorAvg (dialog, large)
             float t = (i + 1f) / (count + 1f);
-            _thoughtDotCenters[i] = anchorAvg.Lerp(tailPos, t * 0.85f);
-            float baseR = Mathf.Lerp(9f, 4f, (float)i / Mathf.Max(count - 1, 1));
+            _thoughtDotCenters[i] = QuadBezier(tailPos, ctrl, anchorAvg, t);
+            float baseR = Mathf.Lerp(3.5f, 9f, t);
             _thoughtDotRadii[i] = baseR;
-            // Random ellipse aspect and tilt per blob.
             float aspect = rng.RandfRange(0.55f, 0.82f);
             _thoughtDotRx[i]    = baseR;
             _thoughtDotRy[i]    = baseR * aspect;
             _thoughtDotAngle[i] = rng.RandfRange(0f, Mathf.Tau);
-            // Per-vertex radius noise (fraction of baseR).
             _thoughtDotNoise[i] = new float[blobVerts];
             for (int v = 0; v < blobVerts; v++)
-                _thoughtDotNoise[i][v] = rng.RandfRange(-0.18f, 0.18f);
+                _thoughtDotNoise[i][v] = rng.RandfRange(-0.1f, 0.1f);
         }
     }
 
@@ -963,9 +1014,14 @@ public partial class DialogBox : Control
             }
             int sep = dialogChoices.GetThemeConstant("separation");
             h += Mathf.Max(0, dialogChoices.choices.Count - 1) * sep;
-            // dialogChoices is a child of dbText, so convert to DialogBox local space.
             contentPos  = dbText.Position + dialogChoices.Position;
             contentSize = new Vector2(Mathf.Max(w, 80f), Mathf.Max(h, 20f));
+            dialogChoices.Size = contentSize;
+            // Ensure dbText is tall enough to contain the VBox, so Godot's GUI
+            // traversal doesn't clip the last choice out of mouse-event reach.
+            dbText.Size = new Vector2(
+                Mathf.Max(dbText.Size.X, contentSize.X),
+                Mathf.Max(dbText.Size.Y, dialogChoices.Position.Y + contentSize.Y));
         } else {
             contentPos  = dbText.Position;
             contentSize = dbText.Size;
@@ -1145,9 +1201,7 @@ public partial class DialogBox : Control
                 : GetSpotForDialog(drawRect);
         }
 
-        bool isBelow = pos.Y >= tailPos.Y;
-        _tailIsBelow = isBelow;
-        this.Position = pos;
+        this.Position = pos;  // _placement already set by GetSpotForDialog above
         dbText.VisibleCharacters = 0;
 
         if (dialogType == Globals.DialogTypes.choice) {
@@ -1162,20 +1216,23 @@ public partial class DialogBox : Control
 
         if (dialogType == Globals.DialogTypes.speaking) {
             float   bcx    = _bubbleRect.Size.X / 2f;
+            float   bcy    = _bubbleRect.Size.Y / 2f;
             float   spread = _bubbleRect.Size.X / 16f;
-            const float tuck = 8f;  // px to nestle base inside the bubble edge
-            Vector2 anchor = isBelow
-                ? new Vector2(bcx, _bubbleRect.Position.Y + tuck)
-                : new Vector2(bcx, _bubbleRect.End.Y - tuck);
+            const float tuck = 8f;
+            bool sidePlacement = _placement == PlacementSide.Left || _placement == PlacementSide.Right;
+            Vector2 anchor = _placement switch {
+                PlacementSide.Below => new Vector2(bcx, _bubbleRect.Position.Y + tuck),
+                PlacementSide.Left  => new Vector2(_bubbleRect.End.X - tuck, bcy),
+                PlacementSide.Right => new Vector2(_bubbleRect.Position.X + tuck, bcy),
+                _                   => new Vector2(bcx, _bubbleRect.End.Y - tuck),
+            };
 
             tailPos   = (tailPos - Position) * 0.75f + anchor * 0.25f;
             anchorAvg = anchor;
 
-            tailPolygon = new Vector2[] {
-                anchor + new Vector2(-spread, 0f),
-                tailPos,
-                anchor + new Vector2( spread, 0f),
-            };
+            tailPolygon = sidePlacement
+                ? new Vector2[] { anchor + new Vector2(0f, -spread), tailPos, anchor + new Vector2(0f, spread) }
+                : new Vector2[] { anchor + new Vector2(-spread, 0f), tailPos, anchor + new Vector2(spread, 0f) };
             ComputeTailBezier();
 
         } else if (dialogType == Globals.DialogTypes.exclaim) {
@@ -1205,10 +1262,18 @@ public partial class DialogBox : Control
 
         } else if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice) {
             ComputeCloudBubble();
-            float cx = _cloudInnerRect.Position.X + _cloudInnerRect.Size.X / 2f;
-            anchorAvg = new Vector2(cx, _cloudInnerRect.End.Y + CloudBumpRadius * 0.6f);
-            tailPos   = (tailPos - Position) * 0.75f + anchorAvg * 0.25f;
-            ComputeThoughtDots();
+            // Anchor on whichever cloud face is nearest to the character, matching speech bubble logic.
+            float ccx = _cloudInnerRect.GetCenter().X;
+            float ccy = _cloudInnerRect.GetCenter().Y;
+            anchorAvg = _placement switch {
+                PlacementSide.Left  => new Vector2(_cloudInnerRect.End.X      + CloudBumpRadius * 0.6f, ccy),
+                PlacementSide.Right => new Vector2(_cloudInnerRect.Position.X - CloudBumpRadius * 0.6f, ccy),
+                PlacementSide.Below => new Vector2(ccx, _cloudInnerRect.Position.Y - CloudBumpRadius * 0.6f),
+                _                   => new Vector2(ccx, _cloudInnerRect.End.Y  + CloudBumpRadius * 0.6f),
+            };
+            tailPos = (tailPos - Position) * 0.75f + anchorAvg * 0.25f;
+            if (dialogType == Globals.DialogTypes.thinking)
+                ComputeThoughtDots();
 
         } else if (dialogType == Globals.DialogTypes.narration) {
             ComputeNarrationBubble();

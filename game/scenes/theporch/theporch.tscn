@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="2"]
-[ext_resource type="Texture2D" uid="uid://c2ru180atln0g" path="res://game/scenes/theporch/porch_darkmap.png" id="2_dud0g"]
 [ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="5_bhwyr"]
 [ext_resource type="Texture2D" uid="uid://cmuqv2xhrkx15" path="res://game/scenes/theporch/porch.png" id="6"]
 [ext_resource type="Texture2D" uid="uid://bxoxv10xw30xx" path="res://game/scenes/theporch/door-Sheet-normal.png" id="6_tse8u"]
@@ -20,7 +19,16 @@ size = Vector2(175, 72.896)
 shader = ExtResource("5_bhwyr")
 shader_parameter/sprite_texture = ExtResource("8")
 shader_parameter/normal_map = ExtResource("6_tse8u")
+shader_parameter/enable_shadows = true
 shader_parameter/dark_threshold = 0.004
+shader_parameter/hatch_threshold = 0.35
+shader_parameter/hatch_spacing = 1.0
+shader_parameter/hatch_thickness = 1.8
+shader_parameter/hatch_roughness = 0.05
+shader_parameter/hatch_taper = 0.5
+shader_parameter/light_pos_uv = Vector2(0.5, -2)
+shader_parameter/hframes = 1
+shader_parameter/vframes = 1
 shader_parameter/light_strength = 34.59
 shader_parameter/light_direction = Vector3(0.235, 1.135, 0)
 shader_parameter/is_flipped = false
@@ -74,7 +82,6 @@ size = Vector2(1153, 648)
 
 [node name="theporch" type="Node2D" unique_id=755532276 node_paths=PackedStringArray("parallaxSprites")]
 script = ExtResource("1")
-darkMap = ExtResource("2_dud0g")
 parallaxSprites = []
 
 [node name="background" type="Sprite2D" parent="." unique_id=1616755134]

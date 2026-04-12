@@ -50,6 +50,14 @@ public partial class thing : Node2D
     [Export] public bool isExist  = true;
     [Export] public bool isHidden = false;
 
+    // Defaults captured at end of _Ready() — used by MainScene to detect state changes.
+    public bool    _defaultIsExist;
+    public bool    _defaultIsHidden;
+    public Vector2 _defaultPosition;
+    public int     _defaultFrame;
+    public string  _defaultAnimation;
+    public bool    _defaultAnimPlaying;
+
     // Game-specific fallback responses for unhandled interactions.
     // Set these from game code (e.g. a ModuleInitializer in GameData.cs)
     // before any interactions occur. Empty arrays suppress the fallback.
@@ -180,6 +188,13 @@ public partial class thing : Node2D
             shadow.FlipH        = !sprite.FlipH;
             AddChild(shadow);
         }
+
+        _defaultIsExist     = isExist;
+        _defaultIsHidden    = isHidden;
+        _defaultPosition    = Position;
+        _defaultFrame       = hasSprite   ? sprite.Frame                      : 0;
+        _defaultAnimation   = isAnimated  ? animationPlayer.CurrentAnimation  : "";
+        _defaultAnimPlaying = isAnimated  && animationPlayer.IsPlaying();
     }
 
     int hasRunSetPoints = 0;
@@ -207,8 +222,8 @@ public partial class thing : Node2D
             var ipNode = GetNode<Node2D>("InteractPoint");
             if (ipNode != null)
                 ip = (hasSprite && sprite.FlipH)
-                    ? new Vector2(Position.X - ipNode.Position.X, Position.Y + ipNode.Position.Y)
-                    : ipNode.Position + Position;
+                    ? new Vector2(Position.X - ipNode.Position.X * Scale.X, Position.Y + ipNode.Position.Y * Scale.Y)
+                    : Position + ipNode.Position * Scale;
         }
         catch { }
         interactPoint = ip;
