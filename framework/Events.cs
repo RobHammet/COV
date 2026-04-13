@@ -159,40 +159,7 @@ public class ConversationStep : IEventStep
         ? _scene.ego
         : _scene.FindChild(name, true, false) as thing;
 
-    // Parses a "|"-separated style string, e.g. "exclaim|lightning".
-    // Bubble-shape tokens: "exclaim"
-    // Tail-style tokens:   "straight", "wavy", "lightning", "curved"
-    private static (Globals.DialogTypes type, DialogBox.TailStyle? tail) ParseSpeakStyle(JsonObject obj)
-    {
-        var raw = obj["style"]?.GetValue<string>();
-        if (string.IsNullOrEmpty(raw))
-            return (Globals.DialogTypes.speaking, null);
-
-        var type = Globals.DialogTypes.speaking;
-        DialogBox.TailStyle? tail = null;
-        foreach (var token in raw.Split('|'))
-            switch (token.Trim())
-            {
-                case "exclaim":   type = Globals.DialogTypes.exclaim;        break;
-                case "straight":  tail = DialogBox.TailStyle.Straight;       break;
-                case "wavy":      tail = DialogBox.TailStyle.Wavy;           break;
-                case "lightning": tail = DialogBox.TailStyle.Lightning;      break;
-                case "curved":    tail = DialogBox.TailStyle.Curved;         break;
-                case "notail":    tail = DialogBox.TailStyle.NoTail;         break;
-            }
-        return (type, tail);
-    }
-
-    private static Globals.NarrationCorner ParseNarrationCorner(JsonObject obj)
-    {
-        return obj["corner"]?.GetValue<string>() switch {
-            "topleft"     => Globals.NarrationCorner.TopLeft,
-            "topright"    => Globals.NarrationCorner.TopRight,
-            "bottomleft"  => Globals.NarrationCorner.BottomLeft,
-            "bottomright" => Globals.NarrationCorner.BottomRight,
-            _             => Globals.NarrationCorner.Auto,
-        };
-    }
+    // Parsing helpers are in ScriptParser (public static) — no duplicates here.
 
     private async Task<string> RunDialogArray(JsonObject allNodes, JsonArray actions)
     {
@@ -240,10 +207,11 @@ public class ConversationStep : IEventStep
                     var a = ResolveActorAnchor(obj["actor"].GetValue<string>());
                     if (a == null) break;
                     bool strict = obj["strict"]?.GetValue<bool>() ?? false;
-                    (Globals.DialogTypes type, DialogBox.TailStyle? tail) = ParseSpeakStyle(obj);
+                    (Globals.DialogTypes type, DialogBox.TailStyle? tail) = ScriptParser.ParseSpeakStyle(obj["style"]?.GetValue<string>());
+                    Color color = ScriptParser.ParseColor(obj["color"]?.GetValue<string>()) ?? a.Value.color;
                     DialogBox db = _scene.CreateDialog(
                         type, obj["text"].GetValue<string>(),
-                        a.Value.color, null, a.Value.tail, a.Value.facing,
+                        color, null, a.Value.tail, a.Value.facing,
                         strict: strict, tailStyle: tail);
                     await _scene.ToSignal(db, "DialogClosed");
                     break;
@@ -253,19 +221,22 @@ public class ConversationStep : IEventStep
                     var a = ResolveActorAnchor(obj["actor"].GetValue<string>());
                     if (a == null) break;
                     bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    Color color = ScriptParser.ParseColor(obj["color"]?.GetValue<string>()) ?? a.Value.color;
                     DialogBox db = _scene.CreateDialog(
                         Globals.DialogTypes.thinking, obj["text"].GetValue<string>(),
-                        a.Value.color, null, a.Value.tail, a.Value.facing, strict: strict);
+                        color, null, a.Value.tail, a.Value.facing, strict: strict);
                     await _scene.ToSignal(db, "DialogClosed");
                     break;
                 }
 
                 case "narrate": {
                     bool strict = obj["strict"]?.GetValue<bool>() ?? false;
-                    Globals.NarrationCorner corner = ParseNarrationCorner(obj);
+                    var corner = ScriptParser.ParseNarrationCorner(obj["corner"]?.GetValue<string>());
+                    var nStyle = ScriptParser.ParseNarrationStyle(obj["style"]?.GetValue<string>());
+                    Color color = ScriptParser.ParseColor(obj["color"]?.GetValue<string>()) ?? Colors.White;
                     DialogBox db = _scene.CreateDialog(
                         Globals.DialogTypes.narration, obj["text"].GetValue<string>(),
-                        Colors.Yellow, strict: strict, corner: corner);
+                        color, strict: strict, corner: corner, narrationStyle: nStyle);
                     await _scene.ToSignal(db, "DialogClosed");
                     break;
                 }
@@ -527,18 +498,20 @@ public class EventSequence
     public void AddEventSpeak(NPC actor, string phrase, Vector2? position = null,
                               bool _interruptable = false, bool strict = false,
                               DialogBox.TailStyle? tailStyle = null,
-                              Globals.DialogTypes dialogType = Globals.DialogTypes.speaking) =>
+                              Globals.DialogTypes dialogType = Globals.DialogTypes.speaking,
+                              Color? color = null) =>
         _steps.Add(new SignalStep(
             () => actor.parentScene.CreateDialog(
-                dialogType, phrase, actor.dialogColor, position,
+                dialogType, phrase, color ?? actor.dialogColor, position,
                 actor.topPoint, actor.Facing, strict: strict, tailStyle: tailStyle),
             "DialogClosed", _interruptable, "speak"));
 
     public void AddEventThink(NPC actor, string phrase, Vector2? position = null,
-                              bool _interruptable = false, bool strict = false) =>
+                              bool _interruptable = false, bool strict = false,
+                              Color? color = null) =>
         _steps.Add(new SignalStep(
             () => actor.parentScene.CreateDialog(
-                Globals.DialogTypes.thinking, phrase, actor.dialogColor, position,
+                Globals.DialogTypes.thinking, phrase, color ?? actor.dialogColor, position,
                 new Vector2(actor.Position.X, actor.topPoint.Y), actor.Facing, strict: strict),
             "DialogClosed", _interruptable, "think"));
 
@@ -562,10 +535,13 @@ public class EventSequence
 
     public void AddEventNarrate(string phrase, Vector2? position = null,
                                 bool _interruptable = false, bool strict = false,
-                                Globals.NarrationCorner corner = Globals.NarrationCorner.Auto) =>
+                                Globals.NarrationCorner corner = Globals.NarrationCorner.Auto,
+                                Globals.NarrationStyle  style  = Globals.NarrationStyle.Normal,
+                                Color? color = null) =>
         _steps.Add(new SignalStep(
             () => _scene.CreateDialog(Globals.DialogTypes.narration, phrase,
-                                      Colors.Yellow, position, strict: strict, corner: corner),
+                                      color ?? Colors.White, position, strict: strict, corner: corner,
+                                      narrationStyle: style),
             "DialogClosed", _interruptable, "narrate"));
 
     public void AddEventConversation(string dialogFile, Vector2? position = null,

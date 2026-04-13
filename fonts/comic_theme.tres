@@ -1,7 +1,10 @@
 [gd_resource type="Theme" format=4 uid="uid://bjwck7dxyl6dt"]
 
-[ext_resource type="FontFile" uid="uid://dypw5j3agujj6" path="res://fonts/KOMIKA_BOLD.tres" id="1"]
+[ext_resource type="FontFile" uid="uid://cxfc8kvdyjs48" path="res://fonts/KOMTXTB.ttf" id="1_ev5lr"]
 [ext_resource type="FontFile" uid="uid://be6i5600u6c63" path="res://fonts/KOMIKA_NORMAL.tres" id="2"]
+[ext_resource type="FontFile" uid="uid://cpsiowh6pm642" path="res://fonts/KOMTXTBI.ttf" id="2_3i2pl"]
+[ext_resource type="FontFile" uid="uid://he6y86fa6h0k" path="res://fonts/KOMTXTI.ttf" id="3_bu2tw"]
+[ext_resource type="FontFile" uid="uid://dvfwyekmu7x3i" path="res://fonts/KOMTXT__.ttf" id="4_pont8"]
 
 [sub_resource type="Image" id="Image_hjc6t"]
 data = {
@@ -1013,10 +1016,10 @@ RichTextLabel/constants/shadow_offset_x = 1
 RichTextLabel/constants/shadow_offset_y = 1
 RichTextLabel/constants/table_hseparation = 3
 RichTextLabel/constants/table_vseparation = 3
-RichTextLabel/fonts/bold_font = ExtResource("1")
-RichTextLabel/fonts/bold_italics_font = SubResource("3")
-RichTextLabel/fonts/italics_font = SubResource("3")
+RichTextLabel/fonts/bold_font = ExtResource("1_ev5lr")
+RichTextLabel/fonts/bold_italics_font = ExtResource("2_3i2pl")
+RichTextLabel/fonts/italics_font = ExtResource("3_bu2tw")
 RichTextLabel/fonts/mono_font = SubResource("3")
-RichTextLabel/fonts/normal_font = ExtResource("2")
+RichTextLabel/fonts/normal_font = ExtResource("4_pont8")
 RichTextLabel/styles/focus = SubResource("4")
 RichTextLabel/styles/normal = SubResource("5")

@@ -72,6 +72,10 @@ public partial class MainScene : Node2D
     // from the viewport origin. Applied as Camera2D.Offset so the rendered view shifts
     // without affecting any world-space coordinates (nav, clicks, movement targets).
     private Vector2 _celBorderOffset;
+    // Default cel border settings captured from OverlayScene's exported values in _Ready().
+    // Used to restore the border when a scene doesn't specify overrides.
+    private OverlayScene.CelBorderStyle _defaultBorderStyle;
+    private float                        _defaultBorderWidth;
 
     // ---------------------------------------------------------------------------
     // Comic page state.
@@ -86,9 +90,11 @@ public partial class MainScene : Node2D
     // PageTurn resets the array for the new page and seeds slot 0 with the
     // incoming scene thumbnail.
     // ---------------------------------------------------------------------------
-    private int            _currentPanelIndex = 0;
-    public  int             CurrentPanelIndex => _currentPanelIndex;
-    private ImageTexture[] _panelTextures     = new ImageTexture[6];
+    private int                          _currentPanelIndex  = 0;
+    public  int                           CurrentPanelIndex  => _currentPanelIndex;
+    private ImageTexture[]               _panelTextures      = new ImageTexture[6];
+    private OverlayScene.CelBorderStyle[] _panelBorderStyles = new OverlayScene.CelBorderStyle[6];
+    private float?[]                     _panelBorderWidths  = new float?[6];
 
     private const float PAGE_ASPECT    = 8.5f / 11.0f; // fallback if no CoverArea found
     // Set once in _Ready() from the CoverArea shape (single source of truth).
@@ -184,7 +190,9 @@ public partial class MainScene : Node2D
         overlayScene = currentSceneHolder.GetNode<OverlayScene>("OverlayScene");
         currentSceneHolder.RemoveChild(overlayScene);
         AddChild(overlayScene);
-        overlayScene.Layer = 10;
+        overlayScene.Layer   = 10;
+        _defaultBorderStyle  = overlayScene.BorderStyle;
+        _defaultBorderWidth  = overlayScene.BorderWidth;
 
         // Hide the verb/inventory overlay while the cover page is showing.
         if (!string.IsNullOrEmpty(coverPath))
@@ -356,13 +364,17 @@ public partial class MainScene : Node2D
         Vector2 vp = GetViewportRect().Size;
 
         // 1. Capture the departing scene (without cursor/overlay) and store it.
-        _panelTextures[fromIndex] = await CaptureViewportClean();
+        _panelTextures[fromIndex]     = await CaptureViewportClean();
+        _panelBorderStyles[fromIndex] = overlayScene?.BorderStyle ?? OverlayScene.CelBorderStyle.Normal;
+        _panelBorderWidths[fromIndex] = overlayScene?.BorderWidth;
 
         // 2. Instantiate the next scene into an offscreen SubViewport, capture
         //    the thumbnail from there, then move the same instance to nextSceneHolder.
         //    One _Ready() call = one consistent random/flag state, never visible.
         PrepareNextScene(roomPath, arrival);
-        _panelTextures[toIndex] = await CaptureNextSceneThumbnail();
+        _panelTextures[toIndex]     = await CaptureNextSceneThumbnail();
+        _panelBorderStyles[toIndex] = nextScene?.SceneBorderStyle != null ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
+        _panelBorderWidths[toIndex] = nextScene?.SceneBorderWidth ?? _defaultBorderWidth;
 
         // 3. Build the 6-panel page overlay, starting zoomed into fromIndex.
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
@@ -453,7 +465,9 @@ public partial class MainScene : Node2D
         Vector2 vp = GetViewportRect().Size;
 
         // 1. Save the current scene at the correct panel slot.
-        _panelTextures[_currentPanelIndex] = await CaptureViewportClean();
+        _panelTextures[_currentPanelIndex]     = await CaptureViewportClean();
+        _panelBorderStyles[_currentPanelIndex] = overlayScene?.BorderStyle ?? OverlayScene.CelBorderStyle.Normal;
+        _panelBorderWidths[_currentPanelIndex] = overlayScene?.BorderWidth;
 
         // 2. Instantiate into SubViewport, capture thumbnail, move to nextSceneHolder.
         PrepareNextScene(roomPath, arrival);
@@ -519,9 +533,13 @@ public partial class MainScene : Node2D
 
         // 6. Build the new page at Layer 99 — it sits behind the curl so the
         //    shader reveals it as it peels. No blank frame ever appears.
-        _panelTextures     = new ImageTexture[6];
-        _panelTextures[0]  = nextTex;
-        _currentPanelIndex = 0;
+        _panelTextures        = new ImageTexture[6];
+        _panelTextures[0]     = nextTex;
+        _panelBorderStyles    = new OverlayScene.CelBorderStyle[6];
+        _panelBorderWidths    = new float?[6];
+        _panelBorderStyles[0] = nextScene?.SceneBorderStyle != null ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
+        _panelBorderWidths[0] = nextScene?.SceneBorderWidth ?? _defaultBorderWidth;
+        _currentPanelIndex    = 0;
 
         var newPageOverlay = new CanvasLayer { Layer = 99 };
         AddChild(newPageOverlay);
@@ -684,9 +702,13 @@ public partial class MainScene : Node2D
         // ── 4. Build panel page at Layer 99 (behind the curl) ────────────────────
         // Layer 99's dark ColorRect provides the surround visible outside CoverArea
         // and is also what shows through the curl's transparent pixels as it peels.
-        _panelTextures     = new ImageTexture[6];
-        _panelTextures[0]  = nextTex;
-        _currentPanelIndex = 0;
+        _panelTextures        = new ImageTexture[6];
+        _panelTextures[0]     = nextTex;
+        _panelBorderStyles    = new OverlayScene.CelBorderStyle[6];
+        _panelBorderWidths    = new float?[6];
+        _panelBorderStyles[0] = nextScene?.SceneBorderStyle != null ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
+        _panelBorderWidths[0] = nextScene?.SceneBorderWidth ?? _defaultBorderWidth;
+        _currentPanelIndex    = 0;
 
         var newPageOverlay = new CanvasLayer { Layer = 99 };
         AddChild(newPageOverlay);
@@ -969,6 +991,7 @@ public partial class MainScene : Node2D
         }
 
         ApplyCelBorderOffset(currentScene);
+        ApplySceneBorderSettings(currentScene);
 
         // Apply saved ego state from Load(), overriding the scene's start_point.
         if (_pendingLoadPosition.HasValue && currentScene.ego != null)
@@ -990,6 +1013,21 @@ public partial class MainScene : Node2D
     {
         if (scene?.camera != null)
             scene.camera.Offset = _celBorderOffset;
+    }
+
+    private void ApplySceneBorderSettings(scene_script scene)
+    {
+        if (overlayScene == null) return;
+        overlayScene.SetBorderStyle(scene?.SceneBorderStyle != null
+            ? OverlayScene.ParseBorderStyle(scene.SceneBorderStyle)
+            : _defaultBorderStyle);
+        float bw = scene?.SceneBorderWidth ?? _defaultBorderWidth;
+        if (!Mathf.IsEqualApprox(overlayScene.BorderWidth, bw))
+        {
+            overlayScene.SetBorderWidth(bw);
+            _celBorderOffset = -overlayScene.GetInnerRect().Position;
+            ApplyCelBorderOffset(scene);
+        }
     }
 
     // ---------------------------------------------------------------------------
@@ -1289,7 +1327,8 @@ public partial class MainScene : Node2D
                 });
             }
 
-            container.AddChild(overlayScene.MakePanelBorderOverlay(pos, panelSize));
+            container.AddChild(overlayScene.MakePanelBorderOverlay(pos, panelSize,
+                _panelBorderStyles[i], _panelBorderWidths[i]));
         }
 
         // Shader covers only the portrait page area so effects scale with the page,

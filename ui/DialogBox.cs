@@ -67,6 +67,7 @@ public partial class DialogBox : Control
     private float     _narrationCenterY;
 
     public Globals.NarrationCorner narrationCorner = Globals.NarrationCorner.Auto;
+    public Globals.NarrationStyle  narrationStyle  = Globals.NarrationStyle.Normal;
 
     // ── Exclaim bubble ────────────────────────────────────────────────────────────
     private Vector2   _exclaimCenter;
@@ -187,19 +188,19 @@ public partial class DialogBox : Control
                 else           DrawSpeechBubble(ShadowOffset, ShadowColor, 0f);
                 DrawTailShadow();
             }
-            if (isExclaim) DrawExclaimBubble(Vector2.Zero, Colors.White, 4f);
-            else           DrawSpeechBubble(Vector2.Zero, Colors.White, 2.5f);
+            if (isExclaim) DrawExclaimBubble(Vector2.Zero, dialogColor, 4f);
+            else           DrawSpeechBubble(Vector2.Zero, dialogColor, 2.5f);
             if (SpeechTailStyle != TailStyle.NoTail) DrawTail();
         } else if (dialogType == Globals.DialogTypes.narration) {
             if (ShadowEnabled)
                 DrawNarrationBubble(ShadowOffset, ShadowColor, 0f);
-            DrawNarrationBubble(Vector2.Zero, Colors.White, 2.5f);
+            DrawNarrationBubble(Vector2.Zero, dialogColor, 2.5f);
         } else if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice) {
             if (ShadowEnabled) {
                 DrawCloudShape(ShadowOffset, ShadowColor, 0f);
                 if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(ShadowOffset, ShadowColor);
             }
-            DrawCloudShape(Vector2.Zero, Colors.White, 2.5f);
+            DrawCloudShape(Vector2.Zero, dialogColor, 2.5f);
             if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(Vector2.Zero, Colors.White);
         }
     }
@@ -338,9 +339,8 @@ public partial class DialogBox : Control
     // box appears to lean slightly back and forth like a caption card.
 
     private void ComputeNarrationBubble() {
-        float pad   = marginSize;
-        float spike = 6f;
-        float near  = spike * 2.2f;  // distance from corner for approach points
+        float pad    = marginSize;
+        bool  jagged = narrationStyle == Globals.NarrationStyle.Jagged;
         Rect2 r = new Rect2(
             dbText.Position - Vector2.One * pad,
             dbText.Size + Vector2.One * pad * 2f
@@ -354,27 +354,40 @@ public partial class DialogBox : Control
 
         var pts = new List<Vector2>();
 
-        // Build clockwise: TL spike → top edge → TR spike → right edge → BR spike → bottom → BL spike → left
-        // Corner spikes are purely horizontal (no diagonal bend).
-        pts.Add(new Vector2(px - spike, py));                   // TL spike (→ left, flat)
-        pts.Add(new Vector2(px + near,  py));                   // depart TL along top
-        AddEdgeNotches(pts, new Vector2(px + near, py), new Vector2(qx - near, py), rng);
-        pts.Add(new Vector2(qx - near,  py));                   // arrive TR along top
+        if (jagged) {
+            // Jagged: plain right-angle corners, dense notches covering the full left and
+            // right edges (corner-to-corner) so jaggies appear near the top and base too.
+            pts.Add(new Vector2(px, py));               // TL corner
+            pts.Add(new Vector2(qx, py));               // TR corner  (top: no notches)
+            AddJaggedEdgeNotches(pts, new Vector2(qx, py), new Vector2(qx, qy), rng);
+            pts.Add(new Vector2(qx, qy));               // BR corner
+            pts.Add(new Vector2(px, qy));               // BL corner  (bottom: no notches)
+            AddJaggedEdgeNotches(pts, new Vector2(px, qy), new Vector2(px, py), rng);
+            // polygon closes back to TL
+        } else {
+            // Normal: outward spikes on the left corners (TL, BL); inward bends on the
+            // right corners (TR, BR) so the right side folds inward instead of jutting out.
+            const float spike = 1.5f;
+            const float near  = spike * 2.2f;
 
-        pts.Add(new Vector2(qx + spike, py));                   // TR spike (→ right, flat)
-        pts.Add(new Vector2(qx,         py + near));            // depart TR along right
-        AddEdgeNotches(pts, new Vector2(qx, py + near), new Vector2(qx, qy - near), rng);
-        pts.Add(new Vector2(qx,         qy - near));            // arrive BR along right
+            pts.Add(new Vector2(px - spike, py));       // TL — outward left spike
+            pts.Add(new Vector2(px + near,  py));       // depart TL along top
 
-        pts.Add(new Vector2(qx + spike, qy));                   // BR spike (→ right, flat)
-        pts.Add(new Vector2(qx - near,  qy));                   // depart BR along bottom
-        AddEdgeNotches(pts, new Vector2(qx - near, qy), new Vector2(px + near, qy), rng);
-        pts.Add(new Vector2(px + near,  qy));                   // arrive BL along bottom
+            pts.Add(new Vector2(qx - near,  py));       // arrive TR along top
+            pts.Add(new Vector2(qx - spike, py));       // TR — inward bend (leftward)
+            pts.Add(new Vector2(qx,         py + near));// depart TR along right
 
-        pts.Add(new Vector2(px - spike, qy));                   // BL spike (→ left, flat)
-        pts.Add(new Vector2(px,         qy - near));            // depart BL along left
-        AddEdgeNotches(pts, new Vector2(px, qy - near), new Vector2(px, py + near), rng);
-        pts.Add(new Vector2(px,         py + near));            // arrive TL along left
+            pts.Add(new Vector2(qx,         qy - near));// arrive BR along right
+            pts.Add(new Vector2(qx - spike, qy));       // BR — inward bend (leftward)
+            pts.Add(new Vector2(qx - near,  qy));       // depart BR along bottom
+
+            pts.Add(new Vector2(px + near,  qy));       // arrive BL along bottom
+            pts.Add(new Vector2(px - spike, qy));       // BL — outward left spike
+            pts.Add(new Vector2(px,         qy - near));// depart BL along left
+
+            pts.Add(new Vector2(px,         py + near));// arrive TL along left
+            // polygon closes to (px - spike, py)
+        }
 
         _narrationBasePts  = pts.ToArray();
         _narrationCenterY  = py + r.Size.Y / 2f;
@@ -385,25 +398,31 @@ public partial class DialogBox : Control
         _narrationTime      = 0f;
     }
 
-    // Adds triangular notch-cut points between fromPt and toPt (exclusive).
-    // The inward direction is the left-hand normal of dir (correct for CW polygon).
-    private static void AddEdgeNotches(List<Vector2> pts, Vector2 fromPt, Vector2 toPt,
-                                        RandomNumberGenerator rng) {
+    // Dense randomised inward notches along one full edge (Jagged style).
+    // Covers fromPt → toPt exclusively; caller adds the endpoint.
+    // Inward direction is the left-hand normal of dir (correct for CW polygon).
+    private static void AddJaggedEdgeNotches(List<Vector2> pts, Vector2 fromPt, Vector2 toPt,
+                                              RandomNumberGenerator rng) {
         Vector2 dir    = (toPt - fromPt).Normalized();
-        Vector2 inward = new Vector2(-dir.Y, dir.X);   // left normal = inward for CW poly
+        Vector2 inward = new(-dir.Y, dir.X);
         float   len    = (toPt - fromPt).Length();
-        if (len < 20f) return;
+        if (len < 10f) return;
 
-        int count = Mathf.Clamp((int)(len / 65f), 1, 2);
+        // One notch per 8–12 px — denser than before, and now covers the full edge height.
+        int count = Mathf.Max(3, Mathf.RoundToInt(len / rng.RandfRange(10f, 15f)));
+        float slotSize = 1f / count;
+        float cursor   = 0f;
         for (int i = 0; i < count; i++) {
-            float center = (i + 0.5f) / count + rng.RandfRange(-0.12f, 0.12f);
-            center = Mathf.Clamp(center, 0.1f, 0.9f);
-            float depth = rng.RandfRange(5f, 9f);
-            float hw    = rng.RandfRange(2f, 4f) * 0.5f / len;
+            float lo     = Mathf.Max(0.01f, cursor);
+            float hi     = Mathf.Min(0.99f, cursor + slotSize);
+            float center = rng.RandfRange(lo + slotSize * 0.05f, hi - slotSize * 0.05f);
+            float depth  = rng.RandfRange(3f, 18f);
+            float hw     = rng.RandfRange(1.5f, 4f) * 0.5f / len;
 
-            pts.Add(fromPt.Lerp(toPt, Mathf.Max(0.04f, center - hw)));
-            pts.Add(fromPt.Lerp(toPt, center) + inward * depth);   // notch tip
-            pts.Add(fromPt.Lerp(toPt, Mathf.Min(0.96f, center + hw)));
+            pts.Add(fromPt.Lerp(toPt, Mathf.Max(0.005f, center - hw)));
+            pts.Add(fromPt.Lerp(toPt, center) + inward * depth);
+            pts.Add(fromPt.Lerp(toPt, Mathf.Min(0.995f, center + hw)));
+            cursor += slotSize;
         }
     }
 
@@ -752,11 +771,12 @@ public partial class DialogBox : Control
         // (CelBorder applies -BorderWidth offset, which cancels inner.Position here.)
         Vector2 off  = camera.Offset;
         Rect2 inner  = parentScene.mainScene.CelBorderInnerRect;
-        const float spikeW = 6f;   // narration corner spikes extend this far horizontally
-        float minX = inner.Position.X + cam.X + off.X + spikeW;
-        float minY = inner.Position.Y + cam.Y + off.Y;
-        float maxX = inner.End.X    + cam.X + off.X - rect.Size.X - spikeW;
-        float maxY = inner.End.Y    + cam.Y + off.Y - rect.Size.Y;
+        const float spikeW = 6f;    // narration corner spikes extend this far horizontally
+        const float gap    = 10f;   // interior gap between bubble edge and cel border
+        float minX = inner.Position.X + cam.X + off.X + spikeW + gap;
+        float minY = inner.Position.Y + cam.Y + off.Y           + gap;
+        float maxX = inner.End.X    + cam.X + off.X - rect.Size.X - spikeW - gap;
+        float maxY = inner.End.Y    + cam.Y + off.Y - rect.Size.Y           - gap;
         return narrationCorner switch {
             Globals.NarrationCorner.TopLeft     => new Vector2(minX, minY),
             Globals.NarrationCorner.TopRight    => new Vector2(maxX, minY),
@@ -783,9 +803,14 @@ public partial class DialogBox : Control
         float xCentered = Mathf.Clamp(tailPos.X - rect.Size.X / 2f + offsetForFacing, minX, maxX);
         float yMid      = Mathf.Clamp(tailPos.Y - rect.Size.Y / 2f, minY, maxY);
 
-        // 1. Prefer above
+        // 1. Prefer above.
+        // For thought/choice bubbles, clamp to the boundary rather than rejecting outright —
+        // they should stay above the actor even when the actor is near the top of the frame.
         float yAbove = tailPos.Y - clearance - rect.Size.Y;
-        if (yAbove >= minY)
+        bool  isThought = dialogType == Globals.DialogTypes.thinking
+                       || dialogType == Globals.DialogTypes.choice;
+        if (isThought) yAbove = Mathf.Max(yAbove, minY);
+        if (yAbove >= minY && yAbove + rect.Size.Y <= tailPos.Y)
         { _placement = PlacementSide.Above; return new Vector2(xCentered, yAbove); }
 
         // 2. Left of actor
@@ -1146,7 +1171,8 @@ public partial class DialogBox : Control
 
     private Vector2 anchorAvg = Vector2.Zero;
     public void InitDialogBox(Vector2 pos) {
-        dbText.Modulate   = this.dialogColor;
+        dbText.Modulate   = Colors.White;
+        dbText.AddThemeColorOverride("default_color", new Color(0.08f, 0.08f, 0.08f));
         dbTimer.WaitTime  = 1f / textSpeed;
 
         if (phrase == null) phrase = "error: phrase missing";
@@ -1261,6 +1287,13 @@ public partial class DialogBox : Control
             _tailIsBelow = dir.Y > 0f;
 
         } else if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice) {
+            // Lift the trail origin above topPoint so dots visually emanate from above the head.
+            // Placement is already decided; this only affects the dot trail geometry.
+            if (trackActor != null)
+            {
+                float headHeight = trackActor.Position.DistanceTo(trackActor.topPoint);
+                tailPos -= new Vector2(0f, headHeight * 0.6f);
+            }
             ComputeCloudBubble();
             // Anchor on whichever cloud face is nearest to the character, matching speech bubble logic.
             float ccx = _cloudInnerRect.GetCenter().X;

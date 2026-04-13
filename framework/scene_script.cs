@@ -87,6 +87,11 @@ public partial class scene_script : Node2D
     // Returns a named sequence from this scene's JSON "sequences" block, or null.
     public JsonArray GetNamedSequence(string name) =>
         _sceneData?["sequences"]?[name]?.AsArray();
+
+    // Optional per-scene border overrides (read from scene JSON "border_style" / "border_width").
+    public string SceneBorderStyle => _sceneData?["border_style"]?.GetValue<string>();
+    public float? SceneBorderWidth => _sceneData?.ContainsKey("border_width") == true
+        ? _sceneData["border_width"].GetValue<float>() : null;
     public record struct ArrivalData(
         string SourceName,
         string Dir,
@@ -955,7 +960,8 @@ public partial class scene_script : Node2D
         NPC actor           = null,
         bool strict         = false,
         DialogBox.TailStyle? tailStyle = null,
-        Globals.NarrationCorner corner = Globals.NarrationCorner.Auto)
+        Globals.NarrationCorner corner = Globals.NarrationCorner.Auto,
+        Globals.NarrationStyle  narrationStyle = Globals.NarrationStyle.Normal)
     {
         bool hasTail = tailPos != null;
 
@@ -974,6 +980,7 @@ public partial class scene_script : Node2D
         db.trackActor      = actor;
         db.isStrict        = strict;
         db.narrationCorner = corner;
+        db.narrationStyle  = narrationStyle;
         if (tailStyle.HasValue) db.SpeechTailStyle = tailStyle.Value;
 
         if (hasTail) db.tailPos = tailPos.Value;

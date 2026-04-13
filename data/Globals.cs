@@ -44,6 +44,12 @@ public partial class Globals : Node
         BottomRight = 4,
     }
 
+    public enum NarrationStyle
+    {
+        Normal = 0,   // subdued corner bends only, no edge notches
+        Jagged = 1,   // dense randomised notches on left and right edges only
+    }
+
     // Set to true in the editor or at startup to enable all debug features.
     public static bool showDebugTools    = false;
     // Sub-toggles (only meaningful when showDebugTools is true):

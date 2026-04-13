@@ -18,3 +18,9 @@ res://ui/title_splash.cs
 res://ui/VerbPanel.cs
 res://ui/OverlayScene.cs
 res://data/Globals.cs
+res://ui/DialogBox.tscn
+res://shaders/light_and_shadows_shader.gdshader
+res://fonts/KOMIKA_BOLD.tres
+res://fonts/KOMIKA_NORMAL.tres
+res://fonts/comic_theme.tres
+res://ui/OverlayScene.tscn

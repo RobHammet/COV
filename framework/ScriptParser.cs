@@ -61,22 +61,19 @@ public static class ScriptParser
                     break;
                 }
                 case "narrate": {
-                    Globals.NarrationCorner corner = obj["corner"]?.GetValue<string>() switch {
-                        "topleft"     => Globals.NarrationCorner.TopLeft,
-                        "topright"    => Globals.NarrationCorner.TopRight,
-                        "bottomleft"  => Globals.NarrationCorner.BottomLeft,
-                        "bottomright" => Globals.NarrationCorner.BottomRight,
-                        _             => Globals.NarrationCorner.Auto,
-                    };
-                    queue.AddEventNarrate(obj["text"].GetValue<string>(), Vector2.Zero, corner: corner);
+                    var corner = ParseNarrationCorner(obj["corner"]?.GetValue<string>());
+                    var nStyle = ParseNarrationStyle(obj["style"]?.GetValue<string>());
+                    Color? nColor = ParseColor(obj["color"]?.GetValue<string>());
+                    queue.AddEventNarrate(obj["text"].GetValue<string>(), Vector2.Zero, corner: corner, style: nStyle, color: nColor);
                     break;
                 }
                 case "speak": {
                     string actorName = obj["actor"].GetValue<string>();
                     NPC actor = ResolveNPC(actorName, scene, self);
                     (Globals.DialogTypes dialogType, DialogBox.TailStyle? tailStyle) = ParseSpeakStyle(obj["style"]?.GetValue<string>());
+                    Color? sColor = ParseColor(obj["color"]?.GetValue<string>());
                     if (actor != null)
-                        queue.AddEventSpeak(actor, obj["text"].GetValue<string>(), Vector2.Zero, tailStyle: tailStyle, dialogType: dialogType);
+                        queue.AddEventSpeak(actor, obj["text"].GetValue<string>(), Vector2.Zero, tailStyle: tailStyle, dialogType: dialogType, color: sColor);
                     else if (scene.FindChild(actorName, true, false) is DialogAnchor sa)
                         queue.AddEventSpeakFromAnchor(sa, obj["text"].GetValue<string>(), tailStyle: tailStyle, dialogType: dialogType);
                     break;
@@ -84,8 +81,9 @@ public static class ScriptParser
                 case "think": {
                     string actorName = obj["actor"].GetValue<string>();
                     NPC actor = ResolveNPC(actorName, scene, self);
+                    Color? tColor = ParseColor(obj["color"]?.GetValue<string>());
                     if (actor != null)
-                        queue.AddEventThink(actor, obj["text"].GetValue<string>(), Vector2.Zero);
+                        queue.AddEventThink(actor, obj["text"].GetValue<string>(), Vector2.Zero, color: tColor);
                     else if (scene.FindChild(actorName, true, false) is DialogAnchor ta)
                         queue.AddEventThinkFromAnchor(ta, obj["text"].GetValue<string>());
                     break;
@@ -183,7 +181,16 @@ public static class ScriptParser
         }
     }
 
-    private static (Globals.DialogTypes type, DialogBox.TailStyle? tail) ParseSpeakStyle(string raw)
+    // ── Shared JSON field parsers (also used by ConversationStep) ────────────────
+
+    // Accepts hex ("#rrggbb") or CSS named colors ("yellow"). Returns null on empty/invalid.
+    public static Color? ParseColor(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return null;
+        try { return new Color(raw); } catch { return null; }
+    }
+
+    public static (Globals.DialogTypes type, DialogBox.TailStyle? tail) ParseSpeakStyle(string raw)
     {
         if (string.IsNullOrEmpty(raw))
             return (Globals.DialogTypes.speaking, null);
@@ -201,6 +208,18 @@ public static class ScriptParser
             }
         return (type, tail);
     }
+
+    public static Globals.NarrationCorner ParseNarrationCorner(string raw) =>
+        raw switch {
+            "topleft"     => Globals.NarrationCorner.TopLeft,
+            "topright"    => Globals.NarrationCorner.TopRight,
+            "bottomleft"  => Globals.NarrationCorner.BottomLeft,
+            "bottomright" => Globals.NarrationCorner.BottomRight,
+            _             => Globals.NarrationCorner.Auto,
+        };
+
+    public static Globals.NarrationStyle ParseNarrationStyle(string raw) =>
+        raw == "jagged" ? Globals.NarrationStyle.Jagged : Globals.NarrationStyle.Normal;
 
     private static thing ResolveThing(string name, scene_script scene, thing self = null)
     {

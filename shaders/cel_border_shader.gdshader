@@ -14,6 +14,12 @@ uniform float line_width    : hint_range(0.0, 20.0)  = 4.0;
 uniform vec4 border_color   : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform vec4 line_color     : source_color = vec4(0.0, 0.0, 0.0, 1.0);
 
+// border_style: 0 = normal (rounded rect), 1 = circle (ovoid), 2 = wavy (animated sine)
+uniform int   border_style  = 0;
+uniform float wave_freq     : hint_range(0.0, 0.2)  = 0.025;
+uniform float wave_amp      : hint_range(0.0, 20.0) = 6.0;
+uniform float wave_speed    : hint_range(0.0, 10.0) = 2.5;
+
 // SDF for a rounded rectangle centred at origin, half-extents b, radius r.
 float sd_rounded_rect(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
@@ -23,9 +29,25 @@ float sd_rounded_rect(vec2 p, vec2 b, float r) {
 void fragment() {
     vec2  inner_center = inner_rect.xy + inner_rect.zw * 0.5;
     vec2  inner_half   = inner_rect.zw * 0.5;
+    vec2  p            = FRAGCOORD.xy - inner_center;
     float r            = corner_radius;
+    float d;
 
-    float d = sd_rounded_rect(FRAGCOORD.xy - inner_center, inner_half, r);
+    if (border_style == 1) {
+        // Ovoid: approximate ellipse SDF by mapping to normalised circle space.
+        vec2 q = p / inner_half;
+        d = (length(q) - 1.0) * min(inner_half.x, inner_half.y);
+    } else if (border_style == 2) {
+        // Wavy: displace the SDF lookup with per-axis sine waves keyed to TIME.
+        vec2 wdisp = vec2(
+            sin(p.y * wave_freq + TIME * wave_speed) * wave_amp,
+            sin(p.x * wave_freq + TIME * wave_speed) * wave_amp
+        );
+        d = sd_rounded_rect(p + wdisp, inner_half, r);
+    } else {
+        // Normal: rounded rectangle.
+        d = sd_rounded_rect(p, inner_half, r);
+    }
 
     // d < 0: inside the window (transparent)
     // d >= 0: outside (border)

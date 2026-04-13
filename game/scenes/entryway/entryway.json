@@ -5,10 +5,10 @@
   },
   "sequences": {
     "arrive_from_porch": [
-      { "action": "narrate",       "text": "HE CAREFULLY WALKED INTO THE HOUSE...", "strict": true },
+      { "action": "narrate",       "text": "HE CAREFULLY WALKED INTO THE HOUSE...", "style": "jagged", "color": "yellow", "strict": true },
       { "action": "move",          "actor": "ego", "to": [200, 465], "strict": true },
       { "action": "change_facing", "actor": "ego", "direction": "left" },
-      { "action": "narrate",       "text": "LOOKING IN EVERY DIRECTION...", "strict": true },
+      { "action": "narrate",       "text": "LOOKING IN EVERY DIRECTION...", "style": "jagged", "color": "yellow", "strict": true },
       { "action": "move",          "actor": "ego", "to": [600, 600], "strict": true }
     ]
   },
