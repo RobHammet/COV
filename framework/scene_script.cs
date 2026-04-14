@@ -61,9 +61,8 @@ public partial class scene_script : Node2D
     public NPC   ego;
     private Color    egoOriginalModulate;
 
-    public List<thing>            things     = new List<thing>();
-    public List<Globals.SceneFlag> flags     = new List<Globals.SceneFlag>();
-    public EventSequence           eventQueue;
+    public List<thing>   things     = new List<thing>();
+    public EventSequence eventQueue;
     public MainScene               mainScene;
     public bool HasOpenDialog => GetChildren().OfType<DialogBox>().Any();
 
@@ -1042,9 +1041,9 @@ public partial class scene_script : Node2D
     }
 
     // ---------------------------------------------------------------------------
-    // Signal handlers
+    // Signal handlers — override in room subclass to react to ego events.
     // ---------------------------------------------------------------------------
 
-    public void _on_Ego_DestinationReached() { }
-    public void _on_Ego_FacingChanged()      { }
+    public virtual void _on_Ego_DestinationReached() { }
+    public virtual void _on_Ego_FacingChanged()      { }
 }

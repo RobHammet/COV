@@ -197,7 +197,8 @@ public partial class thing : Node2D
         _defaultAnimPlaying = isAnimated  && animationPlayer.IsPlaying();
     }
 
-    int hasRunSetPoints = 0;
+    // SetPoints needs a few extra frames after _Ready to let scale/polygon settle.
+    private int _settleFrames = 4;
 
     public void SetPoints()
     {
@@ -227,7 +228,6 @@ public partial class thing : Node2D
         }
         catch { }
         interactPoint = ip;
-        hasRunSetPoints++;
     }
 
     public void OnMove()
@@ -266,7 +266,7 @@ public partial class thing : Node2D
         }
 
         if (Globals.showDebugTools) QueueRedraw();
-        if (hasRunSetPoints < 5) SetPoints();
+        if (_settleFrames > 0) { SetPoints(); _settleFrames--; }
     }
 
     public void InitInteract(Globals.InteractModes mode)
@@ -319,8 +319,7 @@ public partial class thing : Node2D
         bool handled = SpecificUse(ego, parentScene.eventQueue);
         if (!handled && UseFallbacks.Length > 0)
         {
-            var rng = new RandomNumberGenerator(); rng.Randomize();
-            string fb = UseFallbacks[(int)(rng.Randf() * UseFallbacks.Length)];
+            string fb = UseFallbacks[(int)(GD.Randf() * UseFallbacks.Length)];
             if (ego != null) parentScene.eventQueue.AddEventThink(ego, fb);
             else             parentScene.eventQueue.AddEventNarrate(fb);
         }
@@ -336,8 +335,7 @@ public partial class thing : Node2D
         bool handled = SpecificTalk(ego, parentScene.eventQueue);
         if (!handled && TalkFallbacks.Length > 0)
         {
-            var rng = new RandomNumberGenerator(); rng.Randomize();
-            string fb = TalkFallbacks[(int)(rng.Randf() * TalkFallbacks.Length)];
+            string fb = TalkFallbacks[(int)(GD.Randf() * TalkFallbacks.Length)];
             if (ego != null) parentScene.eventQueue.AddEventSpeak(ego, fb, Vector2.Zero);
             else             parentScene.eventQueue.AddEventNarrate(fb);
         }
@@ -354,8 +352,7 @@ public partial class thing : Node2D
         bool handled = SpecificUseItem(item);
         if (!handled && UseItemFallbacks.Length > 0)
         {
-            var rng = new RandomNumberGenerator(); rng.Randomize();
-            string fb = UseItemFallbacks[(int)(rng.Randf() * UseItemFallbacks.Length)];
+            string fb = UseItemFallbacks[(int)(GD.Randf() * UseItemFallbacks.Length)];
             if (ego != null) parentScene.eventQueue.AddEventSpeak(ego, fb, Vector2.Zero);
             else             parentScene.eventQueue.AddEventNarrate(fb);
         }
@@ -405,23 +402,26 @@ public partial class thing : Node2D
         return true;
     }
 
+    private void ApplyVisibility()
+    {
+        bool visible = isExist && !isHidden;
+        if (hasSprite) sprite.Visible = visible;
+        if (castsShadow && shadow != null) shadow.Visible = visible;
+    }
+
     // ToggleExist — controls whether the thing participates in the scene at all.
     // false: not interactive, not visible. true: interactive, respects isHidden.
     public void ToggleExist(bool? value = null)
     {
         isExist = value ?? !isExist;
-        bool visible = isExist && !isHidden;
-        if (hasSprite) sprite.Visible = visible;
-        if (castsShadow && shadow != null) shadow.Visible = visible;
+        ApplyVisibility();
     }
 
     // ToggleHide — controls visibility only; thing remains interactive when hidden.
     public void ToggleHide(bool? value = null)
     {
         isHidden = value ?? !isHidden;
-        bool visible = isExist && !isHidden;
-        if (hasSprite) sprite.Visible = visible;
-        if (castsShadow && shadow != null) shadow.Visible = visible;
+        ApplyVisibility();
     }
 
 

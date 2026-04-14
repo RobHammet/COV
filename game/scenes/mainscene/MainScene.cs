@@ -602,7 +602,7 @@ public partial class MainScene : Node2D
         mat.SetShaderParameter("progress", 0.0f);
         rect.Material = mat;
 
-        PlayPageFlip();
+        PlayFlip(_pageFlipPlayer);
         Tween curl = CreateTween();
         curl.TweenMethod(
             Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
@@ -655,18 +655,18 @@ public partial class MainScene : Node2D
     // page, so we capture it, curl it directly, then zoom into panel 0 of the
     // incoming scene's fresh page layout.
     // ---------------------------------------------------------------------------
-    private async void CoverTurnTransition(string roomPath, scene_script.ArrivalData arrival)
+    private async void RunTransition(string name, Func<Task> impl)
     {
-        try
-        {
-        await CoverTurnTransitionImpl(roomPath, arrival);
-        }
+        try { await impl(); }
         catch (Exception ex)
         {
-            GD.PrintErr($"CoverTurnTransition failed: {ex.Message}\n{ex.StackTrace}");
+            GD.PrintErr($"{name} failed: {ex.Message}\n{ex.StackTrace}");
             isInTransition = false;
         }
     }
+
+    private void CoverTurnTransition(string roomPath, scene_script.ArrivalData arrival) =>
+        RunTransition("CoverTurnTransition", () => CoverTurnTransitionImpl(roomPath, arrival));
 
     private async Task CoverTurnTransitionImpl(string roomPath, scene_script.ArrivalData arrival)
     {
@@ -773,7 +773,7 @@ public partial class MainScene : Node2D
         mat.SetShaderParameter("progress", 0.0f);
         curlRect.Material = mat;
 
-        PlayCoverFlip();
+        PlayFlip(_coverFlipPlayer);
         Tween curl = CreateTween();
         curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
             0.0f, 1.0f, 0.85)
@@ -1041,18 +1041,11 @@ public partial class MainScene : Node2D
     private static string SceneBaseName(scene_script s) =>
         System.IO.Path.GetFileNameWithoutExtension(s?.SceneFilePath ?? "");
 
-    private void PlayPageFlip()
+    private static void PlayFlip(AudioStreamPlayer player)
     {
-        if (_pageFlipPlayer == null) return;
-        _pageFlipPlayer.PitchScale = (float)GD.RandRange(0.88, 1.12);
-        _pageFlipPlayer.Play();
-    }
-
-    private void PlayCoverFlip()
-    {
-        if (_coverFlipPlayer == null) return;
-        _coverFlipPlayer.PitchScale = (float)GD.RandRange(0.88, 1.12);
-        _coverFlipPlayer.Play();
+        if (player == null) return;
+        player.PitchScale = (float)GD.RandRange(0.88, 1.12);
+        player.Play();
     }
 
     private void ApplyCelBorderOffset(scene_script scene)
@@ -1721,23 +1714,11 @@ public partial class MainScene : Node2D
     // page. If pageNumber > 1 fake pages slide past, then the real current
     // page arrives and zooms into the saved panel.
     // ---------------------------------------------------------------------------
-    private async void LoadReplayTransition(
-        string scenePath,
-        scene_script.ArrivalData arrival,
-        int pageNumber,
-        int panelIndex,
-        string[] pageSceneNames)
-    {
-        try
-        {
-            await LoadReplayTransitionImpl(scenePath, arrival, pageNumber, panelIndex, pageSceneNames);
-        }
-        catch (Exception ex)
-        {
-            GD.PrintErr($"LoadReplayTransition failed: {ex.Message}\n{ex.StackTrace}");
-            isInTransition = false;
-        }
-    }
+    private void LoadReplayTransition(
+        string scenePath, scene_script.ArrivalData arrival,
+        int pageNumber, int panelIndex, string[] pageSceneNames) =>
+        RunTransition("LoadReplayTransition",
+            () => LoadReplayTransitionImpl(scenePath, arrival, pageNumber, panelIndex, pageSceneNames));
 
     private async Task LoadReplayTransitionImpl(
         string scenePath,
@@ -1879,7 +1860,7 @@ public partial class MainScene : Node2D
         mat.SetShaderParameter("progress", 0.0f);
         curlRect.Material = mat;
 
-        PlayCoverFlip();
+        PlayFlip(_coverFlipPlayer);
         Tween curl = CreateTween();
         curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
             0.0f, 1.0f, 0.85)

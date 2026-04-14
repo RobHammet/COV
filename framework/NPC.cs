@@ -11,14 +11,15 @@
 
 using Godot;
 using System;
-using System.Collections.Generic;
 
 public partial class NPC : thing
 {
     public enum Direction { up = 0, down = 1, left = 3, right = 4 }
 
-    [Export] public Color     dialogColor      = Colors.White;
+    [Export] public Color     dialogColor = Colors.White;
     [Export] public Direction Facing;
+    // Snapshot of the exported Facing value taken at end of _Ready.
+    // Used by MainScene.CaptureThingState for change detection on scene exit.
     public Direction _defaultFacing;
     [Export(PropertyHint.Range, "0,200,")] public float speed = 100.0f;
 
@@ -32,7 +33,7 @@ public partial class NPC : thing
     {
         get
         {
-            Vector2 tp = GetNode<Node2D>("TopPoint").GlobalPosition;
+            Vector2 tp = _topPointNode.GlobalPosition;
             bool    lr = Facing == Direction.left || Facing == Direction.right;
             if (lr)
                 return new Vector2(
@@ -44,10 +45,11 @@ public partial class NPC : thing
 
     public NavigationAgent2D navigationAgent2D;
     public CharacterBody2D   charBody;
-    public bool              isWalking      = false;
-    public bool              isFastWalking  = false;
+    public bool              isWalking     = false;
+    public bool              isFastWalking = false;
     public float             fastwalk_speed;
-    public int               anim_fps       = 8;
+
+    private Node2D _topPointNode;
 
     // ---------------------------------------------------------------------------
     // _Ready
@@ -60,8 +62,9 @@ public partial class NPC : thing
         if (shadow != null)
             shadow.Offset = new Vector2(0, -(float)0.46 * sprite.Texture.GetHeight() / sprite.Vframes);
 
-        fastwalk_speed = speed + speed / 100f * 85f;
+        fastwalk_speed = speed * 1.85f;
 
+        _topPointNode     = GetNode<Node2D>("TopPoint");
         navigationAgent2D = GetNode<NavigationAgent2D>("NavigationAgent2D");
         charBody          = GetNodeOrNull<CharacterBody2D>("charBody");
 
