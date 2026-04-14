@@ -421,51 +421,57 @@ public partial class MainScene : Node2D
         ShaderMaterial pageMat = GetPageShaderMat(page);
         InitPageUVUniforms(pageMat, zoomIn, startPos, vp);
 
-        Vector2 fullPagePos        = ContainerPosForFullPage(vp);
-        Vector2 startNoiseScale    = NoiseScale(zoomIn,          vp);
-        Vector2 fullPageNoiseScale = NoiseScale(PAGE_SCALE_OUT,  vp);
-        Vector2 startNoiseOffset   = NoiseOffset(zoomIn,         startPos,    vp);
-        Vector2 fullPageNoiseOffset = NoiseOffset(PAGE_SCALE_OUT, fullPagePos, vp);
+        Vector2 toPos      = ContainerPosForPanel(toIndex,   panelSize, zoomIn,    vp);
+        float   midScale   = zoomIn * 0.70f;
+        Vector2 fromPosMid = ContainerPosForPanel(fromIndex, panelSize, midScale,  vp);
+        Vector2 toPosMid   = ContainerPosForPanel(toIndex,   panelSize, midScale,  vp);
 
-        // 4. Zoom out — ease-in-out for a smooth pull-back, not a whip.
-        float dur      = RandomisedDuration(0.50f);
-        Tween tweenOut = CreateTween().SetParallel(true);
-        tweenOut.TweenProperty(page, "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), dur)
-            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
-        tweenOut.TweenProperty(page, "position", fullPagePos, dur)
-            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+        Vector2 nsMid      = NoiseScale(midScale, vp);
+        Vector2 nsIn       = NoiseScale(zoomIn,   vp);
+
+        float durZoom = RandomisedDuration(0.28f);
+        float durPan  = RandomisedDuration(0.40f);
+
+        // 4. Three-phase: zoom out (centred on from-panel) → pan at mid-scale → zoom in.
+        Tween tween = CreateTween();
+
+        // Phase 1 — zoom out
+        tween.TweenProperty(page, "scale",    new Vector2(midScale, midScale), durZoom)
+            .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
+        tween.Parallel().TweenProperty(page, "position", fromPosMid, durZoom)
+            .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
         if (pageMat != null)
         {
-            tweenOut.TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
-                startNoiseScale, fullPageNoiseScale, dur).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
-            tweenOut.TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
-                startNoiseOffset, fullPageNoiseOffset, dur).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+            tween.Parallel().TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
+                nsIn, nsMid, durZoom).SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
+            tween.Parallel().TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
+                NoiseOffset(zoomIn, startPos, vp), NoiseOffset(midScale, fromPosMid, vp), durZoom)
+                .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Sine);
         }
-        await ToSignal(tweenOut, Tween.SignalName.Finished);
 
-        // 5. Pause — vary the beat length so it never feels mechanical.
-        Tween pause = CreateTween();
-        pause.TweenInterval(RandomisedDuration(0.22f, 0.20f));
-        await ToSignal(pause, Tween.SignalName.Finished);
+        // Phase 2 — pan
+        tween.TweenProperty(page, "position", toPosMid, durPan)
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
+        if (pageMat != null)
+            tween.Parallel().TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
+                NoiseOffset(midScale, fromPosMid, vp), NoiseOffset(midScale, toPosMid, vp), durPan)
+                .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Sine);
 
-        // 6. Zoom in — cubic ease-out, no overshoot.
-        Vector2 toPos           = ContainerPosForPanel(toIndex, panelSize, zoomIn, vp);
-        Vector2 toNoiseScale    = NoiseScale(zoomIn, vp);
-        Vector2 toNoiseOffset   = NoiseOffset(zoomIn, toPos, vp);
-        dur = RandomisedDuration(0.45f);
-        Tween tweenIn = CreateTween().SetParallel(true);
-        tweenIn.TweenProperty(page, "scale",    new Vector2(zoomIn, zoomIn), dur)
-            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
-        tweenIn.TweenProperty(page, "position", toPos, dur)
-            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        // Phase 3 — zoom in
+        tween.TweenProperty(page, "scale",    new Vector2(zoomIn, zoomIn), durZoom)
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Sine);
+        tween.Parallel().TweenProperty(page, "position", toPos, durZoom)
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Sine);
         if (pageMat != null)
         {
-            tweenIn.TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
-                fullPageNoiseScale, toNoiseScale, dur).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
-            tweenIn.TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
-                fullPageNoiseOffset, toNoiseOffset, dur).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+            tween.Parallel().TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
+                nsMid, nsIn, durZoom).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Sine);
+            tween.Parallel().TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
+                NoiseOffset(midScale, toPosMid, vp), NoiseOffset(zoomIn, toPos, vp), durZoom)
+                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Sine);
         }
-        await ToSignal(tweenIn, Tween.SignalName.Finished);
+
+        await ToSignal(tween, Tween.SignalName.Finished);
 
         // 7. Finalise — align ComicPageLayer dirt UV to match the zoomed page container.
         AlignDirtUV(zoomIn, toPos, vp);
@@ -617,13 +623,13 @@ public partial class MainScene : Node2D
         postPagePause.TweenInterval(RandomisedDuration(0.50f, 0.10f));
         await ToSignal(postPagePause, Tween.SignalName.Finished);
 
-        // 9. Zoom into panel 0 — cubic ease-out, no overshoot.
+        // 9. Zoom into panel 0 — slow ease-out so the first panel of a new page lands gently.
         Vector2 panel0Pos        = ContainerPosForPanel(0, panelSize, newZoomIn, vp);
         Vector2 newFullNoiseSc   = NoiseScale(PAGE_SCALE_OUT, vp);
         Vector2 newFullNoiseOff  = NoiseOffset(PAGE_SCALE_OUT, fullPagePos, vp);
         Vector2 panel0NoiseSc    = NoiseScale(newZoomIn, vp);
         Vector2 panel0NoiseOff   = NoiseOffset(newZoomIn, panel0Pos, vp);
-        dur = RandomisedDuration(0.45f);
+        dur = RandomisedDuration(1.80f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(newPage, "scale",    new Vector2(newZoomIn, newZoomIn), dur)
             .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
@@ -773,7 +779,7 @@ public partial class MainScene : Node2D
         mat.SetShaderParameter("progress", 0.0f);
         curlRect.Material = mat;
 
-        PlayFlip(_coverFlipPlayer);
+        PlayFlip(_pageFlipPlayer);
         Tween curl = CreateTween();
         curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
             0.0f, 1.0f, 0.85)
@@ -785,9 +791,9 @@ public partial class MainScene : Node2D
         await ToSignal(CreateTween().TweenInterval(RandomisedDuration(0.50f, 0.10f)),
             Tween.SignalName.Finished);
 
-        // ── 7. Zoom into panel 0 ──────────────────────────────────────────────────
+        // ── 7. Zoom into panel 0 — slow ease-out so the first panel lands gently ────
         Vector2 panel0Pos = ContainerPosForPanel(0, panelSize, newZoomIn, vp);
-        float   dur       = RandomisedDuration(0.45f);
+        float   dur       = RandomisedDuration(1.80f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(newPage, "scale",    new Vector2(newZoomIn, newZoomIn), dur)
                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
@@ -1253,6 +1259,15 @@ public partial class MainScene : Node2D
     {
         if (jitter < 0f) jitter = baseDuration * 0.06f;
         return baseDuration + (GD.Randf() - 0.5f) * 2f * jitter;
+    }
+
+    // Cubic bezier ease for panel-pan position (endpoints 0 and 1, control points
+    // pulled inward for a gradual start and end rather than an abrupt launch).
+    private static float PanBezier(float t)
+    {
+        const float c1 = 0.15f, c2 = 0.85f;
+        float mt = 1f - t;
+        return 3f * mt * mt * t * c1 + 3f * mt * t * t * c2 + t * t * t;
     }
 
     private static Tween.TransitionType RandomZoomInCurve()
@@ -1819,6 +1834,14 @@ public partial class MainScene : Node2D
                 ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
             _panelBorderWidths[panelIndex]     = nextScene.SceneBorderWidth ?? _defaultBorderWidth;
             _currentPageSceneNames[panelIndex] = SceneBaseName(nextScene);
+
+            // Apply saved ego position/facing so the thumbnail matches the save state.
+            // Don't consume the pending values — SwitchCurrentSceneForNext still needs them.
+            if (nextScene.ego != null)
+            {
+                if (_pendingLoadPosition.HasValue) nextScene.ego.Position = _pendingLoadPosition.Value;
+                if (_pendingLoadFacing.HasValue)   nextScene.ego.ChangeFacing(_pendingLoadFacing.Value);
+            }
         }
         _panelTextures[panelIndex] = await CaptureNextSceneThumbnail();
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
@@ -1868,74 +1891,82 @@ public partial class MainScene : Node2D
         await ToSignal(curl, Tween.SignalName.Finished);
         curlOverlay.QueueFree();
 
-        // ── 9. Post-curl: flip fake pages (if any) then arrive at real page ───
-        Vector2 slideOff = new(vp.X * 0.2f, 0f);
+        // ── 9. Post-curl: flip through pages then expand to full-page view ──────────
+        // All page curls stay at coverRect size/position — same as the cover curl,
+        // because in a real book the pages and cover are the same physical dimensions.
+        // Only after all flipping is done do we expand to the full comic-page view.
+        Rect2I coverCropI = new(
+            (int)coverRect.Position.X, (int)coverRect.Position.Y,
+            (int)coverRect.Size.X,     (int)coverRect.Size.Y);
 
         if (fakeCount > 0)
         {
-            // Expand first fake from cover scale to full-page view.
-            Tween expand = CreateTween().SetParallel(true);
-            expand.TweenProperty(fakePages[0], "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), 0.20f)
-                .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-            expand.TweenProperty(fakePages[0], "position", fullPos, 0.20f)
-                .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-            await ToSignal(expand, Tween.SignalName.Finished);
+            await ToSignal(CreateTween().TweenInterval(0.15f), Tween.SignalName.Finished);
 
-            await ToSignal(CreateTween().TweenInterval(0.18f), Tween.SignalName.Finished);
-
-            // Flip remaining fakes.
-            Control lastFake = fakePages[0];
-            for (int fp = 1; fp < fakeCount; fp++)
+            // Curl from fakePages[0] through remaining fakes, then to the real page.
+            Control current = fakePages[0];
+            for (int fp = 1; fp <= fakeCount; fp++)
             {
-                Control fakePage = fakePages[fp];
-                behindLayer.AddChild(fakePage);
-                fakePage.Scale    = new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT);
-                fakePage.Position = fullPos + slideOff;
+                Control next = fp < fakeCount ? fakePages[fp] : realPage;
 
-                Tween flip = CreateTween().SetParallel(true);
-                flip.TweenProperty(fakePage, "position", fullPos,            0.14f)
-                    .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
-                flip.TweenProperty(lastFake, "position", fullPos - slideOff, 0.12f)
-                    .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Cubic);
-                await ToSignal(flip, Tween.SignalName.Finished);
-                lastFake.QueueFree();
-                lastFake = fakePage;
+                // Capture and crop to the cover rect — pages are the same size as the cover.
+                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                Image rawFlip = GetViewport().GetTexture().GetImage();
+                Rect2I flipCrop = coverCropI.Intersection(new Rect2I(Vector2I.Zero, rawFlip.GetSize()));
+                if (flipCrop.Size.X <= 0 || flipCrop.Size.Y <= 0) flipCrop = new Rect2I(Vector2I.Zero, rawFlip.GetSize());
+                ImageTexture flipTex = ImageTexture.CreateFromImage(rawFlip.GetRegion(flipCrop));
 
-                await ToSignal(CreateTween().TweenInterval(0.18f), Tween.SignalName.Finished);
+                // Park the next page behind the curl at cover scale/position.
+                behindLayer.AddChild(next);
+                next.Scale    = new Vector2(coverPageScale, coverPageScale);
+                next.Position = coverPagePos;
+
+                var flipLayer = new CanvasLayer { Layer = 100 };
+                AddChild(flipLayer);
+                var flipRect = new TextureRect
+                {
+                    Texture     = flipTex,
+                    StretchMode = TextureRect.StretchModeEnum.Scale,
+                    Size        = coverRect.Size,
+                    Position    = coverRect.Position,
+                    Material    = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") },
+                };
+                flipLayer.AddChild(flipRect);
+                var flipMat = flipRect.Material as ShaderMaterial;
+                flipMat.SetShaderParameter("progress", 0.0f);
+
+                PlayFlip(_coverFlipPlayer);
+                Tween ct = CreateTween();
+                ct.TweenMethod(Callable.From<float>(p => flipMat.SetShaderParameter("progress", p)),
+                    0.0f, 1.0f, 0.65f)
+                    .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+                await ToSignal(ct, Tween.SignalName.Finished);
+                flipLayer.QueueFree();
+                current.QueueFree();
+                current = next;
+
+                if (fp < fakeCount)
+                    await ToSignal(CreateTween().TweenInterval(0.12f), Tween.SignalName.Finished);
             }
+        }
 
-            // Slide real page in, last fake slides out.
-            behindLayer.AddChild(realPage);
-            realPage.Scale    = new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT);
-            realPage.Position = fullPos + slideOff;
-            Tween finalFlip = CreateTween().SetParallel(true);
-            finalFlip.TweenProperty(lastFake, "position", fullPos - slideOff, 0.12f)
-                .SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Cubic);
-            finalFlip.TweenProperty(realPage, "position", fullPos,            0.14f)
-                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
-            await ToSignal(finalFlip, Tween.SignalName.Finished);
-            lastFake.QueueFree();
-        }
-        else
-        {
-            // No fakes: expand real page from cover scale to full-page view.
-            Tween expand = CreateTween().SetParallel(true);
-            expand.TweenProperty(realPage, "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), 0.25f)
-                .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-            expand.TweenProperty(realPage, "position", fullPos, 0.25f)
-                .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-            await ToSignal(expand, Tween.SignalName.Finished);
-        }
+        // Expand the final page (real or only) from cover scale to full-page view.
+        Tween expandFinal = CreateTween().SetParallel(true);
+        expandFinal.TweenProperty(realPage, "scale",    new Vector2(PAGE_SCALE_OUT, PAGE_SCALE_OUT), 0.25f)
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+        expandFinal.TweenProperty(realPage, "position", fullPos, 0.25f)
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+        await ToSignal(expandFinal, Tween.SignalName.Finished);
 
         // ── 10. Pause, then zoom into saved panel ─────────────────────────────
         await ToSignal(CreateTween().TweenInterval(RandomisedDuration(0.40f, 0.10f)),
             Tween.SignalName.Finished);
 
         Vector2 toPos = ContainerPosForPanel(panelIndex, panelSize, zoomIn, vp);
-        float   dur   = RandomisedDuration(0.45f);
+        float   dur   = RandomisedDuration(1.80f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(realPage, "scale",    new Vector2(zoomIn, zoomIn), dur)
-            .SetEase(Tween.EaseType.Out).SetTrans(RandomZoomInCurve());
+            .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         tweenIn.TweenProperty(realPage, "position", toPos, dur)
             .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         if (realPageMat != null)

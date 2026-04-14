@@ -12,6 +12,9 @@
 using Godot;
 using System;
 
+[Tool]
+[GlobalClass]
+[Icon("res://game/icons/npc.svg")]
 public partial class NPC : thing
 {
     public enum Direction { up = 0, down = 1, left = 3, right = 4 }
@@ -56,6 +59,8 @@ public partial class NPC : thing
     // ---------------------------------------------------------------------------
     public override void _Ready()
     {
+        if (Engine.IsEditorHint()) { EditorSetup(); return; }
+
         base._Ready();
 
         // NPC shadows sit slightly higher than prop shadows.
@@ -82,6 +87,8 @@ public partial class NPC : thing
     // ---------------------------------------------------------------------------
     public override void _Process(double delta)
     {
+        if (Engine.IsEditorHint()) return;
+
         base._Process(delta);
 
         if (isWalking)
@@ -198,5 +205,14 @@ public partial class NPC : thing
             ChangeFacing(angle > 0 ? Direction.up : Direction.down);
         else
             ChangeFacing(Math.Abs(angle) < 90 ? Direction.left : Direction.right);
+    }
+
+    // ── Editor ──────────────────────────────────────────────────────────────────
+
+    protected override void EditorSetup()
+    {
+        base.EditorSetup(); // CollisionPolygon2D, InteractPoint
+        EnsureChild<NavigationAgent2D>("NavigationAgent2D");
+        EnsureChild<Node2D>("TopPoint");
     }
 }

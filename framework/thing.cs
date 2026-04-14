@@ -15,6 +15,9 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
 
+[Tool]
+[GlobalClass]
+[Icon("res://game/icons/thing.svg")]
 public partial class thing : Node2D
 {
     [Export] public string                displayName;
@@ -97,6 +100,8 @@ public partial class thing : Node2D
 
     public override void _Ready()
     {
+        if (Engine.IsEditorHint()) { EditorSetup(); return; }
+
         parentScene = (Owner as scene_script) ?? (GetParent() as scene_script);
         ego   = parentScene?.ego;
 
@@ -238,6 +243,8 @@ public partial class thing : Node2D
 
     public override void _Process(double delta)
     {
+        if (Engine.IsEditorHint()) return;
+
         if (scalerStick != null)
         {
             if (freezeScaleRegion != null)
@@ -424,5 +431,25 @@ public partial class thing : Node2D
         ApplyVisibility();
     }
 
+    // ── Editor ──────────────────────────────────────────────────────────────────
+    // Auto-spawns required child nodes when the node is first added to a scene in
+    // the editor. Override in subclasses (call base) to add subclass-specific children.
 
+    protected virtual void EditorSetup()
+    {
+        EnsureChild<CollisionPolygon2D>("CollisionPolygon2D");
+        EnsureChild<Node2D>("InteractPoint");
+        EnsureChild<Sprite2D>("Sprite2D", s =>
+            s.Material = ResourceLoader.Load<ShaderMaterial>("res://shaders/materials/light_and_shadows.tres"));
+    }
+
+    protected T EnsureChild<T>(string name, Action<T> configure = null) where T : Node, new()
+    {
+        if (GetNodeOrNull<T>(name) is T existing) return existing;
+        var child = new T { Name = name };
+        configure?.Invoke(child);
+        AddChild(child);
+        child.Owner = GetTree().EditedSceneRoot;
+        return child;
+    }
 }
