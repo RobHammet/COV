@@ -19,7 +19,6 @@ public partial class NPC : thing
 {
     public enum Direction { up = 0, down = 1, left = 3, right = 4 }
 
-    [Export] public Color     dialogColor = Colors.White;
     [Export] public Direction Facing;
     // Snapshot of the exported Facing value taken at end of _Ready.
     // Used by MainScene.CaptureThingState for change detection on scene exit.
@@ -32,7 +31,7 @@ public partial class NPC : thing
     // topPoint — world-space position just above the NPC's head, used to
     // anchor speech bubbles. Uses GlobalPosition so scale is automatically
     // applied via Godot's transform hierarchy.
-    public Vector2 topPoint
+    public override Vector2 topPoint
     {
         get
         {
@@ -45,6 +44,8 @@ public partial class NPC : thing
             return new Vector2(GlobalPosition.X, tp.Y);
         }
     }
+
+    public override Direction DialogFacing => Facing;
 
     public NavigationAgent2D navigationAgent2D;
     public CharacterBody2D   charBody;

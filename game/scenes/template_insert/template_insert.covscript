@@ -1,0 +1,4 @@
+area exit_shape:
+  on use:
+    exit to REPLACE_ME
+      arrive_dir down

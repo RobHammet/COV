@@ -120,6 +120,19 @@ public partial class MainScene : Node2D
     private readonly Dictionary<string, Dictionary<string, ThingState>> _thingStates = new();
     private AudioStreamPlayer _pageFlipPlayer;
     private AudioStreamPlayer _coverFlipPlayer;
+    private string            _coverPath = "";
+
+    private Rect2        _coverRect       = new Rect2();  // screen-space bounds of the cover page, cached from CoverTurnTransitionImpl
+    private ImageTexture _coverBgTexture;                // full-viewport capture of cover scene at transition zoom
+
+    // State saved when ReturnToCover() is called, used by ResumeGame().
+    private string         _resumeScenePath      = "";
+    private int            _resumePageNumber     = 1;
+    private int            _resumePanelIndex     = 0;
+    private string[]       _resumePageSceneNames = new string[6];
+    private Vector2?       _resumeEgoPos;
+    private NPC.Direction? _resumeEgoFacing;
+    public  bool           HasResumeState => !string.IsNullOrEmpty(_resumeScenePath);
 
     private const float PAGE_MARGIN_H  = 16f;          // left/right page margin
     private const float PAGE_MARGIN_V  = 18f;          // top/bottom page margin
@@ -165,6 +178,7 @@ public partial class MainScene : Node2D
         string coverPath  = config["cover_scene"]?.GetValue<string>() ?? "";
         string startPath  = config["start_scene"].GetValue<string>();
         string initialPath = !string.IsNullOrEmpty(coverPath) ? coverPath : startPath;
+        _coverPath = coverPath;
         currentScene      = ResourceLoader.Load<PackedScene>(initialPath).Instantiate() as scene_script;
         currentSceneHolder.AddChild(currentScene);
 
@@ -185,6 +199,7 @@ public partial class MainScene : Node2D
         // scene-transition code (scene frees, AddChild calls, etc.).
         // Black (the fade ColorRect) stays in CurrentSceneHolder for AnimationPlayer.
         _comicPageLayer = GetNode<CanvasLayer>("ComicPageLayer");
+        _comicPageLayer.Visible = !(currentScene is Cover);
         // The saved .tres material stores uv_noise_scale/uv_dirt_scale as float (old type).
         // Force them to vec2(1,1) so the shader doesn't receive a zero vec2 and black out.
         if (ComicPageMaterial != null)
@@ -286,17 +301,7 @@ public partial class MainScene : Node2D
 
     public override void _Input(InputEvent inputEvent)
     {
-        if (inputEvent.IsActionPressed("ui_save"))
-        {
-            GD.Print("saving...");
-            Save();
-        }
-        else if (inputEvent.IsActionPressed("ui_load"))
-        {
-            GD.Print("loading...");
-            Load();
-        }
-        else if (Globals.showDebugTools &&
+        if (Globals.showDebugTools &&
                  inputEvent is InputEventKey key &&
                  key.Pressed && !key.Echo)
         {
@@ -401,12 +406,7 @@ public partial class MainScene : Node2D
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
         var overlay = new CanvasLayer { Layer = 100 };
         AddChild(overlay);
-        overlay.AddChild(new ColorRect
-        {
-            Color    = new Color(0.12f, 0.12f, 0.12f),
-            Size     = vp,
-            Position = Vector2.Zero,
-        });
+        overlay.AddChild(MakeTransitionBg(vp));
 
         Control page      = BuildPageContainer(vp);
         overlay.AddChild(page);
@@ -505,12 +505,7 @@ public partial class MainScene : Node2D
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
         var pageOverlay = new CanvasLayer { Layer = 100 };
         AddChild(pageOverlay);
-        pageOverlay.AddChild(new ColorRect
-        {
-            Color    = new Color(0.12f, 0.12f, 0.12f),
-            Size     = vp,
-            Position = Vector2.Zero,
-        });
+        pageOverlay.AddChild(MakeTransitionBg(vp));
 
         Control page      = BuildPageContainer(vp);
         pageOverlay.AddChild(page);
@@ -551,9 +546,10 @@ public partial class MainScene : Node2D
         await ToSignal(prePagePause, Tween.SignalName.Finished);
 
         // 5. Capture the full-page view — crop to the portrait page area for the curl.
+        // The container is at PAGE_SCALE_OUT, so the visible page is smaller than PageSize(vp).
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        Vector2 pageSize2 = PageSize(vp);
-        Vector2 pageOff2  = PageOffset(vp);
+        Vector2 pageSize2 = PageSize(vp) * PAGE_SCALE_OUT;
+        Vector2 pageOff2  = vp * 0.5f - pageSize2 * 0.5f;
         Image   fullImg   = GetViewport().GetTexture().GetImage();
         Image   pageImg   = fullImg.GetRegion(new Rect2I(
             (int)pageOff2.X, (int)pageOff2.Y, (int)pageSize2.X, (int)pageSize2.Y));
@@ -574,12 +570,7 @@ public partial class MainScene : Node2D
 
         var newPageOverlay = new CanvasLayer { Layer = 99 };
         AddChild(newPageOverlay);
-        newPageOverlay.AddChild(new ColorRect
-        {
-            Color    = new Color(0.12f, 0.12f, 0.12f),
-            Size     = vp,
-            Position = Vector2.Zero,
-        });
+        newPageOverlay.AddChild(MakeTransitionBg(vp));
 
         float   newZoomIn    = ZoomInScale(panelSize, vp);
         Control newPage      = BuildPageContainer(vp);
@@ -671,10 +662,171 @@ public partial class MainScene : Node2D
         }
     }
 
-    private void CoverTurnTransition(string roomPath, scene_script.ArrivalData arrival) =>
-        RunTransition("CoverTurnTransition", () => CoverTurnTransitionImpl(roomPath, arrival));
+    private void CoverTurnTransition(string roomPath, scene_script.ArrivalData arrival,
+        int targetPanelIndex = 0, bool keepExistingPageData = false) =>
+        RunTransition("CoverTurnTransition",
+            () => CoverTurnTransitionImpl(roomPath, arrival, targetPanelIndex, keepExistingPageData));
 
-    private async Task CoverTurnTransitionImpl(string roomPath, scene_script.ArrivalData arrival)
+    // ---------------------------------------------------------------------------
+    // CloseCover transition — zoom out to full page, then cover curls closed.
+    // Triggered by the menu button; returns the player to the cover scene.
+    // ---------------------------------------------------------------------------
+    public void ReturnToCover()
+    {
+        if (isInTransition || string.IsNullOrEmpty(_coverPath)) return;
+        if (currentScene?.SceneFilePath == _coverPath) return;
+        isInTransition = true;
+        RunTransition("CloseCoverTransition", CloseCoverTransitionImpl);
+    }
+
+    private async Task CloseCoverTransitionImpl()
+    {
+        Vector2 vp = GetViewportRect().Size;
+
+        // ── 1. Capture current panel ──────────────────────────────────────────
+        _panelTextures[_currentPanelIndex]       = await CaptureViewportClean();
+        _panelBorderStyles[_currentPanelIndex]   = overlayScene?.BorderStyle ?? OverlayScene.CelBorderStyle.Normal;
+        _panelBorderWidths[_currentPanelIndex]   = overlayScene?.BorderWidth;
+
+        // ── 2. Build page overlay at current panel zoom ───────────────────────
+        if (_comicPageLayer != null) _comicPageLayer.Visible = false;
+
+        var pageLayer = new CanvasLayer { Layer = 99 };
+        AddChild(pageLayer);
+        pageLayer.AddChild(MakeTransitionBg(vp));
+
+        Control        page      = BuildPageContainer(vp);
+        Vector2        panelSize = PanelSize(vp);
+        float          zoomIn    = ZoomInScale(panelSize, vp);
+        Vector2        startPos  = ContainerPosForPanel(_currentPanelIndex, panelSize, zoomIn, vp);
+        ShaderMaterial pageMat   = GetPageShaderMat(page);
+
+        pageLayer.AddChild(page);
+        page.Scale    = new Vector2(zoomIn, zoomIn);
+        page.Position = startPos;
+        InitPageUVUniforms(pageMat, zoomIn, startPos, vp);
+
+        // ── 3. Zoom out to cover-page bounds (matching the opening transition) ──
+        // Use the cached _coverRect from CoverTurnTransitionImpl so the zoom target
+        // matches exactly the page rect used when the cover was opened.
+        Rect2   coverRect      = _coverRect.Size != Vector2.Zero ? _coverRect
+                                 : new Rect2(vp * (1f - PAGE_SCALE_OUT) * 0.5f, vp * PAGE_SCALE_OUT);
+        float   coverPageScale = coverRect.Size.Y / vp.Y;
+        Vector2 coverPagePos   = coverRect.GetCenter() - vp * coverPageScale * 0.5f;
+
+        float durZoom = RandomisedDuration(0.45f);
+        Tween zoomOut = CreateTween().SetParallel(true);
+        zoomOut.TweenProperty(page, "scale",    new Vector2(coverPageScale, coverPageScale), durZoom)
+               .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        zoomOut.TweenProperty(page, "position", coverPagePos, durZoom)
+               .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        if (pageMat != null)
+        {
+            zoomOut.TweenMethod(Callable.From<Vector2>(v => pageMat.SetShaderParameter("uv_noise_scale",  v)),
+                NoiseScale(zoomIn, vp), NoiseScale(coverPageScale, vp), durZoom)
+                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+            zoomOut.TweenMethod(Callable.From<Vector2>(o => pageMat.SetShaderParameter("uv_noise_offset", o)),
+                NoiseOffset(zoomIn, startPos, vp), NoiseOffset(coverPageScale, coverPagePos, vp), durZoom)
+                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        }
+        await ToSignal(zoomOut, Tween.SignalName.Finished);
+
+        await ToSignal(CreateTween().TweenInterval(RandomisedDuration(0.3f, 0.05f)),
+            Tween.SignalName.Finished);
+
+        // ── 4. Prepare cover scene; render at the same zoom used when it opened ──
+        // Replicate CoverTurnTransitionImpl step 1: find CoverArea, compute targetZoom,
+        // set the staging viewport CanvasTransform so the thumbnail matches exactly.
+        // Then capture and crop to coverRect — the inverse of how pageTex was made.
+        PrepareNextScene(_coverPath);
+        float   coverTargetZoom   = 1f;
+        Vector2 coverTargetCenter = vp / 2f;
+        var nextCoverArea = nextScene?.GetNodeOrNull<CollisionShape2D>("CoverArea");
+        if (nextCoverArea?.Shape is RectangleShape2D nextCoverShape && _stagingViewport != null)
+        {
+            coverTargetZoom   = Mathf.Min(vp.X / (nextCoverShape.Size.X * 1.15f),
+                                          vp.Y / (nextCoverShape.Size.Y * 1.15f));
+            coverTargetCenter = nextCoverArea.GlobalPosition;
+            _stagingViewport.CanvasTransform = new Transform2D(
+                new Vector2(coverTargetZoom, 0f), new Vector2(0f, coverTargetZoom),
+                vp / 2f - coverTargetCenter * coverTargetZoom);
+        }
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        Image  rawCover   = _stagingViewport?.GetTexture().GetImage();
+        if (rawCover != null) _coverBgTexture = ImageTexture.CreateFromImage(rawCover);
+        Rect2I coverRectI = rawCover != null
+            ? new Rect2I(
+                Mathf.RoundToInt(coverRect.Position.X), Mathf.RoundToInt(coverRect.Position.Y),
+                Mathf.RoundToInt(coverRect.Size.X),     Mathf.RoundToInt(coverRect.Size.Y))
+              .Intersection(new Rect2I(Vector2I.Zero, rawCover.GetSize()))
+            : new Rect2I();
+        if (coverRectI.Size.X <= 0 || coverRectI.Size.Y <= 0)
+            coverRectI = rawCover != null ? new Rect2I(Vector2I.Zero, rawCover.GetSize()) : new Rect2I();
+        ImageTexture coverTex = rawCover != null
+            ? ImageTexture.CreateFromImage(rawCover.GetRegion(coverRectI))
+            : null;
+        MoveNextSceneToHolder();
+        if (_comicPageLayer != null) _comicPageLayer.Visible = false;
+
+        // ── 5. Curl layer (100): cover closes over the page ───────────────────
+
+        var curlLayer = new CanvasLayer { Layer = 100 };
+        AddChild(curlLayer);
+        curlLayer.AddChild(new TextureRect
+        {
+            Texture     = coverTex,
+            StretchMode = TextureRect.StretchModeEnum.Keep,
+            Size        = new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
+            Position    = new Vector2(coverRectI.Position.X, coverRectI.Position.Y),
+            Material    = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") },
+        });
+        var curlRect = curlLayer.GetChild<TextureRect>(0);
+        var mat      = curlRect.Material as ShaderMaterial;
+        mat.SetShaderParameter("progress", 1.0f);
+
+        // ── 6. Animate cover closing (progress 1 → 0) ─────────────────────────
+        PlayFlip(_coverFlipPlayer);
+        Tween curl = CreateTween();
+        curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
+            1.0f, 0.0f, 0.85f)
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+        await ToSignal(curl, Tween.SignalName.Finished);
+        curlLayer.QueueFree();
+
+        // ── 7. Finalise ───────────────────────────────────────────────────────
+        // Save resume state before currentScene is swapped out.
+        _resumeScenePath      = currentScene?.SceneFilePath ?? "";
+        _resumePageNumber     = _currentPageNumber;
+        _resumePanelIndex     = _currentPanelIndex;
+        _resumePageSceneNames = (string[])_currentPageSceneNames.Clone();
+        _resumeEgoPos         = currentScene?.ego?.Position;
+        _resumeEgoFacing      = currentScene?.ego?.Facing;
+
+        SwitchCurrentSceneForNext();
+        pageLayer.QueueFree();
+
+        // Snap the cover camera to the same zoom/position used when capturing the
+        // thumbnail, so the scene matches the curl frame with no jump.
+        var coverCam = currentScene?.camera;
+        if (coverCam != null)
+        {
+            coverCam.Zoom     = new Vector2(coverTargetZoom, coverTargetZoom);
+            coverCam.Position = coverTargetCenter;
+            coverCam.Offset   = Vector2.Zero;
+            coverCam.Enabled  = true;
+            coverCam.MakeCurrent();
+        }
+
+        overlayScene?.Hide();
+        currentScene.UnsuspendSceneInput();
+        isInTransition = false;
+        if (_comicPageLayer != null) _comicPageLayer.Visible = false;
+        (currentScene as Cover)?.RefreshButtonStates();
+    }
+
+    private async Task CoverTurnTransitionImpl(string roomPath, scene_script.ArrivalData arrival,
+        int targetPanelIndex = 0, bool keepExistingPageData = false)
     {
         Vector2 vp        = GetViewportRect().Size;
         Rect2   coverRect = new Rect2(Vector2.Zero, vp);  // fallback: full viewport
@@ -688,6 +840,7 @@ public partial class MainScene : Node2D
             {
                 coverCam.Enabled = true;
                 coverCam.MakeCurrent();
+                coverCam.Offset  = Vector2.Zero;  // cover scene must not inherit the cel-border offset
 
                 Vector2 coverCenter = coverArea.GlobalPosition;
                 float   targetZoom  = Mathf.Min(
@@ -702,52 +855,57 @@ public partial class MainScene : Node2D
                 await ToSignal(zoomOut, Tween.SignalName.Finished);
 
                 // Compute coverRect directly from the known final camera state.
-                // After the tween: camera is centred on CoverArea, so the CoverArea
-                // is screen-centred.  No GetFinalTransform() needed.
                 Vector2 screenHalf = coverShape.Size / 2f * targetZoom;
                 coverRect = new Rect2(vp / 2f - screenHalf, screenHalf * 2f);
+                _coverRect = coverRect;
             }
         }
 
         // ── 2. Capture the viewport (cover scene, no comicPageLayer interference) ─
-        // Hide _comicPageLayer first — it sits at layer 15 and would pollute the
-        // snapshot if left visible.  Use the raw FramePostDraw+GetImage path
-        // (same technique as PageTurnTransition step 5) rather than CaptureViewportClean.
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         Image rawImg = GetViewport().GetTexture().GetImage();
+        _coverBgTexture = ImageTexture.CreateFromImage(rawImg);
 
-        // Crop to the CoverArea screen rect.
-        Vector2I vpI   = rawImg.GetSize();
-        Rect2I   cropI = new Rect2I((int)coverRect.Position.X, (int)coverRect.Position.Y,
-                                     (int)coverRect.Size.X,     (int)coverRect.Size.Y)
-                         .Intersection(new Rect2I(Vector2I.Zero, vpI));
-        if (cropI.Size.X <= 0 || cropI.Size.Y <= 0)
-            cropI = new Rect2I(Vector2I.Zero, vpI);
-        ImageTexture pageTex = ImageTexture.CreateFromImage(rawImg.GetRegion(cropI));
+        // Snap coverRect to integer pixel boundaries so the crop and TextureRect
+        // use identical dimensions — no float/int gap, no sub-pixel scale slip.
+        Rect2I coverRectI = new Rect2I(
+            Mathf.RoundToInt(coverRect.Position.X), Mathf.RoundToInt(coverRect.Position.Y),
+            Mathf.RoundToInt(coverRect.Size.X),     Mathf.RoundToInt(coverRect.Size.Y))
+            .Intersection(new Rect2I(Vector2I.Zero, rawImg.GetSize()));
+        if (coverRectI.Size.X <= 0 || coverRectI.Size.Y <= 0)
+            coverRectI = new Rect2I(Vector2I.Zero, rawImg.GetSize());
+        ImageTexture pageTex = ImageTexture.CreateFromImage(rawImg.GetRegion(coverRectI));
 
         // ── 3. Stage the incoming scene ───────────────────────────────────────────
         PrepareNextScene(roomPath, arrival);
+        if (keepExistingPageData && IsInstanceValid(nextScene) && nextScene.ego != null)
+        {
+            if (_pendingLoadPosition.HasValue) nextScene.ego.Position = _pendingLoadPosition.Value;
+            if (_pendingLoadFacing.HasValue)   nextScene.ego.ChangeFacing(_pendingLoadFacing.Value);
+            SnapStagingCamera(nextScene);
+        }
         ImageTexture nextTex = await CaptureNextSceneThumbnail();
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
 
         // ── 4. Build panel page at Layer 99 (behind the curl) ────────────────────
-        // Layer 99's dark ColorRect provides the surround visible outside CoverArea
-        // and is also what shows through the curl's transparent pixels as it peels.
-        _panelTextures            = new ImageTexture[6];
-        _panelTextures[0]         = nextTex;
-        _panelBorderStyles        = new OverlayScene.CelBorderStyle[6];
-        _panelBorderWidths        = new float?[6];
-        _panelBorderStyles[0]     = nextScene?.SceneBorderStyle != null ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
-        _panelBorderWidths[0]     = nextScene?.SceneBorderWidth ?? _defaultBorderWidth;
-        _currentPageSceneNames    = new string[6];
-        _currentPageSceneNames[0] = SceneBaseName(nextScene);
-        _currentPanelIndex        = 0;
+        // keepExistingPageData: preserve all captured panel thumbnails from the last
+        // session; only refresh the target panel with the freshly staged scene.
+        if (!keepExistingPageData)
+        {
+            _panelTextures         = new ImageTexture[6];
+            _panelBorderStyles     = new OverlayScene.CelBorderStyle[6];
+            _panelBorderWidths     = new float?[6];
+            _currentPageSceneNames = new string[6];
+        }
+        _panelTextures[targetPanelIndex]         = nextTex;
+        _panelBorderStyles[targetPanelIndex]     = nextScene?.SceneBorderStyle != null ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
+        _panelBorderWidths[targetPanelIndex]     = nextScene?.SceneBorderWidth ?? _defaultBorderWidth;
+        _currentPageSceneNames[targetPanelIndex] = SceneBaseName(nextScene);
 
         var newPageOverlay = new CanvasLayer { Layer = 99 };
         AddChild(newPageOverlay);
-        newPageOverlay.AddChild(new ColorRect
-            { Color = new Color(0.12f, 0.12f, 0.12f), Size = vp, Position = Vector2.Zero });
+        newPageOverlay.AddChild(MakeTransitionBg(vp));
 
         // Scale the panel page so PageSize height matches the CoverArea screen height.
         float   coverPageScale = coverRect.Size.Y / vp.Y;
@@ -769,9 +927,9 @@ public partial class MainScene : Node2D
         var curlRect = new TextureRect
         {
             Texture     = pageTex,
-            StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = coverRect.Size,
-            Position    = coverRect.Position,
+            StretchMode = TextureRect.StretchModeEnum.Keep,
+            Size        = new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
+            Position    = new Vector2(coverRectI.Position.X, coverRectI.Position.Y),
         };
         curlOverlay.AddChild(curlRect);
 
@@ -791,13 +949,13 @@ public partial class MainScene : Node2D
         await ToSignal(CreateTween().TweenInterval(RandomisedDuration(0.50f, 0.10f)),
             Tween.SignalName.Finished);
 
-        // ── 7. Zoom into panel 0 — slow ease-out so the first panel lands gently ────
-        Vector2 panel0Pos = ContainerPosForPanel(0, panelSize, newZoomIn, vp);
+        // ── 7. Zoom into target panel ─────────────────────────────────────────────
+        Vector2 targetPos = ContainerPosForPanel(targetPanelIndex, panelSize, newZoomIn, vp);
         float   dur       = RandomisedDuration(1.80f);
         Tween tweenIn = CreateTween().SetParallel(true);
         tweenIn.TweenProperty(newPage, "scale",    new Vector2(newZoomIn, newZoomIn), dur)
                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
-        tweenIn.TweenProperty(newPage, "position", panel0Pos, dur)
+        tweenIn.TweenProperty(newPage, "position", targetPos, dur)
                .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         if (newPageMat != null)
         {
@@ -805,13 +963,14 @@ public partial class MainScene : Node2D
                 NoiseScale(coverPageScale, vp), NoiseScale(newZoomIn, vp), dur)
                 .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
             tweenIn.TweenMethod(Callable.From<Vector2>(o => newPageMat.SetShaderParameter("uv_noise_offset", o)),
-                NoiseOffset(coverPageScale, coverPagePos, vp), NoiseOffset(newZoomIn, panel0Pos, vp), dur)
+                NoiseOffset(coverPageScale, coverPagePos, vp), NoiseOffset(newZoomIn, targetPos, vp), dur)
                 .SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         }
         await ToSignal(tweenIn, Tween.SignalName.Finished);
 
         // ── 8. Finalise ───────────────────────────────────────────────────────────
-        AlignDirtUV(newZoomIn, panel0Pos, vp);
+        _currentPanelIndex = targetPanelIndex;
+        AlignDirtUV(newZoomIn, targetPos, vp);
         SwitchCurrentSceneForNext();
         newPageOverlay.QueueFree();
         currentScene.UnsuspendSceneInput();
@@ -876,35 +1035,68 @@ public partial class MainScene : Node2D
         // For camera-following scenes: snap the camera to the character's start
         // position (clamped), set the SubViewport CanvasTransform to match so the
         // thumbnail renders the correct view, then prime parallax to match.
-        if (nextScene.hasCameraControl && nextScene.camera != null)
-        {
-            Vector2 snapped = nextScene.ego?.Position ?? Vector2.Zero;
-
-            if (nextScene.cameraClamp != null)
-            {
-                Vector2 tl = nextScene.cameraClamp.Position - nextScene.cameraClamp.Shape.GetRect().Size / 2f;
-                Vector2 br = nextScene.cameraClamp.Position + nextScene.cameraClamp.Shape.GetRect().Size / 2f;
-                Vector2 halfView = vp / 2f / nextScene.camera.Zoom;
-                tl += halfView;
-                br -= halfView;
-                if (tl.X <= br.X && tl.Y <= br.Y)
-                    snapped = snapped.Clamp(tl, br);
-            }
-
-            nextScene.camera.Position = snapped;
-            nextScene.camera.Offset   = _celBorderOffset;
-            Vector2 zoom = nextScene.camera.Zoom;
-            // CanvasTransform must replicate what Camera2D does at runtime:
-            // scale by zoom, then translate so the camera position maps to vp/2.
-            _stagingViewport.CanvasTransform = new Transform2D(
-                new Vector2(zoom.X, 0f),
-                new Vector2(0f, zoom.Y),
-                vp / 2f - (snapped + _celBorderOffset) * zoom);
-            PrimeParallax(nextScene);
-        }
+        SnapStagingCamera(nextScene);
 
         ApplyThingState(nextScene);
+        ApplyNavRemaps(nextScene);
         nextScene.SuspendSceneInput();
+    }
+
+    private void SnapStagingCamera(scene_script scene)
+    {
+        if (!scene.hasCameraControl || scene.camera == null || _stagingViewport == null) return;
+        Vector2 vp      = GetViewportRect().Size;
+        Vector2 snapped = scene.ego != null
+            ? (scene.ego.Position + scene.ego.topPoint) / 2f
+            : Vector2.Zero;
+
+        if (scene.cameraClamp != null)
+        {
+            Vector2 tl       = scene.cameraClamp.Position - scene.cameraClamp.Shape.GetRect().Size / 2f;
+            Vector2 br       = scene.cameraClamp.Position + scene.cameraClamp.Shape.GetRect().Size / 2f;
+            Vector2 halfView = vp / 2f / scene.camera.Zoom;
+            tl += halfView;
+            br -= halfView;
+            if (tl.X <= br.X && tl.Y <= br.Y)
+                snapped = snapped.Clamp(tl, br);
+        }
+
+        scene.camera.Position = snapped;
+        scene.camera.Offset   = _celBorderOffset;
+        Vector2 zoom = scene.camera.Zoom;
+        _stagingViewport.CanvasTransform = new Transform2D(
+            new Vector2(zoom.X, 0f),
+            new Vector2(0f, zoom.Y),
+            vp / 2f - (snapped + _celBorderOffset) * zoom);
+        PrimeParallax(scene);
+    }
+
+    private void ApplyNavRemaps(scene_script scene)
+    {
+        if (scene == null) return;
+        foreach (var flag in sceneFlags)
+        {
+            if (flag.sceneName != scene.Name) continue;
+            if (!flag.Name.StartsWith("nav_remap:")) continue;
+            if (!flag.Value.As<bool>()) continue;
+
+            var parts = flag.Name.Split(':');
+            if (parts.Length != 3) continue;
+            string navRegName = parts[1];
+            string polyName   = parts[2];
+
+            var navReg = scene.GetNodeOrNull<NavigationRegion2D>(navRegName);
+            if (navReg == null) continue;
+            var guide = navReg.GetNodeOrNull<Polygon2D>(polyName);
+            if (guide == null) continue;
+
+            var poly = new NavigationPolygon();
+            poly.AddOutline(guide.Polygon);
+#pragma warning disable CS0618
+            poly.MakePolygonsFromOutlines();
+#pragma warning restore CS0618
+            navReg.NavigationPolygon = poly;
+        }
     }
 
     private void ApplyArrival(scene_script scene, scene_script.ArrivalData arrival)
@@ -942,7 +1134,10 @@ public partial class MainScene : Node2D
         {
             arriveShape = scene.GetNodeOrNull<CollisionShape2D>(areaName);
             if (arriveShape != null)
-                character.Position = arriveShape.Position;
+            {
+                character.Position    = arriveShape.Position;
+                scene._arrivalZoneName = areaName; // protect from re-triggering during arrival sequence
+            }
         }
 
         // Set facing direction.
@@ -970,7 +1165,9 @@ public partial class MainScene : Node2D
 
         // Store the walk target on the scene; UnsuspendSceneInput fires it after the
         // transition completes so the walk is visible to the player, not pre-run in staging.
-        if (arrival.Walk && scene._arrivalSequence == null &&
+        // Always computed (even when an arrival sequence exists) — walk-out runs first,
+        // then the arrival sequence plays after, so repeat-visit conditionals still get it.
+        if (arrival.Walk &&
             arriveShape?.Shape is RectangleShape2D rect && !string.IsNullOrEmpty(arrival.Dir))
         {
             Vector2 center = arriveShape.Position;
@@ -1057,7 +1254,7 @@ public partial class MainScene : Node2D
     private void ApplyCelBorderOffset(scene_script scene)
     {
         if (scene?.camera != null)
-            scene.camera.Offset = _celBorderOffset;
+            scene.camera.Offset = scene.hasCameraControl ? _celBorderOffset : Vector2.Zero;
     }
 
     private void ApplySceneBorderSettings(scene_script scene)
@@ -1326,8 +1523,20 @@ public partial class MainScene : Node2D
     private ShaderMaterial ComicPageMaterial =>
         _comicPageLayer?.GetNodeOrNull<ColorRect>("ColorRect")?.Material as ShaderMaterial;
 
-    private float GetComicPageParam(string name, float fallback) =>
-        ComicPageMaterial?.GetShaderParameter(name).AsSingle() ?? fallback;
+
+    private Node MakeTransitionBg(Vector2 vp)
+    {
+        if (_coverBgTexture != null)
+            return new TextureRect
+            {
+                Texture     = _coverBgTexture,
+                StretchMode = TextureRect.StretchModeEnum.Scale,
+                Size        = vp,
+                Position    = Vector2.Zero,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+        return new ColorRect { Color = new Color(0.09f, 0.09f, 0.09f), Size = vp, Position = Vector2.Zero };
+    }
 
     private Control BuildPageContainer(Vector2 vp)
     {
@@ -1341,13 +1550,6 @@ public partial class MainScene : Node2D
             PivotOffset = Vector2.Zero,
         };
 
-        // Dark background fills the container; the portrait page sits centred within it.
-        container.AddChild(new ColorRect
-        {
-            Color    = new Color(0.12f, 0.12f, 0.12f),
-            Size     = vp,
-            Position = Vector2.Zero,
-        });
         container.AddChild(new ColorRect
         {
             Color    = Colors.White,
@@ -1385,31 +1587,12 @@ public partial class MainScene : Node2D
                 _panelBorderStyles[i], _panelBorderWidths[i]));
         }
 
-        // Shader covers only the portrait page area so effects scale with the page,
-        // not the full landscape viewport.
-        // Halftone uses effectUV (= SCREEN_UV), so frequency and uv_offset need no
-        // per-panel adjustment — they match ComicPageLayer directly.
-        var comicPageShader = GD.Load<Shader>("res://shaders/comic_page.gdshader");
-        if (comicPageShader != null)
+        // Duplicate the live ComicPageLayer material so all shader parameters match
+        // exactly, then reset the transition-specific UV uniforms to neutral.
+        if (ComicPageMaterial?.Duplicate() is ShaderMaterial mat)
         {
-            var mat = new ShaderMaterial { Shader = comicPageShader };
-            mat.SetShaderParameter("radius_c",         GetComicPageParam("radius_c",         4.0f));
-            mat.SetShaderParameter("radius_m",         GetComicPageParam("radius_m",         5.0f));
-            mat.SetShaderParameter("radius_y",         GetComicPageParam("radius_y",         6.0f));
-            mat.SetShaderParameter("radius_k",         GetComicPageParam("radius_k",         7.0f));
-            mat.SetShaderParameter("frequency",        GetComicPageParam("frequency",        330.0f));
-            mat.SetShaderParameter("halftone_blend",   GetComicPageParam("halftone_blend",   0.3f));
-            mat.SetShaderParameter("noise_scale",      GetComicPageParam("noise_scale",      2.256f));
-            mat.SetShaderParameter("vignette_strength",GetComicPageParam("vignette_strength",0.1f));
-            mat.SetShaderParameter("sepia_strength",   GetComicPageParam("sepia_strength",   0.0f));
-            mat.SetShaderParameter("contrast",         GetComicPageParam("contrast",         1.0f));
-            mat.SetShaderParameter("glow_range",       GetComicPageParam("glow_range",       2.783f));
-            mat.SetShaderParameter("glow_strength",    GetComicPageParam("glow_strength",    0.184f));
-            mat.SetShaderParameter("glow_falloff",     GetComicPageParam("glow_falloff",     2.16f));
-            mat.SetShaderParameter("dirt_strength",    GetComicPageParam("dirt_strength",    0.559f));
-            mat.SetShaderParameter("dirt_scale",       GetComicPageParam("dirt_scale",       61.721f));
-            mat.SetShaderParameter("uv_noise_scale",   Vector2.One);
-            mat.SetShaderParameter("uv_noise_offset",  Vector2.Zero);
+            mat.SetShaderParameter("uv_noise_scale",  Vector2.One);
+            mat.SetShaderParameter("uv_noise_offset", Vector2.Zero);
             container.AddChild(new ColorRect
             {
                 Material    = mat,
@@ -1479,10 +1662,17 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     public void UpdateCursor()
     {
+        if (currentInputMode == Globals.InputModes.verbcoin && OS.HasFeature("mobile"))
+        {
+            cursor.Hide();
+            return;
+        }
+
         if (currentInputMode == Globals.InputModes.verbtray &&
             currentInteractMode != _previousInteractMode)
         {
             _previousInteractMode = currentInteractMode;
+            cursor.Show();
 
             cursor.Offset  = Vector2.Zero;
             cursor.Texture = cursor.cursorTexture;
@@ -1559,11 +1749,19 @@ public partial class MainScene : Node2D
         // Capture current scene's thing state before saving so it's up to date.
         CaptureThingState(currentScene);
 
-        var ego    = currentScene?.ego;
+        // When saving from the cover screen, use the resume state rather than
+        // the cover scene itself (which has no ego and is not a game scene).
+        bool fromCover      = currentScene is Cover;
+        string saveScene    = fromCover ? _resumeScenePath : (currentScene?.SceneFilePath ?? "");
+        int savePage        = fromCover ? _resumePageNumber  : _currentPageNumber;
+        int savePanel       = fromCover ? _resumePanelIndex  : _currentPanelIndex;
+        Vector2? saveEgoPos = fromCover ? _resumeEgoPos      : currentScene?.ego?.Position;
+        NPC.Direction? saveEgoFacing = fromCover ? _resumeEgoFacing : currentScene?.ego?.Facing;
+
         var posObj = new Godot.Collections.Dictionary<string, Variant>
         {
-            { "x", ego?.Position.X ?? 0f },
-            { "y", ego?.Position.Y ?? 0f }
+            { "x", saveEgoPos?.X ?? 0f },
+            { "y", saveEgoPos?.Y ?? 0f }
         };
 
         var invArr = new Godot.Collections.Array<Variant>();
@@ -1611,16 +1809,16 @@ public partial class MainScene : Node2D
 
         var save = new Godot.Collections.Dictionary<string, Variant>
         {
-            { "save_name",           saveName                                  },
-            { "scene_path",          currentScene?.SceneFilePath ?? ""        },
-            { "ego_position",        posObj                                   },
-            { "ego_facing",          (int)(ego?.Facing ?? NPC.Direction.down) },
-            { "inventory",           invArr                                   },
-            { "scene_flags",         flagsArr                                 },
+            { "save_name",           saveName                                         },
+            { "scene_path",          saveScene                                        },
+            { "ego_position",        posObj                                           },
+            { "ego_facing",          (int)(saveEgoFacing ?? NPC.Direction.down)      },
+            { "inventory",           invArr                                           },
+            { "scene_flags",         flagsArr                                         },
             { "thing_states",        Json.ParseString(Json.Stringify(thingStatesObj)) },
-            { "current_page",        _currentPageNumber  },
-            { "current_panel",       _currentPanelIndex  },
-            { "current_page_panels", pagePanelsArr       },
+            { "current_page",        savePage   },
+            { "current_panel",       savePanel  },
+            { "current_page_panels", pagePanelsArr },
         };
 
         using var file = FileAccess.Open("user://savegame.save", FileAccess.ModeFlags.Write);
@@ -1722,6 +1920,32 @@ public partial class MainScene : Node2D
         LoadReplayTransition(scenePath, default, pageNumber, panelIndex, pageSceneNames);
     }
 
+    public void NewGame(string startScene)
+    {
+        if (isInTransition || string.IsNullOrEmpty(startScene)) return;
+        sceneFlags.Clear();
+        inventory.Clear();
+        _thingStates.Clear();
+        _currentPageNumber     = 1;
+        _currentPanelIndex     = 0;
+        _currentPageSceneNames = new string[6];
+        _panelTextures         = new ImageTexture[6];
+        _panelBorderStyles     = new OverlayScene.CelBorderStyle[6];
+        _panelBorderWidths     = new float?[6];
+        _resumeScenePath       = "";
+        ChangeSceneToFile(startScene, default, TransitionType.CoverTurn);
+    }
+
+    public void ResumeGame()
+    {
+        if (isInTransition || string.IsNullOrEmpty(_resumeScenePath)) return;
+        isInTransition       = true;
+        _pendingLoadPosition = _resumeEgoPos;
+        _pendingLoadFacing   = _resumeEgoFacing;
+        _currentPageNumber   = _resumePageNumber;
+        CoverTurnTransition(_resumeScenePath, default, _resumePanelIndex, keepExistingPageData: true);
+    }
+
     // ---------------------------------------------------------------------------
     // LoadReplayTransition — restores comic-page state on game load.
     //
@@ -1731,16 +1955,18 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     private void LoadReplayTransition(
         string scenePath, scene_script.ArrivalData arrival,
-        int pageNumber, int panelIndex, string[] pageSceneNames) =>
+        int pageNumber, int panelIndex, string[] pageSceneNames,
+        bool reusePanelTextures = false) =>
         RunTransition("LoadReplayTransition",
-            () => LoadReplayTransitionImpl(scenePath, arrival, pageNumber, panelIndex, pageSceneNames));
+            () => LoadReplayTransitionImpl(scenePath, arrival, pageNumber, panelIndex, pageSceneNames, reusePanelTextures));
 
     private async Task LoadReplayTransitionImpl(
         string scenePath,
         scene_script.ArrivalData arrival,
         int pageNumber,
         int panelIndex,
-        string[] pageSceneNames)
+        string[] pageSceneNames,
+        bool reusePanelTextures = false)
     {
         Vector2 vp        = GetViewportRect().Size;
         Rect2   coverRect = new(Vector2.Zero, vp);
@@ -1756,6 +1982,7 @@ public partial class MainScene : Node2D
             {
                 coverCam.Enabled = true;
                 coverCam.MakeCurrent();
+                coverCam.Offset  = Vector2.Zero;
 
                 Vector2 coverCenter = coverArea.GlobalPosition;
                 float   targetZoom  = Mathf.Min(
@@ -1771,12 +1998,14 @@ public partial class MainScene : Node2D
 
                 Vector2 screenHalf = coverShape.Size / 2f * targetZoom;
                 coverRect = new Rect2(vp / 2f - screenHalf, screenHalf * 2f);
+                _coverRect = coverRect;
             }
         }
 
         // ── 2. Capture cover viewport ─────────────────────────────────────────
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         Image rawImg = GetViewport().GetTexture().GetImage();
+        _coverBgTexture = ImageTexture.CreateFromImage(rawImg);
         Vector2I vpI   = rawImg.GetSize();
         Rect2I   cropI = new Rect2I((int)coverRect.Position.X, (int)coverRect.Position.Y,
                                      (int)coverRect.Size.X,     (int)coverRect.Size.Y)
@@ -1787,14 +2016,18 @@ public partial class MainScene : Node2D
 
         // ── 3. Reset panel arrays; build fake page containers ─────────────────
         // Fakes built before real textures so they get placeholder colours.
-        _panelTextures         = new ImageTexture[6];
-        _panelBorderStyles     = new OverlayScene.CelBorderStyle[6];
-        _panelBorderWidths     = new float?[6];
-        _currentPageSceneNames = new string[6];
-        for (int i = 0; i < 6; i++)
+        // Skipped for ResumeGame — in-memory textures and state are already valid.
+        if (!reusePanelTextures)
         {
-            _panelBorderStyles[i] = _defaultBorderStyle;
-            _panelBorderWidths[i] = _defaultBorderWidth;
+            _panelTextures         = new ImageTexture[6];
+            _panelBorderStyles     = new OverlayScene.CelBorderStyle[6];
+            _panelBorderWidths     = new float?[6];
+            _currentPageSceneNames = new string[6];
+            for (int i = 0; i < 6; i++)
+            {
+                _panelBorderStyles[i] = _defaultBorderStyle;
+                _panelBorderWidths[i] = _defaultBorderWidth;
+            }
         }
 
         int fakeCount = Mathf.Min(pageNumber - 1, 4);
@@ -1803,26 +2036,29 @@ public partial class MainScene : Node2D
             fakePages.Add(BuildPageContainer(vp));
 
         // ── 4. Capture thumbnails for current-page panels 0..panelIndex-1 ─────
-        for (int i = 0; i < panelIndex; i++)
+        if (!reusePanelTextures)
         {
-            string name = i < pageSceneNames.Length ? pageSceneNames[i] : null;
-            if (string.IsNullOrEmpty(name)) continue;
-            string path = Scenes.Resolve(name);
-            if (string.IsNullOrEmpty(path) || !ResourceLoader.Exists(path)) continue;
-
-            PrepareNextScene(path);
-            if (!IsInstanceValid(nextScene)) continue;
-            _panelBorderStyles[i]     = nextScene.SceneBorderStyle != null
-                ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
-            _panelBorderWidths[i]     = nextScene.SceneBorderWidth ?? _defaultBorderWidth;
-            _currentPageSceneNames[i] = name;
-            _panelTextures[i]         = await CaptureNextSceneThumbnail();
-            // CaptureNextSceneThumbnail moved nextScene into nextSceneHolder — free it.
-            if (IsInstanceValid(nextScene))
+            for (int i = 0; i < panelIndex; i++)
             {
-                nextSceneHolder.RemoveChild(nextScene);
-                nextScene.QueueFree();
-                nextScene = null;
+                string name = i < pageSceneNames.Length ? pageSceneNames[i] : null;
+                if (string.IsNullOrEmpty(name)) continue;
+                string path = Scenes.Resolve(name);
+                if (string.IsNullOrEmpty(path) || !ResourceLoader.Exists(path)) continue;
+
+                PrepareNextScene(path);
+                if (!IsInstanceValid(nextScene)) continue;
+                _panelBorderStyles[i]     = nextScene.SceneBorderStyle != null
+                    ? OverlayScene.ParseBorderStyle(nextScene.SceneBorderStyle) : _defaultBorderStyle;
+                _panelBorderWidths[i]     = nextScene.SceneBorderWidth ?? _defaultBorderWidth;
+                _currentPageSceneNames[i] = name;
+                _panelTextures[i]         = await CaptureNextSceneThumbnail();
+                // CaptureNextSceneThumbnail moved nextScene into nextSceneHolder — free it.
+                if (IsInstanceValid(nextScene))
+                {
+                    nextSceneHolder.RemoveChild(nextScene);
+                    nextScene.QueueFree();
+                    nextScene = null;
+                }
             }
         }
 
@@ -1835,12 +2071,14 @@ public partial class MainScene : Node2D
             _panelBorderWidths[panelIndex]     = nextScene.SceneBorderWidth ?? _defaultBorderWidth;
             _currentPageSceneNames[panelIndex] = SceneBaseName(nextScene);
 
-            // Apply saved ego position/facing so the thumbnail matches the save state.
+            // Apply saved ego position/facing so the thumbnail matches the save state,
+            // then re-snap the camera so it frames the correct position.
             // Don't consume the pending values — SwitchCurrentSceneForNext still needs them.
             if (nextScene.ego != null)
             {
                 if (_pendingLoadPosition.HasValue) nextScene.ego.Position = _pendingLoadPosition.Value;
                 if (_pendingLoadFacing.HasValue)   nextScene.ego.ChangeFacing(_pendingLoadFacing.Value);
+                SnapStagingCamera(nextScene);
             }
         }
         _panelTextures[panelIndex] = await CaptureNextSceneThumbnail();
@@ -1859,8 +2097,7 @@ public partial class MainScene : Node2D
 
         var behindLayer = new CanvasLayer { Layer = 99 };
         AddChild(behindLayer);
-        behindLayer.AddChild(new ColorRect
-            { Color = new Color(0.12f, 0.12f, 0.12f), Size = vp, Position = Vector2.Zero });
+        behindLayer.AddChild(MakeTransitionBg(vp));
 
         // First fake (if any) or the real page shows through the curl.
         Control firstReveal = fakeCount > 0 ? fakePages[0] : realPage;
@@ -1901,31 +2138,32 @@ public partial class MainScene : Node2D
 
         if (fakeCount > 0)
         {
-            await ToSignal(CreateTween().TweenInterval(0.15f), Tween.SignalName.Finished);
+            // All fake pages use the same placeholder art — capture once.
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            Image rawFlip = GetViewport().GetTexture().GetImage();
+            Rect2I fc = coverCropI.Intersection(new Rect2I(Vector2I.Zero, rawFlip.GetSize()));
+            if (fc.Size.X <= 0 || fc.Size.Y <= 0) fc = new Rect2I(Vector2I.Zero, rawFlip.GetSize());
+            ImageTexture fakeTex = ImageTexture.CreateFromImage(rawFlip.GetRegion(fc));
 
-            // Curl from fakePages[0] through remaining fakes, then to the real page.
-            Control current = fakePages[0];
-            for (int fp = 1; fp <= fakeCount; fp++)
+            // Real page parks behind all flip layers now; revealed as each curl completes.
+            behindLayer.AddChild(realPage);
+            realPage.Scale    = new Vector2(coverPageScale, coverPageScale);
+            realPage.Position = coverPagePos;
+
+            const float flipDur = 0.38f;
+            const float stagger = 0.14f;
+            Tween lastTween = null;
+
+            for (int fp = 0; fp < fakeCount; fp++)
             {
-                Control next = fp < fakeCount ? fakePages[fp] : realPage;
-
-                // Capture and crop to the cover rect — pages are the same size as the cover.
-                await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-                Image rawFlip = GetViewport().GetTexture().GetImage();
-                Rect2I flipCrop = coverCropI.Intersection(new Rect2I(Vector2I.Zero, rawFlip.GetSize()));
-                if (flipCrop.Size.X <= 0 || flipCrop.Size.Y <= 0) flipCrop = new Rect2I(Vector2I.Zero, rawFlip.GetSize());
-                ImageTexture flipTex = ImageTexture.CreateFromImage(rawFlip.GetRegion(flipCrop));
-
-                // Park the next page behind the curl at cover scale/position.
-                behindLayer.AddChild(next);
-                next.Scale    = new Vector2(coverPageScale, coverPageScale);
-                next.Position = coverPagePos;
-
-                var flipLayer = new CanvasLayer { Layer = 100 };
+                // Invert layer order: first flip (most progressed) sits on top.
+                // Its growing transparent region reveals the less-progressed flips below,
+                // so the viewer sees multiple curl bands sweeping simultaneously.
+                var flipLayer = new CanvasLayer { Layer = 100 + (fakeCount - 1 - fp) };
                 AddChild(flipLayer);
                 var flipRect = new TextureRect
                 {
-                    Texture     = flipTex,
+                    Texture     = fakeTex,
                     StretchMode = TextureRect.StretchModeEnum.Scale,
                     Size        = coverRect.Size,
                     Position    = coverRect.Position,
@@ -1938,17 +2176,28 @@ public partial class MainScene : Node2D
                 PlayFlip(_coverFlipPlayer);
                 Tween ct = CreateTween();
                 ct.TweenMethod(Callable.From<float>(p => flipMat.SetShaderParameter("progress", p)),
-                    0.0f, 1.0f, 0.65f)
+                    0.0f, 1.0f, flipDur)
                     .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-                await ToSignal(ct, Tween.SignalName.Finished);
-                flipLayer.QueueFree();
-                current.QueueFree();
-                current = next;
+                var captured = flipLayer;
+                ct.TweenCallback(Callable.From(() => captured.QueueFree()));
+                lastTween = ct;
 
-                if (fp < fakeCount)
-                    await ToSignal(CreateTween().TweenInterval(0.12f), Tween.SignalName.Finished);
+                // Stagger: start each flip before the previous finishes.
+                if (fp < fakeCount - 1)
+                    await ToSignal(CreateTween().TweenInterval(stagger), Tween.SignalName.Finished);
             }
+
+            foreach (var fakePage in fakePages)
+                if (IsInstanceValid(fakePage)) fakePage.QueueFree();
+
+            if (lastTween != null)
+                await ToSignal(lastTween, Tween.SignalName.Finished);
         }
+
+        // Initialise noise UV to match realPage's current position before it becomes
+        // visible — BuildPageContainer leaves them at (One, Zero) which looks wrong.
+        if (realPageMat != null)
+            InitPageUVUniforms(realPageMat, coverPageScale, coverPagePos, vp);
 
         // Expand the final page (real or only) from cover scale to full-page view.
         Tween expandFinal = CreateTween().SetParallel(true);

@@ -1,0 +1,25 @@
+sequence arrive_from_porch:
+  narrate "HE CAREFULLY WALKED INTO THE HOUSE, LOOKING IN EVERY DIRECTION. HE KNEW HE WASN'T SUPPOSED TO BE IN HERE, BUT THAT DIDN'T STOP HIM. HE KNEW WHAT HE WAS HERE FOR, AND IT SURE WASN'T WORK." style:jagged color:yellow strict corner:topleft
+  ego -> [100, 540] strict
+  ego faces right
+  ego thinks "..."
+  wait 1.0
+  narrate "HE'D SHOW THAT FARMER WHO'S BOSS..." style:jagged color:yellow strict corner:topleft
+  ego -> [540, 540] strict
+  set hasEnteredHouse = true
+
+on arrive_from theporch:
+  if not hasEnteredHouse:
+    run arrive_from_porch
+
+area exit_to_sittingroom:
+  on move_into:
+    exit to sittingroom
+      arrive_dir right
+      arrive_area exit_to_entryway
+
+area exit_to_theporch:
+  on move_into:
+    exit to theporch
+      arrive_dir down
+      arrive_area exit_to_entryway

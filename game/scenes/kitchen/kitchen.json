@@ -1,6 +1,0 @@
-{
-  "areas": {
-    "exit_to_sittingroom": { "move_into": [{ "action": "exit", "destination": "sittingroom", "arrive_dir": "down", "arrive_area": "exit_to_kitchen" }] }
-  },
-  "default": {}
-}

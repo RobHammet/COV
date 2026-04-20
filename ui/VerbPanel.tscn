@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" uid="uid://bqcrkb3svfpqw" path="res://game/art/talkbtn2.png" id="5_3nohm"]
 [ext_resource type="Texture2D" uid="uid://du6emrqaolnlf" path="res://game/art/walkbtn1.png" id="6_3husp"]
 [ext_resource type="Texture2D" uid="uid://ewkaubdygcn0" path="res://game/art/itembtn1.png" id="7_1erp3"]
+[ext_resource type="Texture2D" uid="uid://dlfg11x7ps0gf" path="res://game/art/INVENTORY_ICON.png" id="8_inv"]
 
 [node name="VerbPanel" type="Control" unique_id=1773831606]
 layout_mode = 3
@@ -69,8 +70,18 @@ offset_right = 377.0
 offset_bottom = 63.0
 texture_normal = ExtResource("7_1erp3")
 
+[node name="InventoryButton" type="TextureButton" parent="VerbPanel_Node2D" unique_id=1638351057]
+light_mask = 0
+offset_left = 378.0
+offset_top = 1.0
+offset_right = 460.0
+offset_bottom = 65.0
+texture_normal = ExtResource("8_inv")
+texture_hover = ExtResource("8_inv")
+
 [connection signal="pressed" from="VerbPanel_Node2D/LookButton" to="." method="_on_LookButton_pressed"]
 [connection signal="pressed" from="VerbPanel_Node2D/UseButton" to="." method="_on_use_button_pressed"]
 [connection signal="pressed" from="VerbPanel_Node2D/TalkButton" to="." method="_on_talk_button_pressed"]
 [connection signal="pressed" from="VerbPanel_Node2D/WalkButton" to="." method="_on_walk_button_pressed"]
 [connection signal="pressed" from="VerbPanel_Node2D/ItemButton" to="." method="_on_item_button_pressed"]
+[connection signal="pressed" from="VerbPanel_Node2D/InventoryButton" to="." method="_on_inventory_button_pressed"]

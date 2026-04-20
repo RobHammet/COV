@@ -1,0 +1,69 @@
+sequence chop_dead_tree:
+  tree3 animates shake
+  wait 1
+  narrate "THE TREE GROANS AND FALLS." corner:topright strict
+
+thing tree1:
+  on look:
+    ego says "A TALL TREE WITH ROUGH BARK." style:curved
+
+  on use:
+    if talkedAboutDeadTrees is true:
+      self says "THUMP!" style:exclaim,notail
+      narrate "THE SOUND IS SOLID."
+    else:
+      ego thinks "[b]ROUGH BARK.[/b]"
+  on use_item axe:
+    if talkedAboutTree:
+      if foundDeadTree:
+        ego says "[b]NO NEED TO CUT DOWN THAT LIVE TREE.[/b]"
+      else:
+        ego thinks "NOT SURE WHICH IS WHICH..."
+    else:
+      ego thinks "NOT SURE WHAT I'D DO THAT FOR."
+thing tree2:
+  on look:
+    ego says "A TALL TREE WITH ROUGH BARK." style:curved
+
+  on use:
+    if talkedAboutDeadTrees is true:
+      self says "THUMP!" style:exclaim,notail
+      narrate "THE SOUND IS SOLID."
+    else:
+      ego thinks "[b]ROUGH BARK.[/b]"
+  on use_item axe:
+    if talkedAboutTree:
+      if foundDeadTree:
+        ego says "[b]NO NEED TO CUT DOWN THAT LIVE TREE.[/b]"
+      else:
+        ego thinks "NOT SURE WHICH IS WHICH..."
+    else:
+      ego thinks "NOT SURE WHAT I'D DO THAT FOR."
+      
+
+thing tree3:
+  on look:
+    ego says "A TALL TREE WITH ROUGH BARK." style:curved
+
+  on use:
+    if talkedAboutDeadTrees is true:
+      self says "THUNK!" style:exclaim,notail
+      narrate "THE SOUND IS HOLLOW." corner:bottomright
+      set foundDeadTree = true
+    else:
+      ego thinks "[b]ROUGH BARK.[/b]"
+  on use_item axe:
+    if talkedAboutTree:
+      if foundDeadTree:
+        run chop_dead_tree
+      else:
+        ego thinks "NOT SURE WHICH IS WHICH..."
+    else:
+      ego thinks "NOT SURE WHAT I'D DO THAT FOR."
+ 
+
+area exit_to_housefront:
+  on move_into:
+    exit to housefront
+      arrive_dir right
+      arrive_area exit_to_tree

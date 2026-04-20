@@ -135,6 +135,7 @@ shader_parameter/white_cutoff = 0.775
 [node name="MainScene" type="Node2D" unique_id=1285218856]
 script = ExtResource("1_2l4hu")
 showDebugTools = true
+forceMobile = true
 
 [node name="EventManager" type="Node" parent="." unique_id=1527263301]
 

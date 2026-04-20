@@ -1,0 +1,11 @@
+area exit_to_housefront:
+  on move_into:
+    exit to housefront
+      arrive_dir down
+      arrive_area exit_to_barnfront
+
+area exit_to_barninterior:
+  on move_into:
+    exit to barninterior
+      arrive_dir down
+      arrive_area exit_to_barnfront

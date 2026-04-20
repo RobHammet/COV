@@ -1,0 +1,29 @@
+thing farmer:
+  on talk:
+    converse ChatWithFarmer
+
+  on use:
+    ego thinks "I DON'T NEED TO TOUCH HIM."
+
+  on use_item key:
+    self says "NO, THANKS. I GOT A KEY JUST LIKE THAT AT HOME."
+
+thing Candle:
+  on use:
+    ego thinks "MAYBE I'LL GO AHEAD AND LIGHT THIS CANDLE... LET'S SEE IF THAT WORKS."
+    ego thinks "I DUNNO."
+    ego thinks "TO BE HONEST, I DON'T USUALLY DO THIS KIND OF THING. I MEAN... IT'S A CANDLE JUST SITTING HERE ON THE SIDE OF THE ROAD. ON THE ONE HAND, IT'S JUST WEIRD AND I'D HAVE TO BE CRAZY TO ENGAGE WITH IT IN ANY WAY."
+    ego thinks "SCREW IT."
+    self animates burn
+
+area exit_to_housefront:
+  on move_into:
+    exit to housefront
+      arrive_dir left
+      arrive_area exit_to_theroad
+
+area towards_house:
+  on move_into:
+    if talkedAboutHouse is false:
+      ego thinks "I DON'T KNOW WHERE I'M GOING."
+      ego -> start_point strict

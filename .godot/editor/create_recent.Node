@@ -1,14 +1,14 @@
-NPC
+Sprite2D
+Button
 thing
+NPC
 CollisionShape2D
 PointLight2D
 Camera2D
 ColorRect
-Sprite2D
 Polygon2D
 CollisionPolygon2D
 Node2D
 SubViewport
 SubViewportContainer
 NavigationRegion2D
-ParallaxBackground

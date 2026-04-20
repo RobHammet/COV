@@ -1,0 +1,40 @@
+thing door:
+  on use:
+    ego -> door
+
+  on look:
+    ego says "THE FRONT DOOR OF THE HOUSE..."
+
+thing right_tree:
+  on use:
+    ego -> right_tree
+    ego thinks "I DON'T THINK THIS IS THE TREE."
+    ego faces left
+    ego thinks "I THINK IT'S [i]OVER THERE[/i]..."
+
+  on look:
+    ego says "AN OLD TREE."
+
+area exit_to_theporch:
+  on move_into:
+    exit to theporch
+      arrive_dir up
+      arrive_area exit_to_housefront
+
+area exit_to_barnfront:
+  on move_into:
+    exit to barnfront
+      arrive_dir right
+      arrive_area exit_to_housefront
+
+area exit_to_tree:
+  on move_into:
+    exit to tree
+      arrive_dir left
+      arrive_area exit_to_housefront
+
+area exit_to_theroad:
+  on move_into:
+    exit to theroad
+      arrive_dir right
+      arrive_area exit_to_housefront

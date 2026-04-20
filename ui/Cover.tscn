@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://bujkclce6xemg" path="res://ui/Cover.cs" id="1"]
 [ext_resource type="Texture2D" uid="uid://df1g572pr6ygd" path="res://game/art/cover.png" id="2_5b1da"]
+[ext_resource type="Theme" uid="uid://bjwck7dxyl6dt" path="res://fonts/comic_theme.tres" id="3_g230x"]
+[ext_resource type="Texture2D" uid="uid://dty4ieuojm32r" path="res://game/art/candle_and_shelf.png" id="4_me6wl"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_5b1da"]
 size = Vector2(4372, 3008)
@@ -18,7 +20,7 @@ parallaxSprites = []
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=923532872]
 z_index = 1
-position = Vector2(900, 1008)
+position = Vector2(900, 1000)
 texture = ExtResource("2_5b1da")
 
 [node name="ColorRect" type="ColorRect" parent="." unique_id=1741980536]
@@ -27,7 +29,7 @@ offset_top = -299.0
 offset_right = 3784.0
 offset_bottom = 2918.0
 mouse_filter = 2
-color = Color(0, 0, 0, 1)
+color = Color(0.09, 0.09, 0.09, 1)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=299782088]
 position = Vector2(1206, 1022)
@@ -40,5 +42,60 @@ position = Vector2(1387, 1262)
 shape = SubResource("RectangleShape2D_5b1da")
 
 [node name="CoverArea" type="CollisionShape2D" parent="." unique_id=72705871]
-position = Vector2(898, 1009.5)
+position = Vector2(900, 1000)
 shape = SubResource("RectangleShape2D_g230x")
+
+[node name="NewGameButton" type="Button" parent="." unique_id=77938027]
+z_index = 1
+offset_left = 1050.0
+offset_top = 814.0
+offset_right = 1367.0
+offset_bottom = 905.0
+theme = ExtResource("3_g230x")
+theme_override_font_sizes/font_size = 64
+text = "NEW GAME"
+
+[node name="ResumeGameButton" type="Button" parent="." unique_id=84866003]
+z_index = 1
+offset_left = 1132.0
+offset_top = 1160.0
+offset_right = 1372.0
+offset_bottom = 1251.0
+theme = ExtResource("3_g230x")
+theme_override_font_sizes/font_size = 64
+text = "RESUME"
+
+[node name="SaveGameButton" type="Button" parent="." unique_id=1234567890]
+z_index = 1
+offset_left = 1218.0
+offset_top = 926.0
+offset_right = 1369.0
+offset_bottom = 1017.0
+theme = ExtResource("3_g230x")
+theme_override_font_sizes/font_size = 64
+text = "SAVE"
+
+[node name="LoadGameButton" type="Button" parent="." unique_id=2016692494]
+z_index = 1
+offset_left = 1219.0
+offset_top = 1043.0
+offset_right = 1371.0
+offset_bottom = 1134.0
+theme = ExtResource("3_g230x")
+theme_override_font_sizes/font_size = 64
+text = "LOAD"
+
+[node name="ExitGameButton" type="Button" parent="." unique_id=15846902]
+z_index = 1
+offset_left = 1222.0
+offset_top = 1282.0
+offset_right = 1374.0
+offset_bottom = 1373.0
+theme = ExtResource("3_g230x")
+theme_override_font_sizes/font_size = 64
+text = "EXIT"
+
+[node name="background" type="Sprite2D" parent="." unique_id=37243763]
+position = Vector2(1461, 1187)
+scale = Vector2(2.395, 2.395)
+texture = ExtResource("4_me6wl")

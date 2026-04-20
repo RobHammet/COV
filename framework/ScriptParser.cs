@@ -17,11 +17,7 @@ public static class ScriptParser
         {
             var obj = item?.AsObject();
             if (obj == null || !obj.ContainsKey("action")) continue;
-
-            if (obj.ContainsKey("if_flag") && !scene.GetFlag(obj["if_flag"].GetValue<string>()).Value.As<bool>())
-                continue;
-            if (obj.ContainsKey("if_not_flag") && scene.GetFlag(obj["if_not_flag"].GetValue<string>()).Value.As<bool>())
-                continue;
+            if (!ConditionMet(obj, scene)) continue;
 
             switch (obj["action"].GetValue<string>())
             {
@@ -63,27 +59,26 @@ public static class ScriptParser
                 case "narrate": {
                     var corner = ParseNarrationCorner(obj["corner"]?.GetValue<string>());
                     var nStyle = ParseNarrationStyle(obj["style"]?.GetValue<string>());
-                    Color? nColor = ParseColor(obj["color"]?.GetValue<string>());
-                    queue.AddEventNarrate(obj["text"].GetValue<string>(), Vector2.Zero, corner: corner, style: nStyle, color: nColor);
+                    Color? nColor  = ParseColor(obj["color"]?.GetValue<string>());
+                    bool   strict  = obj["strict"]?.GetValue<bool>() ?? false;
+                    queue.AddEventNarrate(obj["text"].GetValue<string>(), Vector2.Zero, strict: strict, corner: corner, style: nStyle, color: nColor);
                     break;
                 }
                 case "speak": {
                     string actorName = obj["actor"].GetValue<string>();
-                    NPC actor = ResolveNPC(actorName, scene, self);
                     (Globals.DialogTypes dialogType, DialogBox.TailStyle? tailStyle) = ParseSpeakStyle(obj["style"]?.GetValue<string>());
                     Color? sColor = ParseColor(obj["color"]?.GetValue<string>());
-                    if (actor != null)
-                        queue.AddEventSpeak(actor, obj["text"].GetValue<string>(), Vector2.Zero, tailStyle: tailStyle, dialogType: dialogType, color: sColor);
+                    if (ResolveThing(actorName, scene, self) is thing sa2)
+                        queue.AddEventSpeak(sa2, obj["text"].GetValue<string>(), Vector2.Zero, tailStyle: tailStyle, dialogType: dialogType, color: sColor);
                     else if (scene.FindChild(actorName, true, false) is DialogAnchor sa)
                         queue.AddEventSpeakFromAnchor(sa, obj["text"].GetValue<string>(), tailStyle: tailStyle, dialogType: dialogType);
                     break;
                 }
                 case "think": {
                     string actorName = obj["actor"].GetValue<string>();
-                    NPC actor = ResolveNPC(actorName, scene, self);
                     Color? tColor = ParseColor(obj["color"]?.GetValue<string>());
-                    if (actor != null)
-                        queue.AddEventThink(actor, obj["text"].GetValue<string>(), Vector2.Zero, color: tColor);
+                    if (ResolveThing(actorName, scene, self) is thing ta2)
+                        queue.AddEventThink(ta2, obj["text"].GetValue<string>(), Vector2.Zero, color: tColor);
                     else if (scene.FindChild(actorName, true, false) is DialogAnchor ta)
                         queue.AddEventThinkFromAnchor(ta, obj["text"].GetValue<string>());
                     break;
@@ -181,12 +176,34 @@ public static class ScriptParser
         }
     }
 
+    // ── Condition / resolution helpers (shared with ConversationStep) ────────────
+
+    public static bool ConditionMet(JsonObject obj, scene_script scene)
+    {
+        if (obj.ContainsKey("if_flag")     && !scene.GetFlag(obj["if_flag"].GetValue<string>()).Value.As<bool>())
+            return false;
+        if (obj.ContainsKey("if_not_flag") &&  scene.GetFlag(obj["if_not_flag"].GetValue<string>()).Value.As<bool>())
+            return false;
+        return true;
+    }
+
+    public static (Vector2 tail, NPC.Direction facing, Color color)? ResolveActorAnchor(string name, scene_script scene)
+    {
+        if (ResolveThing(name, scene) is thing t)
+            return (t.topPoint, t.DialogFacing, t.dialogColor);
+        if (scene.FindChild(name, true, false) is DialogAnchor anchor)
+            return (anchor.GlobalPosition, anchor.Facing, anchor.dialogColor);
+        return null;
+    }
+
     // ── Shared JSON field parsers (also used by ConversationStep) ────────────────
 
-    // Accepts hex ("#rrggbb") or CSS named colors ("yellow"). Returns null on empty/invalid.
+    // Accepts hex ("#rrggbb") or Godot named colors ("yellow", "red", etc.). Returns null on empty/invalid.
     public static Color? ParseColor(string raw)
     {
         if (string.IsNullOrEmpty(raw)) return null;
+        if (Color.FromString(raw, new Color(0, 0, 0, 0)) is Color c && (c.A > 0f || raw == "transparent"))
+            return c;
         try { return new Color(raw); } catch { return null; }
     }
 
@@ -196,7 +213,7 @@ public static class ScriptParser
             return (Globals.DialogTypes.speaking, null);
         var type = Globals.DialogTypes.speaking;
         DialogBox.TailStyle? tail = null;
-        foreach (var token in raw.Split('|'))
+        foreach (var token in raw.Replace(",", "|").Split('|'))
             switch (token.Trim())
             {
                 case "exclaim":   type = Globals.DialogTypes.exclaim;   break;
@@ -221,21 +238,21 @@ public static class ScriptParser
     public static Globals.NarrationStyle ParseNarrationStyle(string raw) =>
         raw == "jagged" ? Globals.NarrationStyle.Jagged : Globals.NarrationStyle.Normal;
 
-    private static thing ResolveThing(string name, scene_script scene, thing self = null)
+    public static thing ResolveThing(string name, scene_script scene, thing self = null)
     {
         if (name == "self") return self;
-        if (name == "ego")  return scene.ego;
+        if (name == "ego" || name == "character" || name == "ego_point") return scene.ego;
         return scene.FindChild(name, true, false) as thing;
     }
 
-    private static NPC ResolveNPC(string name, scene_script scene, thing self = null)
+    public static NPC ResolveNPC(string name, scene_script scene, thing self = null)
     {
         if (name == "self") return self as NPC;
         if (name == "ego" || name == "character" || name == "ego_point") return scene.ego;
         return scene.FindChild(name, true, false) as NPC;
     }
 
-    private static Vector2 ResolveAreaCenter(string shapeName, scene_script scene)
+    public static Vector2 ResolveAreaCenter(string shapeName, scene_script scene)
     {
         var shape = scene.GetNodeOrNull<CollisionShape2D>(shapeName);
         return shape?.Position ?? Vector2.Zero;

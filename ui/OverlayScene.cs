@@ -10,17 +10,19 @@ public partial class OverlayScene : CanvasLayer
     [Export] public float          Softness     = 8f;
     [Export] public CelBorderStyle BorderStyle  = CelBorderStyle.Normal;
 
-    private Label     label;
-    private MainScene mainScene;
-    public  VerbPanel verbPanel;
-    private ColorRect _celBorder;
+    private Label         label;
+    private MainScene     mainScene;
+    public  VerbPanel     verbPanel;
+    private ColorRect     _celBorder;
+    private TextureButton _menuButton;
 
     public override void _Ready()
     {
-        label     = GetNode<Label>("CelBorder/Label");
-        mainScene = (MainScene)GetTree().Root.GetChild(1);
-        verbPanel = GetNode<VerbPanel>("VerbPanel");
+        label      = GetNode<Label>("CelBorder/Label");
+        mainScene  = (MainScene)GetTree().Root.GetChild(1);
+        verbPanel  = GetNode<VerbPanel>("VerbPanel");
         _celBorder = GetNode<ColorRect>("CelBorder");
+        _menuButton = GetNode<TextureButton>("MenuButton");
 
         Vector2 vp = GetViewport().GetVisibleRect().Size;
 
@@ -42,6 +44,28 @@ public partial class OverlayScene : CanvasLayer
         verbPanel.OffsetRight  = 0f;
         verbPanel.OffsetTop    = 0f;
         verbPanel.OffsetBottom = 100f;
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventKey key && key.Pressed && !key.Echo && key.Keycode == Key.Escape)
+        {
+            GetViewport().SetInputAsHandled();
+            mainScene.ReturnToCover();
+            return;
+        }
+
+        Vector2? pos = null;
+        if (@event is InputEventMouseButton mb && !mb.Pressed && mb.ButtonIndex == MouseButton.Left)
+            pos = mb.Position;
+        else if (@event is InputEventScreenTouch st && !st.Pressed)
+            pos = GetViewport().GetCanvasTransform().AffineInverse() * st.Position;
+
+        if (pos.HasValue && _menuButton.GetGlobalRect().HasPoint(pos.Value))
+        {
+            GetViewport().SetInputAsHandled();
+            mainScene.ReturnToCover();
+        }
     }
 
     public void OnButtonPressed()
@@ -109,6 +133,8 @@ public partial class OverlayScene : CanvasLayer
         mat.SetShaderParameter("corner_radius", CornerRadius   * scale);
         mat.SetShaderParameter("softness",      Softness       * scale);
         mat.SetShaderParameter("border_style",  (int)(style ?? BorderStyle));
+        mat.SetShaderParameter("wave_amp",      6f             * scale);
+        mat.SetShaderParameter("wave_freq",     0.025f         / scale);
         return new ColorRect
         {
             Position    = position,

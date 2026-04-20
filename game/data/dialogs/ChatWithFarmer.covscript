@@ -1,0 +1,135 @@
+start Intro
+
+node Intro:
+  ego faces farmer
+  farmer faces ego
+  ego says "HEY THERE!" style:exclaim,lightning
+  farmer says "..."
+  wait 0.8
+  farmer says "WHAT DO YOU WANT?" style:lightning
+  ego says "JUST BEING NEIGHBOURLY." style:wavy
+  ego thinks "HE DOESN'T SEEM THE NEIGHBOURLY TYPE."
+  goto Main
+
+node Main:
+  choices:
+    "JACKETS" -> JACKETS  if_not_flag:talkedAboutJackets
+    "WORK" -> WORK
+    "HOUSE" -> HOUSE  if_flag:talkedAboutTree
+    "THE TREE" -> TREE  if_flag:talkedAboutTree
+    "BYE" -> BYE
+
+node JACKETS:
+  ego -> farmer
+  ego faces farmer
+  ego says "I'M SELLING THESE FINE LEATHER JACKETS!" style:exclaim,lightning
+  farmer says "JACKETS?!" style:exclaim,lightning
+  wait 0.6
+  farmer says "THAT'S RIDICULOUS! I'VE GOT THREE COATS ALREADY AND I'VE NEVER PAID A CENT FOR ANY OF THEM. WHAT MAKES YOU THINK I NEED A JACKET FROM SOME STRANGER ON THE ROAD?" style:wavy
+  farmer faces pole
+  narrate "THE FARMER SQUINTS INTO THE DISTANCE, UNCONVINCED." corner:topright
+  ego thinks "HE'S RIGHT. IT IS RIDICULOUS."
+  ego -> candle
+  farmer faces ego
+  set talkedAboutJackets = true
+  goto Main
+
+node WORK:
+  ego faces farmer
+  ego says "I'M LOOKING FOR WORK. YOU GOT ANYTHING?"
+  farmer faces ego
+  farmer says "DEPENDS WHAT YOU CAN DO, BUCKAROO." style:straight
+  wait 0.4
+  farmer says "ARE YOU HANDY?"
+  ego says "I CAN BE."
+  farmer faces pole
+  narrate "HE CHEWS ON SOMETHING THAT ISN'T THERE." corner:bottomleft
+  wait 0.7
+  farmer says "HMMM... THERE IS A TREE I NEED FELLED."
+  farmer -> pole
+  farmer says "BIG OAK. BEEN STANDING THERE SINCE BEFORE MY FATHER WORKED THIS LAND. ROOTS GO DOWN THIRTY FEET IF THEY GO AN INCH. BEEN BLOCKING MY VIEW OF THE VALLEY FOR TWENTY YEARS AND I AM DONE WITH IT." style:wavy
+  farmer faces house
+  narrate "HE GESTURES VAGUELY TOWARD THE TREELINE." corner:topleft
+  ego thinks "A TREE. THAT'LL DO. FOR NOW."
+  farmer -> ego
+  farmer faces ego
+  narrate "A CROW LANDS ON THE FENCE POST AND REGARDS YOU BOTH." corner:bottomright
+  set talkedAboutTree = true
+  goto Main
+
+node HOUSE:
+  ego -> house
+  ego faces house
+  ego says "IS THAT YOUR HOUSE UP THERE?"
+  farmer faces house
+  wait 0.5
+  farmer says "IT SURE IS. YOU [b]BETCHA[/b]!" style:exclaim,wavy
+  narrate "HE PUFFS OUT HIS CHEST A LITTLE." corner:topright
+  ego -> farmer
+  farmer faces ego
+  set talkedAboutHouse = true
+  goto HOUSE2
+
+node HOUSE2:
+  choices:
+    "LOOKS NICE" -> LOOKS_NICE
+    "NEED REPAIRS" -> NEED_REPAIRS
+    "SOMETHING ELSE" -> SOMETHING_ELSE
+
+node LOOKS_NICE:
+  ego -> house
+  ego faces house
+  ego says "THE HOUSE IS VERY NICE-LOOKING..."
+  ego thinks "AND I BET IT'S FULL OF ANTIQUES..."
+  farmer faces ego
+  farmer says "THANKS, YES. SHE'S A BEAUT. BUILT IN SIXTY-TWO BY MY GRANDFATHER CLARENCE WITH TIMBER CUT RIGHT HERE ON THIS PROPERTY. EVERY BOARD SHAPED BY HAND. YOU DON'T SEE THAT KIND OF CRAFTSMANSHIP ANYMORE AND THAT IS A PLAIN FACT." style:wavy
+  ego -> farmer
+  ego thinks "COULD FENCE THE ANTIQUES. RETIRE EARLY."
+  narrate "THE AFTERNOON LIGHT CATCHES THE WEATHERVANE ON THE ROOF." corner:topleft
+  goto HOUSE2
+
+node NEED_REPAIRS:
+  ego says "NEED ANY REPAIR WORK DONE UP THERE?"
+  farmer faces house
+  wait 0.6
+  farmer faces ego
+  farmer says "MAYBE SO, MAYBE SO... ROOF'S BEEN LEAKING SINCE THE STORM LAST OCTOBER. RUINED A GOOD RUG. WATER CAME IN RIGHT THROUGH THE CEILING OF THE BACK ROOM AND THERE WAS NOTHING TO BE DONE ABOUT IT." style:straight
+  farmer -> pole
+  ego thinks "HE'S HIDING SOMETHING. OR JUST EMBARRASSED."
+  narrate "HE DOESN'T MEET YOUR EYES." corner:bottomleft
+  farmer -> ego
+  goto HOUSE2
+
+node SOMETHING_ELSE:
+  ego says "LET'S TALK ABOUT SOMETHING ELSE."
+  farmer says "HAPPY TO." style:straight
+  goto Main
+
+node TREE:
+  ego says "SO, A TREE, YOU SAY?" style:curved
+  farmer faces ego
+  wait 0.5
+  farmer says "A-YUP."
+  narrate "HE SHIFTS HIS WEIGHT SLIGHTLY." corner:bottomright
+  wait 0.5
+  ego thinks "BRILLIANT CONVERSATIONALIST."
+  farmer says "JUST THE ONE, THE...\n [b][i]DEAD ONE.[/i][/b]" style:straight
+  ego says "HOW DO YOU KNOW IT'S DEAD?" style:curved
+  farmer -> ego
+  farmer faces ego
+  wait 1.0
+  farmer says "..."
+  wait 0.5
+  farmer says "WELL, KNOCKIN' IS ONE WAY! LORD, YOU DON'T KNOW MUCH, [b][i]DO YE?![/i][/b]"
+  set talkedAboutDeadTrees = true
+  goto Main
+
+node BYE:
+  ego says "THANKS FOR YOUR TIME."
+  farmer faces ego
+  farmer says "VERY WELL. SEE YA 'ROUND, [b]SKIP[/b]!" style:exclaim
+  narrate "HE TURNS BACK TO HIS FENCE WITHOUT ANOTHER WORD." corner:bottomleft
+  farmer faces pole
+  farmer -> pole
+  farmer says "DON'T BE A STRANGER."
+  ego -> candle

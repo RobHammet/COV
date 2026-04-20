@@ -43,7 +43,10 @@ public partial class VerbPanel : Control
     }
 
     public void _on_item_button_pressed() {
-        GD.Print("_on_use_button_pressed");
         mainScene.SetInteractMode(Globals.InteractModes.item);
+    }
+
+    public void _on_inventory_button_pressed() {
+        mainScene.currentScene?.ToggleInventory();
     }
 }

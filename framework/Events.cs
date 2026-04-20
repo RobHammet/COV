@@ -111,8 +111,11 @@ public class ConversationStep : IEventStep
 
     private async void RunAsync()
     {
-        string jsonText = FileAccess.GetFileAsString($"res://{_dialogFile}");
-        var doc = JsonNode.Parse(jsonText)?.AsObject();
+        string fullPath  = _dialogFile.StartsWith("res://") ? _dialogFile : $"res://{_dialogFile}";
+        string fileText  = FileAccess.GetFileAsString(fullPath);
+        var doc = fullPath.EndsWith(".covscript")
+            ? CovScript.Parse(fileText)
+            : JsonNode.Parse(fileText)?.AsObject();
         if (doc == null) { _done = true; return; }
 
         var    allNodes = doc["nodes"]?.AsObject();
@@ -132,34 +135,7 @@ public class ConversationStep : IEventStep
         _done = true;
     }
 
-    private bool DialogConditionMet(JsonObject obj)
-    {
-        if (obj.ContainsKey("if_flag")     && !_scene.GetFlag(obj["if_flag"].GetValue<string>()).Value.As<bool>())
-            return false;
-        if (obj.ContainsKey("if_not_flag") &&  _scene.GetFlag(obj["if_not_flag"].GetValue<string>()).Value.As<bool>())
-            return false;
-        return true;
-    }
-
-    private NPC ResolveDialogNPC(string name) =>
-        (name == "character" || name == "ego" || name == "ego_point")
-            ? _scene.ego
-            : _scene.FindChild(name, true, false) as NPC;
-
-    private (Vector2 tail, NPC.Direction facing, Color color)? ResolveActorAnchor(string name)
-    {
-        if (ResolveDialogNPC(name) is NPC npc)
-            return (npc.topPoint, npc.Facing, npc.dialogColor);
-        if (_scene.FindChild(name, true, false) is DialogAnchor anchor)
-            return (anchor.GlobalPosition, anchor.Facing, anchor.dialogColor);
-        return null;
-    }
-
-    private thing ResolveDialogThing(string name) => name == "character"
-        ? _scene.ego
-        : _scene.FindChild(name, true, false) as thing;
-
-    // Parsing helpers are in ScriptParser (public static) — no duplicates here.
+    // Parsing/resolution helpers are in ScriptParser (public static) — no duplicates here.
 
     private async Task<string> RunDialogArray(JsonObject allNodes, JsonArray actions)
     {
@@ -167,7 +143,7 @@ public class ConversationStep : IEventStep
         {
             var obj = item?.AsObject();
             if (obj == null) continue;
-            if (!DialogConditionMet(obj)) continue;
+            if (!ScriptParser.ConditionMet(obj, _scene)) continue;
 
             string action = obj["action"]?.GetValue<string>();
             if (action == null) continue;
@@ -185,13 +161,13 @@ public class ConversationStep : IEventStep
                     foreach (var opt in rawOptions)
                     {
                         var o = opt.AsObject();
-                        if (!DialogConditionMet(o)) continue;
+                        if (!ScriptParser.ConditionMet(o, _scene)) continue;
                         labels.Add(o["label"].GetValue<string>());
                         nodeIds.Add(o["node"].GetValue<string>());
                     }
                     if (labels.Count == 0) break;
                     string        choiceActor = obj.ContainsKey("actor") ? obj["actor"].GetValue<string>() : "ego";
-                    var           ca          = ResolveActorAnchor(choiceActor);
+                    var           ca          = ScriptParser.ResolveActorAnchor(choiceActor, _scene);
                     Vector2       tp          = ca?.tail   ?? Vector2.Zero;
                     NPC.Direction facing      = ca?.facing ?? NPC.Direction.down;
                     DialogBox db = _scene.CreateDialog(
@@ -204,7 +180,7 @@ public class ConversationStep : IEventStep
                 }
 
                 case "speak": {
-                    var a = ResolveActorAnchor(obj["actor"].GetValue<string>());
+                    var a = ScriptParser.ResolveActorAnchor(obj["actor"].GetValue<string>(), _scene);
                     if (a == null) break;
                     bool strict = obj["strict"]?.GetValue<bool>() ?? false;
                     (Globals.DialogTypes type, DialogBox.TailStyle? tail) = ScriptParser.ParseSpeakStyle(obj["style"]?.GetValue<string>());
@@ -218,7 +194,7 @@ public class ConversationStep : IEventStep
                 }
 
                 case "think": {
-                    var a = ResolveActorAnchor(obj["actor"].GetValue<string>());
+                    var a = ScriptParser.ResolveActorAnchor(obj["actor"].GetValue<string>(), _scene);
                     if (a == null) break;
                     bool strict = obj["strict"]?.GetValue<bool>() ?? false;
                     Color color = ScriptParser.ParseColor(obj["color"]?.GetValue<string>()) ?? a.Value.color;
@@ -242,15 +218,15 @@ public class ConversationStep : IEventStep
                 }
 
                 case "look_at": {
-                    NPC   actor  = ResolveDialogNPC(obj["actor"].GetValue<string>());
-                    thing target = ResolveDialogThing(obj["target"].GetValue<string>());
+                    NPC   actor  = ScriptParser.ResolveNPC(obj["actor"].GetValue<string>(), _scene);
+                    thing target = ScriptParser.ResolveThing(obj["target"].GetValue<string>(), _scene);
                     if (actor != null && target != null)
                         actor.ChangeFacingToLookAt(target);
                     break;
                 }
 
                 case "change_facing": {
-                    NPC actor = ResolveDialogNPC(obj["actor"].GetValue<string>());
+                    NPC actor = ScriptParser.ResolveNPC(obj["actor"].GetValue<string>(), _scene);
                     if (actor != null)
                         actor.ChangeFacing(obj["direction"].GetValue<string>() switch
                         {
@@ -263,12 +239,12 @@ public class ConversationStep : IEventStep
                 }
 
                 case "move": {
-                    NPC actor = ResolveDialogNPC(obj["actor"].GetValue<string>());
+                    NPC actor = ScriptParser.ResolveNPC(obj["actor"].GetValue<string>(), _scene);
                     if (actor == null) break;
                     Vector2 dest;
                     if (obj.ContainsKey("target"))
                     {
-                        thing target = ResolveDialogThing(obj["target"].GetValue<string>());
+                        thing target = ScriptParser.ResolveThing(obj["target"].GetValue<string>(), _scene);
                         dest = target?.interactPoint ?? actor.Position;
                     }
                     else
@@ -289,7 +265,7 @@ public class ConversationStep : IEventStep
 
                 case "toggle_exist": {
                     string tname = obj.ContainsKey("target") ? obj["target"].GetValue<string>() : null;
-                    thing  t     = tname != null ? ResolveDialogThing(tname) : null;
+                    thing  t     = tname != null ? ScriptParser.ResolveThing(tname, _scene) : null;
                     bool?  v     = obj.ContainsKey("value") ? obj["value"].GetValue<bool>() : null;
                     t?.ToggleExist(v);
                     break;
@@ -297,7 +273,7 @@ public class ConversationStep : IEventStep
 
                 case "toggle_hide": {
                     string tname = obj.ContainsKey("target") ? obj["target"].GetValue<string>() : null;
-                    thing  t     = tname != null ? ResolveDialogThing(tname) : null;
+                    thing  t     = tname != null ? ScriptParser.ResolveThing(tname, _scene) : null;
                     bool?  v     = obj.ContainsKey("value") ? obj["value"].GetValue<bool>() : null;
                     t?.ToggleHide(v);
                     break;
@@ -493,9 +469,10 @@ public class EventSequence
             poly.MakePolygonsFromOutlines();
 #pragma warning restore CS0618
             navReg.NavigationPolygon = poly;
+            _scene.AddFlag($"nav_remap:{navRegionNodeName}:{guidePolygonNodeName}", true);
         }));
 
-    public void AddEventSpeak(NPC actor, string phrase, Vector2? position = null,
+    public void AddEventSpeak(thing actor, string phrase, Vector2? position = null,
                               bool _interruptable = false, bool strict = false,
                               DialogBox.TailStyle? tailStyle = null,
                               Globals.DialogTypes dialogType = Globals.DialogTypes.speaking,
@@ -503,16 +480,16 @@ public class EventSequence
         _steps.Add(new SignalStep(
             () => actor.parentScene.CreateDialog(
                 dialogType, phrase, color ?? actor.dialogColor, position,
-                actor.topPoint, actor.Facing, strict: strict, tailStyle: tailStyle),
+                actor.topPoint, actor.DialogFacing, strict: strict, tailStyle: tailStyle, actor: actor),
             "DialogClosed", _interruptable, "speak"));
 
-    public void AddEventThink(NPC actor, string phrase, Vector2? position = null,
+    public void AddEventThink(thing actor, string phrase, Vector2? position = null,
                               bool _interruptable = false, bool strict = false,
                               Color? color = null) =>
         _steps.Add(new SignalStep(
             () => actor.parentScene.CreateDialog(
                 Globals.DialogTypes.thinking, phrase, color ?? actor.dialogColor, position,
-                new Vector2(actor.Position.X, actor.topPoint.Y), actor.Facing, strict: strict),
+                new Vector2(actor.Position.X, actor.topPoint.Y), actor.DialogFacing, strict: strict),
             "DialogClosed", _interruptable, "think"));
 
     public void AddEventSpeakFromAnchor(DialogAnchor anchor, string phrase,

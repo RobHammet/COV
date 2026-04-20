@@ -1,8 +1,0 @@
-{
-  "border_style": "circle",
-  "border_width": 96.0,
-  "areas": {
-    "exit_to_sittingroom": { "move_into": [{ "action": "exit", "destination": "sittingroom", "arrive_dir": "down", "arrive_area": "exit_to_upstairs" }] }
-  },
-  "default": {}
-}

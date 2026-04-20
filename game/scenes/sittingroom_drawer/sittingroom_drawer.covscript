@@ -1,0 +1,20 @@
+thing drawer:
+  on look:
+    ego_point says "IT'S A DRAWER."
+
+  on use:
+    if drawerOpen is false:
+      wait 1.4
+      show drawer
+      wait 0.6
+      ego_point says "WELL [b]LOOKEE[/b] HERE..." strict
+      set drawerOpen = true
+    else:
+      hide drawer
+      set drawerOpen = false
+
+area exit_shape:
+  on walk, use:
+    exit to sittingroom
+      arrive_dir down
+      arrive_thing drawers

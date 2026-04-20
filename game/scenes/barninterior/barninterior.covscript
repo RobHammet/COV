@@ -1,0 +1,11 @@
+thing axe:
+  on use:
+    ego thinks "THIS MAY BE USEFUL."
+    obtain self
+    set axeTaken = true
+
+area exit_to_barnfront:
+  on move_into:
+    exit to barnfront
+      arrive_dir left
+      arrive_area exit_to_barninterior

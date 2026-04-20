@@ -29,7 +29,7 @@ public partial class DialogBox : Control
     [Export(PropertyHint.Range, "0,16,1")] public int ShadowBlur = 5;
 
     public scene_script parentScene;
-    public NPC trackActor;
+    public thing trackActor;
     public Vector2 tailPos = new Vector2(0,0);
     private Vector2 _actorWorldTailPos;
 
@@ -143,6 +143,9 @@ public partial class DialogBox : Control
         if (dialogType == Globals.DialogTypes.narration)
         {
             _narrationTime += (float)delta;
+            // Re-pin to the cel border corner each frame so camera movement doesn't drift the box.
+            if (narrationCorner != Globals.NarrationCorner.Auto)
+                Position = GetSpotForNarrationCorner(drawRect);
             QueueRedraw();
         }
     }
@@ -170,8 +173,24 @@ public partial class DialogBox : Control
         }
         else if (@event is InputEventScreenTouch touchEvent && touchEvent.Pressed)
         {
-            DealWithClick();
             GetViewport().SetInputAsHandled();
+            if (dialogType == Globals.DialogTypes.choice && dialogChoices != null)
+            {
+                // Hit-test directly so the first tap selects immediately (no hover pre-req).
+                Vector2 canvasPos = GetViewport().GetCanvasTransform().AffineInverse() * touchEvent.Position;
+                for (int i = 0; i < dialogChoices.choices.Count; i++)
+                {
+                    if (dialogChoices.choices[i].GetGlobalRect().HasPoint(canvasPos))
+                    {
+                        dialogChoices.currentChoice = i;
+                        CloseThisDialog(i);
+                        return;
+                    }
+                }
+                // Touch missed all choices — swallowed but no selection.
+                return;
+            }
+            DealWithClick();
         }
     }
 
@@ -1183,17 +1202,24 @@ public partial class DialogBox : Control
         dbText.AppendText(phrase);
         dbText.VisibleCharacters = GetPhrase().Length;
 
-        // Shrink to natural single-line width; wrap only if it exceeds maxWidth.
-        // Clear scene's custom_minimum_size so it doesn't inflate the measurement.
+        // For narration, fill the full cel border width minus margins so long captions
+        // span the readable area edge-to-edge. Other dialog types respect maxWidth.
+        int effectiveMaxWidth = maxWidth;
+        if (dialogType == Globals.DialogTypes.narration && parentScene?.mainScene != null)
+        {
+            Rect2 inner = parentScene.mainScene.CelBorderInnerRect;
+            effectiveMaxWidth = Mathf.Max(100, (int)(inner.Size.X - (marginSize + 16f) * 2f));
+        }
+
+        // Shrink to natural single-line width; wrap only if it exceeds effectiveMaxWidth.
         dbText.CustomMinimumSize = Vector2.Zero;
         dbText.AutowrapMode = TextServer.AutowrapMode.Off;
         dbText.Size = new Vector2(9999f, 9999f);
         Vector2 naturalSize = dbText.GetMinimumSize();
-        if (naturalSize.X > maxWidth) {
+        if (naturalSize.X > effectiveMaxWidth) {
             dbText.AutowrapMode = TextServer.AutowrapMode.Word;
-            dbText.Size = new Vector2(maxWidth, 9999f);
-            // GetMinimumSize() returns ~0 height with word-wrap; use GetContentHeight() instead.
-            dbText.Size = new Vector2(maxWidth, dbText.GetContentHeight());
+            dbText.Size = new Vector2(effectiveMaxWidth, 9999f);
+            dbText.Size = new Vector2(effectiveMaxWidth, dbText.GetContentHeight());
         } else {
             dbText.Size = naturalSize;
         }

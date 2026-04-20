@@ -1,0 +1,5 @@
+area exit_to_sittingroom:
+  on move_into:
+    exit to sittingroom
+      arrive_dir down
+      arrive_area exit_to_kitchen

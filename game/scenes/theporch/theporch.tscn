@@ -20,12 +20,12 @@ shader = ExtResource("5_bhwyr")
 shader_parameter/sprite_texture = ExtResource("8")
 shader_parameter/normal_map = ExtResource("6_tse8u")
 shader_parameter/enable_shadows = true
-shader_parameter/dark_threshold = 0.004
-shader_parameter/hatch_threshold = 0.35
-shader_parameter/hatch_spacing = 1.0
-shader_parameter/hatch_thickness = 1.8
-shader_parameter/hatch_roughness = 0.05
-shader_parameter/hatch_taper = 0.5
+shader_parameter/dark_threshold = 0.278000013205
+shader_parameter/hatch_threshold = 0.0
+shader_parameter/hatch_spacing = 1.1100000494651199
+shader_parameter/hatch_thickness = 1.1930000566675
+shader_parameter/hatch_roughness = 0.0
+shader_parameter/hatch_taper = 1.2250000344375
 shader_parameter/light_pos_uv = Vector2(0.5, -2)
 shader_parameter/hframes = 1
 shader_parameter/vframes = 1
@@ -134,7 +134,7 @@ navigation_polygon = SubResource("1")
 
 [node name="openDoorFloor" type="Polygon2D" parent="NavigationRegion2D" unique_id=1898200066]
 visible = false
-polygon = PackedVector2Array(320, 283, 390, 285, 406, 338, 419, 349, 625, 348, 634, 475, 78, 473, 129, 445, 180, 446, 223, 365, 258, 346, 294, 348, 310, 333)
+polygon = PackedVector2Array(320, 283, 390, 285, 406, 338, 419, 349, 625, 348, 634, 475, 615, 476, 625, 532, 479, 533, 482.54813, 474.4552, 78, 473, 129, 445, 180, 446, 223, 365, 258, 346, 294, 348, 310, 333)
 
 [node name="PointLight2D" type="PointLight2D" parent="." unique_id=651715280]
 visible = false

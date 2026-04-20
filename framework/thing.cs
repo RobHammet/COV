@@ -21,6 +21,7 @@ using System.Text.Json.Nodes;
 public partial class thing : Node2D
 {
     [Export] public string                displayName;
+    [Export] public Color                 dialogColor           = Colors.White;
     [Export] public bool                  castsShadow           = false;
     [Export] public InventoryItem.ItemType inventoryItemType    = InventoryItem.ItemType.none;
     [Export] public bool                  lookClosely           = false;
@@ -48,6 +49,36 @@ public partial class thing : Node2D
     public Vector2 interactPoint { get; set; } = Vector2.Zero;
     public Vector2 centerPoint   { get; set; } = Vector2.Zero;
     public Vector2 basePoint     { get; set; } = Vector2.Zero;
+
+    public virtual Vector2 topPoint
+    {
+        get
+        {
+            var node = GetNodeOrNull<Node2D>("TopPoint");
+            if (node != null) return node.GlobalPosition;
+            if (clickPolygon == null || clickPolygon.Length == 0)
+                return centerPoint - new Vector2(0, 32f);
+            float minY = float.MaxValue;
+            foreach (var pt in clickPolygon)
+                if (pt.Y < minY) minY = pt.Y;
+            return new Vector2(centerPoint.X, minY);
+        }
+    }
+
+    public virtual NPC.Direction DialogFacing
+    {
+        get
+        {
+            var egoNode = parentScene?.ego;
+            if (egoNode == null) return NPC.Direction.down;
+            float dx    = egoNode.Position.X - Position.X;
+            float dy    = egoNode.Position.Y - Position.Y;
+            double angle = Math.Atan2(dy, dx) * 180.0 / Math.PI;
+            if (Math.Abs(angle) >= 60 && Math.Abs(angle) <= 120)
+                return angle > 0 ? NPC.Direction.up : NPC.Direction.down;
+            return Math.Abs(angle) < 90 ? NPC.Direction.left : NPC.Direction.right;
+        }
+    }
 
     public Sprite2D shadow;
     [Export] public bool isExist  = true;
@@ -154,27 +185,26 @@ public partial class thing : Node2D
         bool visible = isExist && !isHidden;
         if (hasSprite) sprite.Visible = visible;
 
-        // Check scene JSON first (things subsection), then fall back to:
-        //   1. interactionFile export (explicit path)
-        //   2. JSON co-located with the thing's own .tscn (e.g. NPC/someguy.json)
+        // Check scene script first (things subsection), then fall back to:
+        //   1. interactionFile export (explicit path, .covscript preferred over .json)
+        //   2. Script co-located with the thing's own .tscn
         //   3. legacy game/data/things/{Name}.json
         _interactionData = parentScene?._sceneData?["things"]?[Name]?.AsObject();
         if (_interactionData == null)
         {
-            string jsonPath;
+            string basePath;
             if (!string.IsNullOrEmpty(interactionFile))
-            {
-                jsonPath = $"res://{interactionFile}";
-            }
+                basePath = $"res://{interactionFile.Replace(".json", "").Replace(".covscript", "")}";
             else if (!string.IsNullOrEmpty(SceneFilePath))
-            {
-                jsonPath = SceneFilePath.Replace(".tscn", ".json");
-            }
+                basePath = SceneFilePath.Replace(".tscn", "");
             else
-            {
-                jsonPath = $"res://game/data/things/{Name}.json";
-            }
-            if (FileAccess.FileExists(jsonPath))
+                basePath = $"res://game/data/things/{Name}";
+
+            string covPath  = basePath + ".covscript";
+            string jsonPath = basePath + ".json";
+            if (FileAccess.FileExists(covPath))
+                _interactionData = CovScript.Parse(FileAccess.GetFileAsString(covPath));
+            else if (FileAccess.FileExists(jsonPath))
                 _interactionData = JsonNode.Parse(FileAccess.GetFileAsString(jsonPath))?.AsObject();
         }
 
@@ -222,17 +252,12 @@ public partial class thing : Node2D
         centerPoint = new Vector2(sumX / clickPolygon.Length, sumY / clickPolygon.Length);
         basePoint   = new Vector2(centerPoint.X, maxY);
 
-        Vector2 ip = Position;
-        try
-        {
-            var ipNode = GetNode<Node2D>("InteractPoint");
-            if (ipNode != null)
-                ip = (hasSprite && sprite.FlipH)
-                    ? new Vector2(Position.X - ipNode.Position.X * Scale.X, Position.Y + ipNode.Position.Y * Scale.Y)
-                    : Position + ipNode.Position * Scale;
-        }
-        catch { }
-        interactPoint = ip;
+        var ipNode = GetNodeOrNull<Node2D>("InteractPoint");
+        interactPoint = ipNode != null
+            ? (hasSprite && sprite.FlipH)
+                ? new Vector2(Position.X - ipNode.Position.X * Scale.X, Position.Y + ipNode.Position.Y * Scale.Y)
+                : Position + ipNode.Position * Scale
+            : Position;
     }
 
     public void OnMove()
@@ -307,7 +332,7 @@ public partial class thing : Node2D
             int  t           = lastLookTextRead + 1;
             bool hasLookText = lookText != null && lookText.Length > 0;
             if (hasLookText && t >= lookText.Length) t = 0;
-            string text = hasLookText ? lookText[t] : $"IT'S A {displayName.ToUpper()}.";
+            string text = hasLookText ? lookText[t] : $"IT'S A {(displayName ?? Name).ToUpper()}.";
             if (hasLookText) lastLookTextRead = t;
             if (ego != null)
                 parentScene.eventQueue.AddEventThink(ego, text);

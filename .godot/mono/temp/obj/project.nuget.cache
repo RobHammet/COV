@@ -1,14 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "9fUtKh29lQw=",
+  "dgSpecHash": "KhUgzHvrqlE=",
   "success": true,
   "projectFilePath": "/home/rob/Documents/dev/Godot/COV/COV.csproj",
   "expectedPackageFiles": [
     "/home/rob/.nuget/packages/godot.sourcegenerators/4.6.1/godot.sourcegenerators.4.6.1.nupkg.sha512",
     "/home/rob/.nuget/packages/godotsharp/4.6.1/godotsharp.4.6.1.nupkg.sha512",
     "/home/rob/.nuget/packages/godotsharpeditor/4.6.1/godotsharpeditor.4.6.1.nupkg.sha512",
-    "/home/rob/.nuget/packages/microsoft.netcore.app.ref/8.0.25/microsoft.netcore.app.ref.8.0.25.nupkg.sha512",
-    "/home/rob/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.25/microsoft.aspnetcore.app.ref.8.0.25.nupkg.sha512"
+    "/home/rob/.nuget/packages/microsoft.netcore.app.ref/9.0.14/microsoft.netcore.app.ref.9.0.14.nupkg.sha512",
+    "/home/rob/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.14/microsoft.aspnetcore.app.ref.9.0.14.nupkg.sha512"
   ],
   "logs": []
 }

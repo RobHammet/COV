@@ -1,6 +1,0 @@
-{
-  "areas": {
-    "exit_to_housefront": { "move_into": [{ "action": "exit", "destination": "housefront", "arrive_dir": "right", "arrive_area": "exit_to_tree" }] }
-  },
-  "default": {}
-}

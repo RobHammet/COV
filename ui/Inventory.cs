@@ -70,6 +70,8 @@ public partial class Inventory : Control
 
 
 		parentScene.mainScene.overlayScene.verbPanel.itemButton.TextureNormal = itemTexture;
+		if (parentScene.verbCoinControl is VerbCoin coin)
+			coin.UpdateItemButton(itemTexture);
 	}
 	public void InventoryOpened(Globals.InteractModes _prevInteractMode) {
 		

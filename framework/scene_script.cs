@@ -100,9 +100,12 @@ public partial class scene_script : Node2D
     );
 
     private readonly record struct ExitZone(string Dest, Vector2 Center, Vector2 HalfSize, ArrivalData Arrival);
-    private readonly List<(string Name, ExitZone Zone)> _exitZones   = new();
+    private readonly List<(string Name, ExitZone Zone)> _exitZones    = new();
     private readonly HashSet<string>                    _insideExits  = new();
     private          bool                               _exitsSeeded  = false;
+    // Name of the CollisionShape2D the player arrived through. Protected from re-triggering
+    // while the arrival event sequence (walk-out + scripted moves) is still running.
+    public string _arrivalZoneName = null;
 
     private readonly record struct AreaZone(Vector2 Center, Vector2 HalfSize, JsonArray Actions, bool Through, Vector2[] Polygon = null);
     private readonly List<(string Name, AreaZone Zone)> _areaZones   = new();
@@ -136,7 +139,11 @@ public partial class scene_script : Node2D
 
     public void SuspendSceneInput()
     {
-        prevInteractMode = mainScene.GetInteractMode();
+        // In verbcoin mode the selected verb is one-shot; always restore to the
+        // neutral base mode so a tap after the event doesn't re-trigger the same verb.
+        prevInteractMode = mainScene.currentInputMode == Globals.InputModes.verbcoin
+            ? (ego != null ? Globals.InteractModes.walk : Globals.InteractModes.look)
+            : mainScene.GetInteractMode();
         mainScene.SetInteractMode(Globals.InteractModes.wait);
         isSceneInputSuspended = true;
     }
@@ -149,15 +156,19 @@ public partial class scene_script : Node2D
         isSceneInputSuspended = false;
 
         // Kick off arrival effects now that the transition is complete and the scene is live.
+        // _arrivalSequence is set by on_arrive_from; "entry" always runs regardless of source.
+        var entrySeq = _sceneData?["entry"]?.AsArray();
+        if (entrySeq != null) PopulateEventQueue(eventQueue, entrySeq, this);
+        // Walk out of arrival zone first (always), then run the arrival sequence.
+        if (_arrivalWalkTarget.HasValue && ego != null)
+        {
+            eventQueue.AddEventMove(ego, _arrivalWalkTarget.Value, _interruptable: false);
+            _arrivalWalkTarget = null;
+        }
         if (_arrivalSequence != null)
         {
             PopulateEventQueue(eventQueue, _arrivalSequence, this);
             _arrivalSequence = null;
-        }
-        else if (_arrivalWalkTarget.HasValue && ego != null)
-        {
-            eventQueue.AddEventMove(ego, _arrivalWalkTarget.Value, _interruptable: false);
-            _arrivalWalkTarget = null;
         }
     }
 
@@ -247,12 +258,17 @@ public partial class scene_script : Node2D
 
         eventQueue = new EventSequence(this);
 
-        // Load scene JSON — must happen in _EnterTree (parent-first) so child
-        // thing._Ready() calls can read _sceneData for interaction definitions.
-        string jsonPath = !string.IsNullOrEmpty(entryScriptFile)
-            ? $"res://{entryScriptFile}"
-            : SceneFilePath.Replace(".tscn", ".json");
-        if (FileAccess.FileExists(jsonPath))
+        // Load scene script — .covscript preferred, .json as fallback.
+        // Must happen in _EnterTree (parent-first) so child thing._Ready() calls
+        // can read _sceneData for interaction definitions.
+        string basePath = !string.IsNullOrEmpty(entryScriptFile)
+            ? $"res://{entryScriptFile.Replace(".json", "").Replace(".covscript", "")}"
+            : SceneFilePath.Replace(".tscn", "");
+        string covPath  = basePath + ".covscript";
+        string jsonPath = basePath + ".json";
+        if (FileAccess.FileExists(covPath))
+            _sceneData = CovScript.Parse(FileAccess.GetFileAsString(covPath));
+        else if (FileAccess.FileExists(jsonPath))
             _sceneData = JsonNode.Parse(FileAccess.GetFileAsString(jsonPath))?.AsObject();
     }
 
@@ -457,8 +473,6 @@ public partial class scene_script : Node2D
         if (IsPaused() || isSceneInputSuspended || HasOpenDialog || (inventoryUI?.Visible ?? false))
             return;
 
-        isMouseLeftButtonClicked = false;
-
         if (@event is InputEventMouseButton mouse)
         {
             isTouch = false;
@@ -467,12 +481,14 @@ public partial class scene_script : Node2D
             {
                 if (mouse.Pressed)
                 {
+                    isMouseLeftButtonClicked = false;
                     if (mouse.DoubleClick)
                         isMouseLeftButtonDoubleClicked = true;
                     else
                     {
                         isMouseLeftButtonDown = true;
-                        mousePosOnPress       = GetLocalMousePosition();
+                        if (verbCoinControl == null)
+                            mousePosOnPress = GetLocalMousePosition();
                     }
                 }
                 else
@@ -502,8 +518,10 @@ public partial class scene_script : Node2D
             isTouch = true;
             if (touch.Pressed)
             {
+                isMouseLeftButtonClicked = false;
                 isMouseLeftButtonDown = true;
-                mousePosOnPress       = ToLocal(touch.Position);
+                if (verbCoinControl == null)
+                    mousePosOnPress = ToLocal(GetViewport().GetCanvasTransform().AffineInverse() * touch.Position);
             }
             else
             {
@@ -563,11 +581,23 @@ public partial class scene_script : Node2D
         verbCoinControl.QueueFree();
         verbCoinControl = null;
 
-        if (mousePosOnPress.X >= 0 && mousePosOnPress.Y >= 0)
+        if (mainScene.GetInteractMode() == Globals.InteractModes.inventory)
+            ToggleInventory();
+        else if (mousePosOnPress.X >= 0 && mousePosOnPress.Y >= 0)
             IterateThingsToInteract(mousePosOnPress, mainScene.GetInteractMode());
 
         mousePosOnPress = new Vector2(-1, -1);
         mainScene.SetInteractMode(ego != null ? Globals.InteractModes.walk : Globals.InteractModes.look);
+    }
+
+    // Called by VerbCoin when the player releases (mouse or touch) to commit the action.
+    // VerbCoin marks the event as handled so _UnhandledInput doesn't double-process it.
+    public void OnVerbCoinRelease()
+    {
+        if (verbCoinControl == null) return;
+        isMouseLeftButtonDown = false;
+        isMouseLeftButtonHeld = false;
+        HideVerbCoin();
     }
 
     // ---------------------------------------------------------------------------
@@ -664,6 +694,21 @@ public partial class scene_script : Node2D
                 foreach (var (name, zone) in _exitZones)
                 {
                     bool inside = InsideZone(pos, zone);
+
+                    // Protect the arrival zone from re-firing while the arrival event sequence
+                    // (walk-out + scripted moves) is still running. Cleared once the queue drains.
+                    if (name == _arrivalZoneName)
+                    {
+                        if (!isSceneInputSuspended && eventQueue.Count() == 0)
+                            _arrivalZoneName = null; // sequence done — fall through to normal logic
+                        else
+                        {
+                            if (inside) _insideExits.Add(name);
+                            else        _insideExits.Remove(name);
+                            continue;
+                        }
+                    }
+
                     if (inside && !_insideExits.Contains(name))
                     {
                         mainScene.ChangeSceneToFile(zone.Dest, zone.Arrival);
@@ -830,6 +875,7 @@ public partial class scene_script : Node2D
                         // frame UV space so the shader can fan lines out from the exact
                         // light position. Uses ToLocal() so scale/rotation are handled.
                         Vector2 lightInSpriteLocal = tsprite.ToLocal(_sceneLight.GlobalPosition);
+                        if (tsprite.Texture == null) continue;
                         Vector2 texSize   = new Vector2(tsprite.Texture.GetWidth(), tsprite.Texture.GetHeight());
                         Vector2 frameSize = texSize / new Vector2(tsprite.Hframes, tsprite.Vframes);
                         Vector2 frameTL   = tsprite.Offset - frameSize / 2f;
@@ -940,6 +986,32 @@ public partial class scene_script : Node2D
         sprite.Offset = new Vector2(xDiff * factor, yDiff * factor);
     }
 
+    // Called by VerbCoin to fire the selected action on whatever is at the press position.
+    // Clears mousePosOnPress so HideVerbCoin doesn't dispatch a second time.
+    public void TriggerInteractAtPressPos()
+    {
+        if (eventQueue != null && eventQueue.Count() > 0)
+        {
+            eventQueue.TryInterrupt();
+            if (eventQueue.isInterrupted)
+                eventQueue = new EventSequence(this);
+        }
+        IterateThingsToInteract(mousePosOnPress, mainScene.GetInteractMode());
+        mousePosOnPress = new Vector2(-1, -1);
+    }
+
+    // Called by VerbCoin during the confirm phase when the user taps to interrupt.
+    // Closes the verbcoin immediately and dispatches a fresh walk/interact at the new position.
+    public void InterruptVerbCoin(Vector2 localPos)
+    {
+        mousePosOnPress       = new Vector2(-1, -1); // skip HideVerbCoin dispatch
+        isMouseLeftButtonDown = false;
+        isMouseLeftButtonHeld = false;
+        HideVerbCoin();
+        mousePosOnPress          = localPos; // set after HideVerbCoin clears it
+        isMouseLeftButtonClicked = true;     // dispatches walk next _Process frame
+    }
+
     // Forwarding shim — kept for backward compatibility with existing callers.
     // New code should call ScriptParser.PopulateEventQueue directly.
     public static void PopulateEventQueue(EventSequence queue, JsonArray actions, scene_script scene, thing self = null)
@@ -956,7 +1028,7 @@ public partial class scene_script : Node2D
         Vector2? tailPos    = null,
         NPC.Direction? egoFacing = null,
         string[] _dialogChoices = null,
-        NPC actor           = null,
+        thing actor         = null,
         bool strict         = false,
         DialogBox.TailStyle? tailStyle = null,
         Globals.NarrationCorner corner = Globals.NarrationCorner.Auto,

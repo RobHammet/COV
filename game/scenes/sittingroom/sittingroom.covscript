@@ -1,0 +1,36 @@
+thing key:
+  on use:
+    ego says "I SHOULD PROBABLY TAKE THIS KEY."
+    obtain self
+    set keyTaken = true
+
+thing drawers:
+  on look:
+    exit to sittingroom_drawer
+
+  on use:
+    exit to sittingroom_drawer
+
+area exit_to_entryway:
+  on move_into:
+    exit to entryway
+      arrive_dir up
+      arrive_area exit_to_sittingroom
+
+area exit_to_kitchen:
+  on move_into:
+    exit to kitchen
+      arrive_dir left
+      arrive_area exit_to_sittingroom
+
+area exit_to_upstairs:
+  on move_into:
+    exit to upstairs
+      arrive_dir left
+      arrive_area exit_to_sittingroom
+
+area exit_to_basement:
+  on move_into:
+    exit to basement
+      arrive_dir left
+      arrive_area exit_to_sittingroom

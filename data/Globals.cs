@@ -9,12 +9,13 @@ public partial class Globals : Node
     // How the player interacts with the world.
     public enum InteractModes
     {
-        walk = 0,
-        look = 1,
-        talk = 2,
-        use  = 3,
-        item = 4,
-        wait = 5,
+        walk      = 0,
+        look      = 1,
+        talk      = 2,
+        use       = 3,
+        item      = 4,
+        wait      = 5,
+        inventory = 6,
     }
 
     // Input scheme: verb tray (desktop) or verb coin (touch / mobile).

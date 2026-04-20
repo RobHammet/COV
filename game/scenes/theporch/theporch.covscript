@@ -1,0 +1,23 @@
+area exit_to_entryway:
+  on move_into:
+    exit to entryway
+      arrive_dir down
+      arrive_area exit_to_theporch
+
+area exit_to_housefront:
+  on move_into:
+    exit to housefront
+      arrive_dir down
+      arrive_area exit_to_theporch
+
+thing door:
+  on use:
+    if not porchDoorOpen:
+      ego -> door strict
+      ego faces up
+      ego says "MAYBE NO ONE WOULD MIND IF \n I JUST GO IN..." strict
+      door animates open
+      set porchDoorOpen = true
+      remap_floor openDoorFloor
+    else:
+      ego says "IT'S ALREADY OPEN." strict

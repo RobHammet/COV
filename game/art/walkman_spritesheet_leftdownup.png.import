@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://l7oltibc5wtp"
 path.s3tc="res://.godot/imported/walkman_spritesheet_leftdownup.png-35a8bc5989f402fc79745012ccc4cefe.s3tc.ctex"
+path.etc2="res://.godot/imported/walkman_spritesheet_leftdownup.png-35a8bc5989f402fc79745012ccc4cefe.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://game/art/walkman_spritesheet_leftdownup.png"
-dest_files=["res://.godot/imported/walkman_spritesheet_leftdownup.png-35a8bc5989f402fc79745012ccc4cefe.s3tc.ctex"]
+dest_files=["res://.godot/imported/walkman_spritesheet_leftdownup.png-35a8bc5989f402fc79745012ccc4cefe.s3tc.ctex", "res://.godot/imported/walkman_spritesheet_leftdownup.png-35a8bc5989f402fc79745012ccc4cefe.etc2.ctex"]
 
 [params]
 
