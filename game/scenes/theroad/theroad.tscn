@@ -2,46 +2,22 @@
 
 [ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="2"]
 [ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="2_n0ltr"]
-[ext_resource type="Texture2D" uid="uid://c1xg7g2xu8up2" path="res://game/scenes/theroad/hwy86prettycolors.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://cswnhb7ep62al" path="res://game/scenes/theroad/theroad_bg.png" id="4_qsq5u"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="6"]
+[ext_resource type="Material" uid="uid://vatugls1iglu" path="res://shaders/materials/light_and_shadows.tres" id="6_dq2ep"]
 [ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7"]
 [ext_resource type="Texture2D" uid="uid://dcygbwi0aw4ja" path="res://game/scenes/theroad/candle_sprite-Sheet.png" id="8"]
+[ext_resource type="Script" uid="uid://bm38qqc3nw3xg" path="res://framework/NPC.cs" id="10_3xnww"]
 [ext_resource type="PackedScene" uid="uid://c8x66k7i72djq" path="res://game/NPC/farmer.tscn" id="10_gjxlk"]
+[ext_resource type="Texture2D" uid="uid://uubvo4xjhjaf" path="res://game/art/crow-Sheet.png" id="11_qsq5u"]
+[ext_resource type="Texture2D" uid="uid://cmos4ujtbps1a" path="res://game/scenes/theroad/theroad_fence.png" id="13_qsq5u"]
+[ext_resource type="Texture2D" uid="uid://b4wifyy25528i" path="res://game/scenes/theroad/theroad_fg.png" id="13_shv7v"]
+[ext_resource type="Texture2D" uid="uid://snrxlggvn6so" path="res://game/scenes/theroad/theroad_fence_front.png" id="14_shv7v"]
+[ext_resource type="Script" uid="uid://djlnl3nloie3m" path="res://framework/DarkmapZone.cs" id="15_jofrn"]
 [ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_n0ltr"]
-shader = ExtResource("2_n0ltr")
-shader_parameter/sprite_texture = ExtResource("4")
-shader_parameter/enable_shadows = true
-shader_parameter/enable_halftone = true
-shader_parameter/dark_threshold = 0.15
-shader_parameter/hatch_threshold = 0.35
-shader_parameter/hatch_spacing = 1.0
-shader_parameter/hatch_thickness = 1.8
-shader_parameter/hatch_roughness = 0.05
-shader_parameter/hatch_taper = 0.5
-shader_parameter/light_pos_uv = Vector2(0.5, -2)
-shader_parameter/hframes = 1
-shader_parameter/vframes = 1
-shader_parameter/light_strength = 0.0
-shader_parameter/light_direction = Vector3(0, 0, 0)
-shader_parameter/is_flipped = false
-shader_parameter/overall_dark = 1.0
-shader_parameter/maintain_light = 0.0
-shader_parameter/angle_c = 0.3
-shader_parameter/angle_m = 1.3
-shader_parameter/angle_y = 1.6
-shader_parameter/angle_k = 0.8
-shader_parameter/halftone_dot_px = 3.5
-shader_parameter/halftone_blend = 0.2
-shader_parameter/halftone_luma_min = 0.08
-shader_parameter/halftone_luma_max = 0.9
-shader_parameter/dot_hardness = 0.1
-shader_parameter/dot_gain = -0.02
-shader_parameter/black_crush = 0.0
-
 [sub_resource type="RectangleShape2D" id="2"]
-size = Vector2(105, 58)
+size = Vector2(24.75, 21.5)
 
 [sub_resource type="Animation" id="3"]
 length = 0.001
@@ -82,28 +58,101 @@ _data = {
 }
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_nayev"]
-vertices = PackedVector2Array(632, 345, 402, 338, 491, 336, 936, 351, 814, 352, 924, 352, 966, 361, 966, 360, 1097, 421, 929, 366, 936, 352, 302, 624, 262, 450, 815, 464, 1139, 635, 870, 406)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 0, 3, 5), PackedInt32Array(6, 7, 8), PackedInt32Array(9, 5, 3, 10), PackedInt32Array(11, 12, 13, 14), PackedInt32Array(6, 8, 14, 13, 15, 9), PackedInt32Array(9, 10, 6)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(329, 346, 329, 330, 491, 326, 939, 342, 969, 351, 1107, 415, 1152, 646, 294, 634, 250, 440, 811, 454, 864, 398, 917, 362, 814, 362, 632, 355)])
+vertices = PackedVector2Array(725.4375, 275.03906, 454.4297, 270.70313, 458.15625, 269, 729.6875, 269.9922, 280.6172, 450.03125, 344.5, 427.4297, 429.6328, 448.71094, 356.57813, 491, 304.0078, 512.90625, 1044.4531, 418.75, 1184.5938, 941.60156, 93.38281, 832.4219, 459.27344, 609.97656, 541.75, 571.40625, 768.02344, 296.32813, 826.03906, 295.28906, 69.9375, 627.1094, -417.92188, 621.1094, -435.95313, 436.21094, 297.59375, 552.71875, 308.8672, 574.0078, 345.89844, 611.03906, 715.5703, 368.60156, 909.03125, 345.6797, 566.4297, 511.7578)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 5, 6, 7, 8), PackedInt32Array(9, 10, 11, 12, 13), PackedInt32Array(14, 0, 3, 15), PackedInt32Array(16, 17, 18, 4, 8, 19), PackedInt32Array(16, 19, 20, 11), PackedInt32Array(11, 20, 21), PackedInt32Array(22, 14, 15, 23), PackedInt32Array(11, 21, 12), PackedInt32Array(22, 23, 9, 13, 24)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(410, 280, 456, 259, 731, 260, 830, 286, 914, 337, 1053, 412, 1198, 953, 84.35596, 841.56726, 61, 637, -427, 631, -447, 426, 279, 440, 344, 417, 456, 445, 361, 500, 313, 520, 308, 551, 317, 568, 350, 601, 457, 600, 534, 564, 558, 506, 708, 362, 753, 300, 723, 285)])
 source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3bukr"]
-size = Vector2(1553, 739)
+size = Vector2(1434, 1056)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3183a"]
 size = Vector2(99, 20)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dq2ep"]
+shader = ExtResource("2_n0ltr")
+shader_parameter/sprite_texture = ExtResource("11_qsq5u")
+shader_parameter/enable_shadows = true
+shader_parameter/shadow_threshold = 0.35
+shader_parameter/hatch_thickness = 2.0
+shader_parameter/hatch_spacing = 1.0
+shader_parameter/hatch_taper = 1.5
+shader_parameter/hatch_roughness = 0.06
+shader_parameter/hatch_min_ratio = 0.3
+shader_parameter/hatch_noise_strength = 0.4
+shader_parameter/light_pos_uv = Vector2(0.5, -2)
+shader_parameter/hframes = 4
+shader_parameter/vframes = 1
+shader_parameter/light_strength = 1.0
+shader_parameter/light_direction = Vector3(0, 0, 0)
+shader_parameter/is_flipped = false
+shader_parameter/overall_dark = 1.0
+shader_parameter/maintain_light = 0.0
+
+[sub_resource type="Animation" id="Animation_shv7v"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [1]
+}
+
+[sub_resource type="Animation" id="Animation_l6f63"]
+resource_name = "fly"
+length = 0.4
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.12, 0.24),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [1, 2, 3]
+}
+
+[sub_resource type="Animation" id="Animation_jofrn"]
+resource_name = "stand"
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_ooikc"]
+_data = {
+&"RESET": SubResource("Animation_shv7v"),
+&"fly": SubResource("Animation_l6f63"),
+&"stand": SubResource("Animation_jofrn")
+}
 
 [node name="theroad" type="Node2D" unique_id=1613044435 node_paths=PackedStringArray("parallaxSprites")]
 y_sort_enabled = true
 script = ExtResource("2")
 displayName = "theroad"
-parallaxSprites = []
+parallaxSprites = [NodePath("fg")]
 
 [node name="background" type="Sprite2D" parent="." unique_id=260995694]
-material = SubResource("ShaderMaterial_n0ltr")
+z_as_relative = false
 position = Vector2(-1, 0)
-scale = Vector2(1.80312, 1.35208)
-texture = ExtResource("4")
+texture = ExtResource("4_qsq5u")
 offset = Vector2(320, 240)
 
 [node name="PointLight2D" type="PointLight2D" parent="." unique_id=249449249]
@@ -126,9 +175,12 @@ polygon = PackedVector2Array(679, 4, 695, 6, 679, 336, 659, 327)
 [node name="InteractPoint" type="Node2D" parent="pole" unique_id=1550536379]
 position = Vector2(838, 466)
 
+[node name="Sprite2D" type="Sprite2D" parent="pole" unique_id=328210016]
+material = ExtResource("6_dq2ep")
+
 [node name="exit_to_housefront" type="CollisionShape2D" parent="." unique_id=319799139]
 z_index = 1
-position = Vector2(812, 338)
+position = Vector2(747.375, 283.75)
 shape = SubResource("2")
 
 [node name="Candle" type="Node2D" parent="." unique_id=1637498701]
@@ -162,7 +214,7 @@ position = Vector2(-36, 2)
 navigation_polygon = SubResource("NavigationPolygon_nayev")
 
 [node name="ScalerStick" type="Line2D" parent="." unique_id=1677862880]
-points = PackedVector2Array(903, 366, 592, 513, 256, 658)
+points = PackedVector2Array(718, 307, 533, 450, 218, 639)
 default_color = Color(1, 1, 1, 0)
 script = ExtResource("ScalerStick_cs")
 
@@ -178,22 +230,102 @@ polygon = PackedVector2Array(401, 300, 403, 336, 332, 329, 336, 296)
 [node name="InteractPoint" type="Node2D" parent="house" unique_id=1984360920]
 position = Vector2(387, 460)
 
+[node name="Sprite2D" type="Sprite2D" parent="house" unique_id=2015836459]
+material = ExtResource("6_dq2ep")
+
 [node name="Camera2D" type="Camera2D" parent="." unique_id=73297095]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=213966145]
-position = Vector2(645.5, 360.5)
+position = Vector2(317, 248)
 shape = SubResource("RectangleShape2D_3bukr")
 
 [node name="towards_house" type="CollisionShape2D" parent="." unique_id=120527646]
-position = Vector2(838.5, 385)
+position = Vector2(1023, 295)
 shape = SubResource("RectangleShape2D_3183a")
 
 [node name="start_point" type="Node2D" parent="." unique_id=332711221]
-position = Vector2(1000, 447)
+position = Vector2(777, 511)
 
 [node name="farmer" parent="." unique_id=682049652 instance=ExtResource("10_gjxlk")]
-position = Vector2(633, 513)
+position = Vector2(101, 466)
 castsShadow = true
+
+[node name="crow_spot" type="Node2D" parent="." unique_id=1454945297]
+position = Vector2(13, 378)
+
+[node name="crow" type="Node2D" parent="." unique_id=1241300825]
+z_index = 3
+z_as_relative = false
+position = Vector2(-532, 191)
+script = ExtResource("10_3xnww")
+Facing = 4
+speed = 120.0
+displayName = "crow"
+dialogColor = Color(1, 0.44585896, 0.35585743, 1)
+isScaleFrozen = true
+metadata/_custom_type_script = "uid://bm38qqc3nw3xg"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="crow" unique_id=311133172]
+polygon = PackedVector2Array(-22, -46, -7, -72, 22, -80, 33, -46, 21, -27, 8, -15, -26, -27)
+
+[node name="InteractPoint" type="Node2D" parent="crow" unique_id=1219295536]
+position = Vector2(49, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="crow" unique_id=1080978092]
+material = SubResource("ShaderMaterial_dq2ep")
+position = Vector2(7, -48)
+scale = Vector2(0.32, 0.32)
+texture = ExtResource("11_qsq5u")
+hframes = 4
+frame = 1
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="crow/Sprite2D" unique_id=737691163]
+libraries/ = SubResource("AnimationLibrary_ooikc")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="crow" unique_id=708161295]
+
+[node name="TopPoint" type="Node2D" parent="crow" unique_id=977447561]
+position = Vector2(-70, -71)
+
+[node name="fg" type="Sprite2D" parent="." unique_id=1497098085]
+z_index = 3
+z_as_relative = false
+position = Vector2(318, 241)
+texture = ExtResource("13_shv7v")
+
+[node name="fence" type="Node2D" parent="." unique_id=60246665]
+z_as_relative = false
+position = Vector2(366, 562)
+script = ExtResource("7")
+displayName = "fence"
+metadata/_custom_type_script = "uid://bn8qaeykfdn4m"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="fence" unique_id=1857905456]
+z_index = 1
+z_as_relative = false
+polygon = PackedVector2Array(0, -215, 310, -267, 312, -234, -18, -9)
+
+[node name="InteractPoint" type="Node2D" parent="fence" unique_id=2037921800]
+position = Vector2(32, -105)
+
+[node name="Sprite2D2" type="Sprite2D" parent="fence" unique_id=1037498424]
+z_index = 1
+z_as_relative = false
+position = Vector2(138, -165.5)
+texture = ExtResource("14_shv7v")
+
+[node name="Sprite2D" type="Sprite2D" parent="fence" unique_id=1737216561]
+z_as_relative = false
+position = Vector2(138, -165.5)
+texture = ExtResource("13_qsq5u")
+
+[node name="fence_shadow" type="Polygon2D" parent="." unique_id=660238320]
+z_as_relative = false
+color = Color(0, 0, 0, 0.55)
+polygon = PackedVector2Array(578, 461, 630, 410, 578, 405, 586, 400, 638, 401, 651, 385, 612, 379, 619, 375, 654, 378, 660, 366, 634, 361, 662, 361, 670, 352, 652, 348, 672, 347, 677, 341, 663, 336, 678, 337, 683, 331, 673, 329, 706, 331, 690, 332, 690, 338, 708, 340, 708, 343, 690, 343, 688, 348, 708, 350, 704, 353, 687, 353, 682, 364, 704, 365, 704, 369, 678, 369, 676, 378, 709, 381, 711, 388, 675, 385, 656, 403, 722, 407, 712, 418, 652, 415, 609, 467, 690, 475, 689, 496, 589, 486, 538, 551, 632, 547, 594, 579, 373, 559, 375, 545, 499, 548, 571, 478, 493, 460, 504, 451)
+script = ExtResource("15_jofrn")
+Darkness = 1.0
+Falloff = 31.85

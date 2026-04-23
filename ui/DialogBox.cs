@@ -156,11 +156,11 @@ public partial class DialogBox : Control
                 CloseThisDialog(dialogChoices.currentChoice);
             return;
         }
-        if (dbText.VisibleCharacters >= GetPhrase().Length) {
+        if (isStrict) return;
+        if (dbText.VisibleCharacters >= GetPhrase().Length)
             CloseThisDialog();
-        } else if (!isStrict) {
+        else
             dbText.VisibleCharacters = GetPhrase().Length;
-        }
     }
 
     public override void _Input(InputEvent @event) {
@@ -220,7 +220,7 @@ public partial class DialogBox : Control
                 if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(ShadowOffset, ShadowColor);
             }
             DrawCloudShape(Vector2.Zero, dialogColor, 2.5f);
-            if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(Vector2.Zero, Colors.White);
+            if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(Vector2.Zero, dialogColor);
         }
     }
 
@@ -604,18 +604,15 @@ public partial class DialogBox : Control
         if (_tailFillPolygon == null) return;
         // Wavy: draw as explicit triangle strip to avoid ear-clip failure when animated curves align.
         if (SpeechTailStyle == TailStyle.Wavy && _tailLeftCurve != null && _tailRightRaw != null) {
-            var w3 = new[] { Colors.White, Colors.White, Colors.White };
+            var c3 = new[] { dialogColor, dialogColor, dialogColor };
             int n = _tailLeftCurve.Length;
             for (int i = 0; i < n - 1; i++) {
-                DrawPrimitive(new[] { _tailLeftCurve[i],     _tailLeftCurve[i + 1], _tailRightRaw[i + 1] }, w3, null);
-                DrawPrimitive(new[] { _tailLeftCurve[i],     _tailRightRaw[i + 1],  _tailRightRaw[i]     }, w3, null);
+                DrawPrimitive(new[] { _tailLeftCurve[i],     _tailLeftCurve[i + 1], _tailRightRaw[i + 1] }, c3, null);
+                DrawPrimitive(new[] { _tailLeftCurve[i],     _tailRightRaw[i + 1],  _tailRightRaw[i]     }, c3, null);
             }
         } else {
-            DrawPolygon(_tailFillPolygon, new[] { Colors.White });
+            DrawPolygon(_tailFillPolygon, new[] { dialogColor });
         }
-        // Cover the tail-bubble junction with white so the bubble's animated contour
-        // never shows through where the tail base meets the bubble edge.
-        // Extend inward far enough to cover the full animation range + outline width.
         float   inset = SpeechAnimAmp + TailLineWidth + 3f;
         Vector2 inDir = (dialogType == Globals.DialogTypes.exclaim)
             ? (_tailIsBelow ? new Vector2(0f, inset) : new Vector2(0f, -inset))
@@ -626,7 +623,7 @@ public partial class DialogBox : Control
                 _                   => new Vector2(0f,   -inset),
             };
         DrawPolygon(new Vector2[] { _tailBaseL, _tailBaseR, _tailBaseR + inDir, _tailBaseL + inDir },
-                    new[] { Colors.White });
+                    new[] { dialogColor });
         DrawTailOutline(_tailLeftCurve,  tipAtEnd: true);
         DrawTailOutline(_tailRightCurve, tipAtEnd: false);
     }
@@ -780,40 +777,39 @@ public partial class DialogBox : Control
         else              this.EmitSignal("DialogClosed", choice);
     }
 
+    // Converts a screen-pixel position from CelBorderInnerRect into world space,
+    // accounting for camera position, zoom, and offset.
+    private Vector2 ScreenToWorld(Vector2 screenPt, Camera2D cam2d)
+    {
+        Vector2 vpHalf = GetViewport().GetVisibleRect().Size / 2f;
+        return cam2d.Position + cam2d.Offset + (screenPt - vpHalf) / cam2d.Zoom;
+    }
+
     private Vector2 GetSpotForNarrationCorner(Rect2 rect) {
-        var camera = GetViewport().GetCamera2D();
-        Vector2 cam = new Vector2(
-            camera.Position.X - GetViewport().GetVisibleRect().End.X / 2f,
-            camera.Position.Y - GetViewport().GetVisibleRect().End.Y / 2f);
-        // Camera2D.Offset shifts the view without moving the node; add it so the
-        // inner-rect viewport coords convert correctly to world space.
-        // (CelBorder applies -BorderWidth offset, which cancels inner.Position here.)
-        Vector2 off  = camera.Offset;
-        Rect2 inner  = parentScene.mainScene.CelBorderInnerRect;
-        const float spikeW = 6f;    // narration corner spikes extend this far horizontally
-        const float gap    = 10f;   // interior gap between bubble edge and cel border
-        float minX = inner.Position.X + cam.X + off.X + spikeW + gap;
-        float minY = inner.Position.Y + cam.Y + off.Y           + gap;
-        float maxX = inner.End.X    + cam.X + off.X - rect.Size.X - spikeW - gap;
-        float maxY = inner.End.Y    + cam.Y + off.Y - rect.Size.Y           - gap;
+        var cam2d  = GetViewport().GetCamera2D();
+        Rect2 inner = parentScene.mainScene.CelBorderInnerRect;
+        const float spikeW = 6f;
+        const float gap    = 10f;
+        Vector2 tl = ScreenToWorld(inner.Position, cam2d) + new Vector2(spikeW + gap, gap);
+        Vector2 br = ScreenToWorld(inner.End,      cam2d) - rect.Size - new Vector2(spikeW + gap, gap);
         return narrationCorner switch {
-            Globals.NarrationCorner.TopLeft     => new Vector2(minX, minY),
-            Globals.NarrationCorner.TopRight    => new Vector2(maxX, minY),
-            Globals.NarrationCorner.BottomLeft  => new Vector2(minX, maxY),
-            Globals.NarrationCorner.BottomRight => new Vector2(maxX, maxY),
+            Globals.NarrationCorner.TopLeft     => new Vector2(tl.X, tl.Y),
+            Globals.NarrationCorner.TopRight    => new Vector2(br.X, tl.Y),
+            Globals.NarrationCorner.BottomLeft  => new Vector2(tl.X, br.Y),
+            Globals.NarrationCorner.BottomRight => new Vector2(br.X, br.Y),
             _                                   => GetSpotForDialog(rect),
         };
     }
 
     public Vector2 GetSpotForDialog(Rect2 rect) {
-        Vector2 cam = new Vector2(GetViewport().GetCamera2D().Position.X - GetViewport().GetVisibleRect().End.X / 2,
-                                  GetViewport().GetCamera2D().Position.Y - GetViewport().GetVisibleRect().End.Y / 2);
-
+        var cam2d  = GetViewport().GetCamera2D();
         Rect2 inner = parentScene.mainScene.CelBorderInnerRect;
-        float minX = inner.Position.X + cam.X;
-        float minY = inner.Position.Y + cam.Y;
-        float maxX = inner.End.X      + cam.X - rect.Size.X - marginSize * 2;
-        float maxY = inner.End.Y      + cam.Y - rect.Size.Y - marginSize * 2;
+        Vector2 worldTL = ScreenToWorld(inner.Position, cam2d);
+        Vector2 worldBR = ScreenToWorld(inner.End,      cam2d);
+        float minX = worldTL.X;
+        float minY = worldTL.Y;
+        float maxX = worldBR.X - rect.Size.X - marginSize * 2;
+        float maxY = worldBR.Y - rect.Size.Y - marginSize * 2;
 
         float clearance = trackActor != null
             ? trackActor.Position.DistanceTo(trackActor.topPoint) * 0.5f
@@ -822,29 +818,55 @@ public partial class DialogBox : Control
         float xCentered = Mathf.Clamp(tailPos.X - rect.Size.X / 2f + offsetForFacing, minX, maxX);
         float yMid      = Mathf.Clamp(tailPos.Y - rect.Size.Y / 2f, minY, maxY);
 
-        // 1. Prefer above.
-        // For thought/choice bubbles, clamp to the boundary rather than rejecting outright —
-        // they should stay above the actor even when the actor is near the top of the frame.
-        float yAbove = tailPos.Y - clearance - rect.Size.Y;
         bool  isThought = dialogType == Globals.DialogTypes.thinking
                        || dialogType == Globals.DialogTypes.choice;
+        float yAbove = tailPos.Y - clearance - rect.Size.Y;
         if (isThought) yAbove = Mathf.Max(yAbove, minY);
-        if (yAbove >= minY && yAbove + rect.Size.Y <= tailPos.Y)
-        { _placement = PlacementSide.Above; return new Vector2(xCentered, yAbove); }
 
-        // 2. Left of actor
-        float xLeft = tailPos.X - rect.Size.X - sideGap;
-        if (xLeft >= minX)
-        { _placement = PlacementSide.Left; return new Vector2(xLeft, yMid); }
+        // Collect other NPC head positions to avoid covering them.
+        var otherHeads = new System.Collections.Generic.List<Vector2>();
+        foreach (var node in parentScene.FindChildren("*", "NPC", true, false))
+        {
+            if (node is NPC npc && npc != trackActor)
+                otherHeads.Add(npc.topPoint);
+        }
 
-        // 3. Right of actor
-        float xRight = tailPos.X + sideGap;
-        if (xRight <= maxX)
-        { _placement = PlacementSide.Right; return new Vector2(xRight, yMid); }
+        bool OverlapsNPC(Vector2 pos) {
+            var candidate = new Rect2(pos, rect.Size);
+            foreach (var head in otherHeads)
+                if (candidate.HasPoint(head)) return true;
+            return false;
+        }
 
-        // 4. Below (last resort)
+        // Tail would cross the actor's head if the box is placed on the same side they face.
+        NPC.Direction? actorFacing = (trackActor as NPC)?.Facing;
+        bool canLeft  = actorFacing != NPC.Direction.right;
+        bool canRight = actorFacing != NPC.Direction.left;
+
+        // Build candidates in preference order; pick first in-bounds one, preferring NPC-free.
+        (PlacementSide side, Vector2 pos, bool valid)[] candidates = {
+            (PlacementSide.Above, new Vector2(xCentered, yAbove),
+                yAbove >= minY && yAbove + rect.Size.Y <= tailPos.Y),
+            (PlacementSide.Left,  new Vector2(tailPos.X - rect.Size.X - sideGap, yMid),
+                canLeft  && tailPos.X - rect.Size.X - sideGap >= minX),
+            (PlacementSide.Right, new Vector2(tailPos.X + sideGap, yMid),
+                canRight && tailPos.X + sideGap <= maxX),
+            (PlacementSide.Below, new Vector2(xCentered, Mathf.Clamp(tailPos.Y + sideGap, minY, maxY)),
+                true),
+        };
+
+        // First pass: valid + no NPC overlap.
+        foreach (var (side, pos, valid) in candidates)
+            if (valid && !OverlapsNPC(pos))
+            { _placement = side; return pos; }
+
+        // Second pass: valid regardless of NPC overlap.
+        foreach (var (side, pos, valid) in candidates)
+            if (valid)
+            { _placement = side; return pos; }
+
         _placement = PlacementSide.Below;
-        return new Vector2(xCentered, Mathf.Clamp(tailPos.Y + sideGap, minY, maxY));
+        return candidates[3].pos;
     }
 
     // ── Tail / thought-trail geometry ─────────────────────────────────────────────
@@ -1313,13 +1335,6 @@ public partial class DialogBox : Control
             _tailIsBelow = dir.Y > 0f;
 
         } else if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice) {
-            // Lift the trail origin above topPoint so dots visually emanate from above the head.
-            // Placement is already decided; this only affects the dot trail geometry.
-            if (trackActor != null)
-            {
-                float headHeight = trackActor.Position.DistanceTo(trackActor.topPoint);
-                tailPos -= new Vector2(0f, headHeight * 0.6f);
-            }
             ComputeCloudBubble();
             // Anchor on whichever cloud face is nearest to the character, matching speech bubble logic.
             float ccx = _cloudInnerRect.GetCenter().X;

@@ -27,3 +27,8 @@ area towards_house:
     if talkedAboutHouse is false:
       ego thinks "I DON'T KNOW WHERE I'M GOING."
       ego -> start_point strict
+
+sequence farmer_exit:
+  farmer says "DON'T BE A STRANGER." for 3.0 strict
+  farmer -> exit_to_housefront
+  remove farmer

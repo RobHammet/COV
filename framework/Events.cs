@@ -180,28 +180,54 @@ public class ConversationStep : IEventStep
                 }
 
                 case "speak": {
-                    var a = ScriptParser.ResolveActorAnchor(obj["actor"].GetValue<string>(), _scene);
+                    string speakActorName = obj["actor"].GetValue<string>();
+                    var a = ScriptParser.ResolveActorAnchor(speakActorName, _scene);
                     if (a == null) break;
-                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    thing speakActor = ScriptParser.ResolveThing(speakActorName, _scene);
+                    bool   strict   = obj["strict"]?.GetValue<bool>()  ?? false;
+                    float? forSecs  = obj.ContainsKey("for") ? obj["for"].GetValue<float>() : null;
                     (Globals.DialogTypes type, DialogBox.TailStyle? tail) = ScriptParser.ParseSpeakStyle(obj["style"]?.GetValue<string>());
                     Color color = ScriptParser.ParseColor(obj["color"]?.GetValue<string>()) ?? a.Value.color;
                     DialogBox db = _scene.CreateDialog(
                         type, obj["text"].GetValue<string>(),
                         color, null, a.Value.tail, a.Value.facing,
-                        strict: strict, tailStyle: tail);
-                    await _scene.ToSignal(db, "DialogClosed");
+                        strict: strict, tailStyle: tail, actor: speakActor);
+                    if (forSecs.HasValue)
+                    {
+                        if (strict) _scene.mainScene.SetInteractMode(Globals.InteractModes.wait);
+                        _scene.GetTree().CreateTimer(forSecs.Value, true).Connect("timeout",
+                            Callable.From(() => {
+                                if (GodotObject.IsInstanceValid(db)) db.CloseThisDialog();
+                                if (strict) _scene.mainScene.SetInteractMode(Globals.InteractModes.walk);
+                            }));
+                    }
+                    else
+                        await _scene.ToSignal(db, "DialogClosed");
                     break;
                 }
 
                 case "think": {
-                    var a = ScriptParser.ResolveActorAnchor(obj["actor"].GetValue<string>(), _scene);
+                    string thinkActorName = obj["actor"].GetValue<string>();
+                    var a = ScriptParser.ResolveActorAnchor(thinkActorName, _scene);
                     if (a == null) break;
-                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    thing thinkActor = ScriptParser.ResolveThing(thinkActorName, _scene);
+                    bool   strict  = obj["strict"]?.GetValue<bool>()  ?? false;
+                    float? forSecs = obj.ContainsKey("for") ? obj["for"].GetValue<float>() : null;
                     Color color = ScriptParser.ParseColor(obj["color"]?.GetValue<string>()) ?? a.Value.color;
                     DialogBox db = _scene.CreateDialog(
                         Globals.DialogTypes.thinking, obj["text"].GetValue<string>(),
-                        color, null, a.Value.tail, a.Value.facing, strict: strict);
-                    await _scene.ToSignal(db, "DialogClosed");
+                        color, null, a.Value.tail, a.Value.facing, strict: strict, actor: thinkActor);
+                    if (forSecs.HasValue)
+                    {
+                        if (strict) _scene.mainScene.SetInteractMode(Globals.InteractModes.wait);
+                        _scene.GetTree().CreateTimer(forSecs.Value, true).Connect("timeout",
+                            Callable.From(() => {
+                                if (GodotObject.IsInstanceValid(db)) db.CloseThisDialog();
+                                if (strict) _scene.mainScene.SetInteractMode(Globals.InteractModes.walk);
+                            }));
+                    }
+                    else
+                        await _scene.ToSignal(db, "DialogClosed");
                     break;
                 }
 
@@ -238,21 +264,24 @@ public class ConversationStep : IEventStep
                     break;
                 }
 
+                case "play_animation": {
+                    thing actor = ScriptParser.ResolveThing(obj["actor"].GetValue<string>(), _scene);
+                    actor?.animationPlayer?.Play(obj["animation"].GetValue<string>());
+                    break;
+                }
+
                 case "move": {
                     NPC actor = ScriptParser.ResolveNPC(obj["actor"].GetValue<string>(), _scene);
                     if (actor == null) break;
-                    Vector2 dest;
-                    if (obj.ContainsKey("target"))
-                    {
-                        thing target = ScriptParser.ResolveThing(obj["target"].GetValue<string>(), _scene);
-                        dest = target?.interactPoint ?? actor.Position;
-                    }
-                    else
-                    {
-                        var to = obj["to"].AsArray();
-                        dest = new Vector2(to[0].GetValue<float>(), to[1].GetValue<float>());
-                    }
-                    actor.GoToLocation(dest);
+                    actor.GoToLocation(ScriptParser.ResolveMoveDest(obj, _scene, actor));
+                    await _scene.ToSignal(actor, "DestinationReached");
+                    break;
+                }
+
+                case "fly": {
+                    NPC actor = ScriptParser.ResolveNPC(obj["actor"].GetValue<string>(), _scene);
+                    if (actor == null) break;
+                    actor.FlyToLocation(ScriptParser.ResolveMoveDest(obj, _scene, actor));
                     await _scene.ToSignal(actor, "DestinationReached");
                     break;
                 }
@@ -298,6 +327,108 @@ public class ConversationStep : IEventStep
                     {
                         string result = await RunDialogArray(allNodes, branch);
                         if (result != null) return result;
+                    }
+                    break;
+                }
+
+                case "add_to_inventory": {
+                    string targetName = obj["target"]?.GetValue<string>();
+                    thing  target     = targetName != null ? ScriptParser.ResolveThing(targetName, _scene) : null;
+                    target?.AddToInventory();
+                    break;
+                }
+
+                case "remap_floor": {
+                    ScriptParser.ExecuteRemapFloor(
+                        obj["nav_region"]?.GetValue<string>() ?? "NavigationRegion2D",
+                        obj["polygon"].GetValue<string>(),
+                        _scene);
+                    break;
+                }
+
+                case "exit": {
+                    string dest = Scenes.Resolve(obj["destination"]?.GetValue<string>() ?? "");
+                    if (string.IsNullOrEmpty(dest)) break;
+                    string arriveDir   = obj["arrive_dir"]?.GetValue<string>()   ?? "";
+                    string arriveArea  = obj["arrive_area"]?.GetValue<string>()  ?? "";
+                    string arriveThing = obj["arrive_thing"]?.GetValue<string>() ?? "";
+                    bool   noWalk      = obj["no_walk"]?.GetValue<bool>() ?? false;
+                    var arrival = new scene_script.ArrivalData(
+                        System.IO.Path.GetFileNameWithoutExtension(_scene.SceneFilePath),
+                        arriveDir, arriveArea, !noWalk, arriveThing);
+                    _scene.mainScene.ChangeSceneToFile(dest, arrival);
+                    break;
+                }
+
+                case "run_sequence": {
+                    string seqName = obj["name"]?.GetValue<string>() ?? "";
+                    var    seq     = _scene.GetNamedSequence(seqName);
+                    if (seq != null)
+                    {
+                        string result = await RunDialogArray(allNodes, seq);
+                        if (result != null) return result;
+                    }
+                    break;
+                }
+
+                case "finish_and_run": {
+                    string seqName = obj["name"]?.GetValue<string>() ?? "";
+                    var    seq     = _scene.GetNamedSequence(seqName);
+                    if (seq != null)
+                        ScriptParser.PopulateEventQueue(_scene.eventQueue, seq, _scene);
+                    return null;
+                }
+
+                case "camera_pan": {
+                    if (_scene.camera == null) break;
+                    var camTarget = ScriptParser.ResolveCameraTarget(obj, _scene);
+                    if (!camTarget.HasValue) break;
+                    float duration = obj["duration"]?.GetValue<float>() ?? 0.5f;
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    _scene.hasCameraControl = false;
+                    var tween = _scene.CreateTween();
+                    tween.TweenProperty(_scene.camera, "global_position", _scene.ClampCameraPos(camTarget.Value), duration)
+                         .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                    if (strict) await _scene.ToSignal(tween, "finished");
+                    break;
+                }
+
+                case "camera_zoom": {
+                    if (_scene.camera == null) break;
+                    float zoom     = obj["zoom"]?.GetValue<float>() ?? 1f;
+                    float duration = obj["duration"]?.GetValue<float>() ?? 0.5f;
+                    bool strict    = obj["strict"]?.GetValue<bool>() ?? false;
+                    _scene.hasCameraControl = false;
+                    var zoomVec   = new Vector2(zoom, zoom);
+                    var tween     = _scene.CreateTween();
+                    var camTarget = ScriptParser.ResolveCameraTarget(obj, _scene);
+                    if (camTarget.HasValue)
+                    {
+                        tween.TweenProperty(_scene.camera, "global_position", _scene.ClampCameraPos(camTarget.Value, zoomVec), duration)
+                             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                        tween.Parallel().TweenProperty(_scene.camera, "zoom", zoomVec, duration)
+                             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                    }
+                    else
+                    {
+                        tween.TweenProperty(_scene.camera, "zoom", zoomVec, duration)
+                             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                    }
+                    if (strict) await _scene.ToSignal(tween, "finished");
+                    break;
+                }
+
+                case "return_camera": {
+                    if (_scene.camera == null) break;
+                    float duration = obj["duration"]?.GetValue<float>() ?? 0.5f;
+                    bool strict    = obj["strict"]?.GetValue<bool>() ?? false;
+                    _scene.hasCameraControl = true;
+                    if (_scene.camera.Zoom != _scene.cameraOriginalZoom)
+                    {
+                        var tween = _scene.CreateTween();
+                        tween.TweenProperty(_scene.camera, "zoom", _scene.cameraOriginalZoom, duration)
+                             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                        if (strict) await _scene.ToSignal(tween, "finished");
                     }
                     break;
                 }
@@ -420,6 +551,13 @@ public class EventSequence
             _interruptable,
             debugName: "move"));
 
+    public void AddEventFly(NPC actor, Vector2 dest, bool _interruptable = false) =>
+        _steps.Add(new SignalStep(
+            () => { actor.FlyToLocation(dest); return actor; },
+            "DestinationReached",
+            _interruptable,
+            debugName: "fly"));
+
     public void AddEventChangeFacing(NPC actor, NPC.Direction facing, bool _interruptable = false) =>
         _steps.Add(new InstantStep(() => actor.ChangeFacing(facing), _interruptable));
 
@@ -458,19 +596,7 @@ public class EventSequence
 
     public void AddEventRemapFloor(string navRegionNodeName, string guidePolygonNodeName) =>
         _steps.Add(new InstantStep(() =>
-        {
-            var navReg = _scene.GetNodeOrNull<NavigationRegion2D>(navRegionNodeName ?? "NavigationRegion2D");
-            if (navReg == null) return;
-            var guide = navReg.GetNodeOrNull<Polygon2D>(guidePolygonNodeName);
-            if (guide == null) return;
-            var poly = new NavigationPolygon();
-            poly.AddOutline(guide.Polygon);
-#pragma warning disable CS0618
-            poly.MakePolygonsFromOutlines();
-#pragma warning restore CS0618
-            navReg.NavigationPolygon = poly;
-            _scene.AddFlag($"nav_remap:{navRegionNodeName}:{guidePolygonNodeName}", true);
-        }));
+            ScriptParser.ExecuteRemapFloor(navRegionNodeName, guidePolygonNodeName, _scene)));
 
     public void AddEventSpeak(thing actor, string phrase, Vector2? position = null,
                               bool _interruptable = false, bool strict = false,
@@ -524,4 +650,51 @@ public class EventSequence
     public void AddEventConversation(string dialogFile, Vector2? position = null,
                                      bool _interruptable = false) =>
         _steps.Add(new ConversationStep(_scene, dialogFile, _interruptable));
+
+    public void AddEventCameraPan(Vector2 targetPos, float duration = 0.5f, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => {
+                _scene.hasCameraControl = false;
+                var tween = _scene.CreateTween();
+                tween.TweenProperty(_scene.camera, "global_position", _scene.ClampCameraPos(targetPos), duration)
+                     .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                return tween;
+            },
+            "finished", !strict, "camera_pan"));
+
+    public void AddEventCameraZoom(float zoom, Vector2? targetPos, float duration = 0.5f, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => {
+                _scene.hasCameraControl = false;
+                var zoomVec = new Vector2(zoom, zoom);
+                var tween   = _scene.CreateTween();
+                if (targetPos.HasValue)
+                {
+                    tween.TweenProperty(_scene.camera, "global_position", _scene.ClampCameraPos(targetPos.Value, zoomVec), duration)
+                         .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                    tween.Parallel().TweenProperty(_scene.camera, "zoom", zoomVec, duration)
+                         .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                }
+                else
+                {
+                    tween.TweenProperty(_scene.camera, "zoom", zoomVec, duration)
+                         .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                }
+                return tween;
+            },
+            "finished", !strict, "camera_zoom"));
+
+    public void AddEventReturnCamera(float duration = 0.5f, bool strict = false) =>
+        _steps.Add(new SignalStep(
+            () => {
+                _scene.hasCameraControl = true;
+                var tween = _scene.CreateTween();
+                if (_scene.camera != null && _scene.camera.Zoom != _scene.cameraOriginalZoom)
+                    tween.TweenProperty(_scene.camera, "zoom", _scene.cameraOriginalZoom, duration)
+                         .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+                else
+                    tween.TweenInterval(0.001f);
+                return tween;
+            },
+            "finished", !strict, "return_camera"));
 }

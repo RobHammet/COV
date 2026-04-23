@@ -55,8 +55,25 @@ public partial class scene_script : Node2D
     public bool hasCameraControl = true;
 
     // Camera and optional clamp region. Populated in _EnterTree() if present.
-    public Camera2D         camera      = null;
-    public CollisionShape2D cameraClamp = null;
+    public Camera2D         camera             = null;
+    public CollisionShape2D cameraClamp        = null;
+    public Vector2          cameraOriginalZoom = Vector2.One;
+
+    // Clamps a world-space camera position to the cameraClamp bounds at the given zoom
+    // (defaults to camera.Zoom). Matches the logic used by the ego-follow path in _Process.
+    public Vector2 ClampCameraPos(Vector2 pos, Vector2? zoom = null)
+    {
+        if (cameraClamp == null || camera == null) return pos;
+        Vector2 z        = zoom ?? camera.Zoom;
+        Vector2 tl       = cameraClamp.Position - cameraClamp.Shape.GetRect().Size / 2f;
+        Vector2 br       = cameraClamp.Position + cameraClamp.Shape.GetRect().Size / 2f;
+        Vector2 halfView = GetViewportRect().Size / 2f / z;
+        tl += halfView;
+        br -= halfView;
+        if (tl.X <= br.X && tl.Y <= br.Y)
+            return pos.Clamp(tl, br);
+        return pos;
+    }
 
     public NPC   ego;
     private Color    egoOriginalModulate;
@@ -196,9 +213,10 @@ public partial class scene_script : Node2D
         // re-enables it in SwitchCurrentSceneForNext() when the scene goes live.
         try
         {
-            camera         = GetNode<Camera2D>("Camera2D");
-            camera.Enabled = false;
-            cameraClamp    = GetNode<CollisionShape2D>("CameraClamp");
+            camera             = GetNode<Camera2D>("Camera2D");
+            cameraOriginalZoom = camera.Zoom;
+            camera.Enabled     = false;
+            cameraClamp        = GetNode<CollisionShape2D>("CameraClamp");
         }
         catch { camera = null; cameraClamp = null; }
 

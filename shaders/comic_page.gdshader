@@ -76,20 +76,6 @@ void fragment() {
 	bleed *= 0.6 + fbm(effectUV * 15.0 + vec2(2.3, 5.1)) * 0.8;
 	col = mix(col, vec3(0.0), clamp(bleed, 0.0, 1.0));
 
-	// Dirt spots
-	vec2  dirtUV = UV * uv_dirt_scale + uv_dirt_offset;
-	float dirt = fbm(dirtUV * dirt_scale)
-	           * fbm(dirtUV * dirt_scale * 2.3 + vec2(4.1, 2.7))
-	           * fbm(dirtUV * dirt_scale * 0.5 + vec2(1.2, 8.3));
-	col -= pow(dirt, 1.5) * dirt_strength;
-
-	// Parchment noise
-	col += (fbm(effectUV * noise_scale)                         - 0.5) * 0.05;
-	col += (fbm(effectUV * noise_scale * 2.5 + vec2(3.7, 1.9)) - 0.5) * 0.025;
-
-	// Horizontal paper grain
-	col += sin(effectUV.y * 500.0) * 0.015 + sin(effectUV.y * 180.0) * 0.007;
-
 	// ── Halftone (CMYK, screen UV-space, screen-pixel-constant dot size) ────────
 	float fw   = fwidth(UV.x);
 	float freq = fw > 0.0001 ? 1.0 / (halftone_dot_px * fw) : 20.0;
@@ -109,6 +95,21 @@ void fragment() {
 	// Black crush — pull near-blacks to pure black.
 	float col_luma = dot(col, vec3(0.299, 0.587, 0.114));
 	col *= smoothstep(0.0, black_crush + 0.001, col_luma);
+
+	// ── Paper effects (after halftone so they sit on top of the dots) ────────────
+	// Dirt spots
+	vec2  dirtUV = UV * uv_dirt_scale + uv_dirt_offset;
+	float dirt = fbm(dirtUV * dirt_scale)
+	           * fbm(dirtUV * dirt_scale * 2.3 + vec2(4.1, 2.7))
+	           * fbm(dirtUV * dirt_scale * 0.5 + vec2(1.2, 8.3));
+	col -= pow(dirt, 1.5) * dirt_strength;
+
+	// Parchment noise
+	col += (fbm(effectUV * noise_scale)                         - 0.5) * 0.05;
+	col += (fbm(effectUV * noise_scale * 2.5 + vec2(3.7, 1.9)) - 0.5) * 0.025;
+
+	// Horizontal paper grain
+	col += sin(effectUV.y * 500.0) * 0.015 + sin(effectUV.y * 180.0) * 0.007;
 
 	COLOR = vec4(col, 1.0);
 }

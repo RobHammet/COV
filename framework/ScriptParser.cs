@@ -2,7 +2,8 @@
 // Shared by the entry-script system, thing interactions, and any other caller.
 // Supports: move, look_at, change_facing, narrate, speak, think,
 //           set_flag, wait, play_animation, add_to_inventory, toggle_exist,
-//           toggle_hide, remap_floor, if_flag, exit, run_sequence, conversation.
+//           toggle_hide, remap_floor, if_flag, exit, run_sequence, conversation,
+//           camera_pan, camera_zoom, return_camera.
 // self — the thing being interacted with (for "self" actor references and
 //         add_to_inventory). Pass null when not applicable.
 
@@ -23,30 +24,17 @@ public static class ScriptParser
             {
                 case "move": {
                     NPC actor = ResolveNPC(obj["actor"].GetValue<string>(), scene, self);
-                    Vector2 dest;
-                    if (obj.ContainsKey("target"))
-                    {
-                        string targetName = obj["target"].GetValue<string>();
-                        thing  target     = ResolveThing(targetName, scene, self);
-                        if (target != null)
-                            dest = target.interactPoint;
-                        else
-                        {
-                            var node = scene.FindChild(targetName, true, false) as Node2D;
-                            dest = node?.Position ?? actor.Position;
-                        }
-                    }
-                    else if (obj.ContainsKey("to_area"))
-                    {
-                        dest = ResolveAreaCenter(obj["to_area"].GetValue<string>(), scene);
-                    }
-                    else
-                    {
-                        var to = obj["to"].AsArray();
-                        dest = new Vector2(to[0].GetValue<float>(), to[1].GetValue<float>());
-                    }
+                    if (actor == null) break;
                     bool strict = obj["strict"]?.GetValue<bool>() ?? false;
-                    queue.AddEventMove(actor, dest, !strict);
+                    queue.AddEventMove(actor, ResolveMoveDest(obj, scene, actor, self), !strict);
+                    break;
+                }
+                case "fly": {
+                    string flyActorName = obj["actor"].GetValue<string>();
+                    NPC actor = ResolveNPC(flyActorName, scene, self);
+                    if (actor == null) { GD.PushWarning($"[ScriptParser] fly: NPC '{flyActorName}' not found"); break; }
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    queue.AddEventFly(actor, ResolveMoveDest(obj, scene, actor, self), !strict);
                     break;
                 }
                 case "look_at": {
@@ -172,6 +160,30 @@ public static class ScriptParser
                     queue.AddEventConversation(filePath);
                     break;
                 }
+                case "camera_pan": {
+                    if (scene.camera == null) break;
+                    var camTarget = ResolveCameraTarget(obj, scene);
+                    if (!camTarget.HasValue) break;
+                    float duration = obj["duration"]?.GetValue<float>() ?? 0.5f;
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    queue.AddEventCameraPan(camTarget.Value, duration, strict);
+                    break;
+                }
+                case "camera_zoom": {
+                    if (scene.camera == null) break;
+                    float zoom = obj["zoom"]?.GetValue<float>() ?? 1f;
+                    float duration = obj["duration"]?.GetValue<float>() ?? 0.5f;
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    queue.AddEventCameraZoom(zoom, ResolveCameraTarget(obj, scene), duration, strict);
+                    break;
+                }
+                case "return_camera": {
+                    if (scene.camera == null) break;
+                    float duration = obj["duration"]?.GetValue<float>() ?? 0.5f;
+                    bool strict = obj["strict"]?.GetValue<bool>() ?? false;
+                    queue.AddEventReturnCamera(duration, strict);
+                    break;
+                }
             }
         }
     }
@@ -256,5 +268,65 @@ public static class ScriptParser
     {
         var shape = scene.GetNodeOrNull<CollisionShape2D>(shapeName);
         return shape?.Position ?? Vector2.Zero;
+    }
+
+    // Resolves a movement destination from a move/fly action object.
+    // Handles: target (thing → interactPoint, else Node2D → Position), to_area, or [x,y] array.
+    public static Vector2 ResolveMoveDest(JsonObject obj, scene_script scene, NPC actor, thing self = null)
+    {
+        if (obj.ContainsKey("target"))
+        {
+            string targetName = obj["target"].GetValue<string>();
+            thing  target     = ResolveThing(targetName, scene, self);
+            if (target != null) return target.interactPoint;
+            var node = scene.FindChild(targetName, true, false) as Node2D;
+            return node?.Position ?? actor.Position;
+        }
+        if (obj.ContainsKey("to_area"))
+            return ResolveAreaCenter(obj["to_area"].GetValue<string>(), scene);
+        var to = obj["to"].AsArray();
+        return new Vector2(to[0].GetValue<float>(), to[1].GetValue<float>());
+    }
+
+    // Resolves a camera pan/zoom target position from a camera action object.
+    // Handles: target (NPC → midpoint, thing/Node2D → GlobalPosition), or [x,y] array.
+    public static Vector2? ResolveCameraTarget(JsonObject obj, scene_script scene)
+    {
+        if (obj.ContainsKey("to"))
+        {
+            var arr = obj["to"]?.AsArray();
+            if (arr?.Count >= 2)
+                return new Vector2(arr[0].GetValue<float>(), arr[1].GetValue<float>());
+        }
+        if (obj.ContainsKey("target"))
+        {
+            string name = obj["target"].GetValue<string>();
+            NPC npc = ResolveNPC(name, scene);
+            if (npc != null)
+                return (npc.GlobalPosition + npc.topPoint) / 2f;
+            thing t = ResolveThing(name, scene);
+            if (t != null)
+                return t.GlobalPosition;
+            var node = scene.GetNodeOrNull<Node2D>(name);
+            if (node != null)
+                return node.GlobalPosition;
+        }
+        return null;
+    }
+
+    // Executes the remap_floor action: swaps in a new nav polygon from a Polygon2D guide node.
+    public static void ExecuteRemapFloor(string navRegionNodeName, string guidePolygonNodeName, scene_script scene)
+    {
+        var navReg = scene.GetNodeOrNull<NavigationRegion2D>(navRegionNodeName ?? "NavigationRegion2D");
+        if (navReg == null) return;
+        var guide = navReg.GetNodeOrNull<Polygon2D>(guidePolygonNodeName);
+        if (guide == null) return;
+        var poly = new NavigationPolygon();
+        poly.AddOutline(guide.Polygon);
+#pragma warning disable CS0618
+        poly.MakePolygonsFromOutlines();
+#pragma warning restore CS0618
+        navReg.NavigationPolygon = poly;
+        scene.AddFlag($"nav_remap:{navRegionNodeName}:{guidePolygonNodeName}", true);
     }
 }

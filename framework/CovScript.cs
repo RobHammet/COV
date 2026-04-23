@@ -381,6 +381,56 @@ public static class CovScript
         if (t.StartsWith("run "))
             return new JsonObject { ["action"] = "run_sequence", ["name"] = t[4..].Trim() };
 
+        // finish_and_run sequenceName — ends the dialog and runs sequence via EventSequence
+        if (t.StartsWith("finish_and_run "))
+            return new JsonObject { ["action"] = "finish_and_run", ["name"] = t[15..].Trim() };
+
+        // camera_pan <target|[x,y]> [duration:<float>] [strict]
+        if (t.StartsWith("camera_pan "))
+        {
+            string rest    = t[11..].Trim();
+            int    spcIdx  = rest.IndexOf(' ');
+            string target  = spcIdx >= 0 ? rest[..spcIdx] : rest;
+            string argsStr = spcIdx >= 0 ? rest[(spcIdx + 1)..] : "";
+            var obj = new JsonObject { ["action"] = "camera_pan" };
+            if (target.StartsWith("[") && target.EndsWith("]"))
+            {
+                var inner = target[1..^1].Split(',');
+                obj["to"] = new JsonArray {
+                    float.Parse(inner[0].Trim(), System.Globalization.CultureInfo.InvariantCulture),
+                    float.Parse(inner[1].Trim(), System.Globalization.CultureInfo.InvariantCulture)
+                };
+            }
+            else
+                obj["target"] = target;
+            ApplyArgs(obj, argsStr);
+            return obj;
+        }
+
+        // camera_zoom <factor> [target:<name>|[x,y]] [duration:<float>] [strict]
+        if (t.StartsWith("camera_zoom "))
+        {
+            string rest    = t[12..].Trim();
+            int    spcIdx  = rest.IndexOf(' ');
+            string zoomStr = spcIdx >= 0 ? rest[..spcIdx] : rest;
+            string argsStr = spcIdx >= 0 ? rest[(spcIdx + 1)..] : "";
+            var obj = new JsonObject { ["action"] = "camera_zoom" };
+            if (float.TryParse(zoomStr, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float zoom))
+                obj["zoom"] = zoom;
+            ApplyArgs(obj, argsStr);
+            return obj;
+        }
+
+        // return_camera [duration:<float>] [strict]
+        if (t == "return_camera" || t.StartsWith("return_camera "))
+        {
+            string argsStr = t.Length > 14 ? t[14..].Trim() : "";
+            var obj = new JsonObject { ["action"] = "return_camera" };
+            ApplyArgs(obj, argsStr);
+            return obj;
+        }
+
         // converse dialogName  →  resolves to res://game/data/dialogs/<name>.covscript
         if (t.StartsWith("converse "))
         {
@@ -414,6 +464,10 @@ public static class CovScript
         // set [scope.]flag = value
         if (t.StartsWith("set "))
             return ParseSetFlag(t);
+
+        // actor ~> target  (fly — straight line, ignores navigation region)
+        if (t.Contains(" ~> "))
+            return ParseFlyAction(t);
 
         // actor -> target [strict]
         if (t.Contains(" -> "))
@@ -450,6 +504,34 @@ public static class CovScript
     }
 
     // ── Action-specific parsers ───────────────────────────────────────────────
+
+    private static JsonObject ParseFlyAction(string t)
+    {
+        int arrowIdx = t.IndexOf(" ~> ", StringComparison.Ordinal);
+        string actor = t[..arrowIdx].Trim();
+        string rest  = t[(arrowIdx + 4)..].Trim();
+
+        int spaceIdx   = rest.IndexOf(' ');
+        string target  = spaceIdx >= 0 ? rest[..spaceIdx] : rest;
+        string argsStr = spaceIdx >= 0 ? rest[(spaceIdx + 1)..] : "";
+
+        var obj = new JsonObject { ["action"] = "fly", ["actor"] = actor };
+        if (target.StartsWith("[") && target.EndsWith("]"))
+        {
+            var inner = target[1..^1].Split(',');
+            obj["to"] = new JsonArray
+            {
+                float.Parse(inner[0].Trim(), System.Globalization.CultureInfo.InvariantCulture),
+                float.Parse(inner[1].Trim(), System.Globalization.CultureInfo.InvariantCulture),
+            };
+        }
+        else
+        {
+            obj["target"] = target;
+        }
+        ApplyArgs(obj, argsStr);
+        return obj;
+    }
 
     private static JsonObject ParseMoveAction(string t)
     {
@@ -551,16 +633,23 @@ public static class CovScript
     // ── Arg parser ────────────────────────────────────────────────────────────
 
     // Applies trailing space-separated args to an action object.
-    // Recognised tokens: strict, style:x, color:x, corner:x
+    // Recognised tokens: strict, for N, style:x, color:x, corner:x
     private static void ApplyArgs(JsonObject obj, string argsStr)
     {
         if (string.IsNullOrWhiteSpace(argsStr)) return;
-        foreach (string token in argsStr.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        string[] tokens = argsStr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < tokens.Length; i++)
         {
+            string token = tokens[i];
             if      (token == "strict")             obj["strict"] = true;
-            else if (token.StartsWith("style:"))    obj["style"]  = token[6..];
-            else if (token.StartsWith("color:"))    obj["color"]  = token[6..];
-            else if (token.StartsWith("corner:"))   obj["corner"] = token[7..];
+            else if (token == "for" && i + 1 < tokens.Length && float.TryParse(tokens[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float secs))
+                                                  { obj["for"] = secs; i++; }
+            else if (token.StartsWith("style:"))    obj["style"]    = token[6..];
+            else if (token.StartsWith("color:"))    obj["color"]    = token[6..];
+            else if (token.StartsWith("corner:"))   obj["corner"]   = token[7..];
+            else if (token.StartsWith("duration:") && float.TryParse(token[9..], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float dur))
+                                                    obj["duration"] = dur;
+            else if (token.StartsWith("target:"))   obj["target"]   = token[7..];
         }
     }
 

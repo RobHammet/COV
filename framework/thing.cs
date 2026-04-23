@@ -23,6 +23,7 @@ public partial class thing : Node2D
     [Export] public string                displayName;
     [Export] public Color                 dialogColor           = Colors.White;
     [Export] public bool                  castsShadow           = false;
+    [Export] public Vector2               shadowOffset          = Vector2.Zero;
     [Export] public InventoryItem.ItemType inventoryItemType    = InventoryItem.ItemType.none;
     [Export] public bool                  lookClosely           = false;
     [Export] public string[]              lookText;
@@ -211,17 +212,17 @@ public partial class thing : Node2D
         if (castsShadow && hasSprite)
         {
             shadow = new Sprite2D();
-            shadow.Texture      = sprite.Texture;
-            shadow.Offset       = new Vector2(0, -(float)0.46 * sprite.Texture.GetHeight() / sprite.Vframes);
-            shadow.SelfModulate = new Color(0, 0, 0, 1);
-            shadow.Rotation     = 360;
-            shadow.ZAsRelative  = true;
-            shadow.ZIndex       = -1;
-            shadow.Hframes      = sprite.Hframes;
-            shadow.Vframes      = sprite.Vframes;
-            shadow.Frame        = sprite.Frame;
-            shadow.FlipH        = !sprite.FlipH;
+            shadow.Texture         = sprite.Texture;
+            shadow.Offset          = sprite.Offset + shadowOffset;
+            shadow.SelfModulate    = new Color(0, 0, 0, 1f);
+            shadow.ZAsRelative     = true;
+            shadow.ZIndex          = 0;
+            shadow.Hframes         = sprite.Hframes;
+            shadow.Vframes         = sprite.Vframes;
+            shadow.Frame           = sprite.Frame;
+            shadow.FlipH           = !sprite.FlipH;
             AddChild(shadow);
+            MoveChild(shadow, 0);
         }
 
         _defaultIsExist     = isExist;
@@ -292,9 +293,10 @@ public partial class thing : Node2D
 
         if (castsShadow && shadow != null && sprite != null)
         {
-            shadow.Frame = sprite.Frame;
-            shadow.FlipH = !sprite.FlipH;
-            shadow.Scale = sprite.Scale;
+            shadow.Frame           = sprite.Frame;
+            shadow.FlipH           = !sprite.FlipH;
+            shadow.Scale           = sprite.Scale;
+            shadow.Offset          = sprite.Offset + shadowOffset;
         }
 
         if (Globals.showDebugTools) QueueRedraw();

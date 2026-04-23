@@ -51,7 +51,10 @@ public partial class NPC : thing
     public CharacterBody2D   charBody;
     public bool              isWalking     = false;
     public bool              isFastWalking = false;
+    public bool              isFlying      = false;
     public float             fastwalk_speed;
+
+    private Vector2 _flyDest;
 
     private Node2D _topPointNode;
 
@@ -94,12 +97,15 @@ public partial class NPC : thing
 
         if (isWalking)
         {
-            switch (Facing)
+            if (!isFlying)
             {
-                case Direction.up:    animationPlayer.CurrentAnimation = "walkup";   break;
-                case Direction.down:  animationPlayer.CurrentAnimation = "walkdown";  break;
-                case Direction.left:  animationPlayer.CurrentAnimation = "walk"; sprite.FlipH = false; break;
-                case Direction.right: animationPlayer.CurrentAnimation = "walk"; sprite.FlipH = true;  break;
+                switch (Facing)
+                {
+                    case Direction.up:    animationPlayer.CurrentAnimation = "walkup";   break;
+                    case Direction.down:  animationPlayer.CurrentAnimation = "walkdown";  break;
+                    case Direction.left:  animationPlayer.CurrentAnimation = "walk"; sprite.FlipH = false; break;
+                    case Direction.right: animationPlayer.CurrentAnimation = "walk"; sprite.FlipH = true;  break;
+                }
             }
             MoveAlongPath(delta);
         }
@@ -126,10 +132,41 @@ public partial class NPC : thing
         navigationAgent2D.TargetPosition = globalTarget;
     }
 
+    public void FlyToLocation(Vector2 pos)
+    {
+        isFlying = true;
+        _flyDest = parentScene.ToGlobal(pos);
+        StartWalking();
+    }
+
     public void GoToThing(thing target) => GoToLocation(target.interactPoint);
 
     public void MoveAlongPath(double delta)
     {
+        if (isFlying)
+        {
+            float   moveSpeed = isFastWalking ? fastwalk_speed : speed;
+            Vector2 dir       = GlobalPosition.DirectionTo(_flyDest);
+            float   dist      = GlobalPosition.DistanceTo(_flyDest);
+            float   step      = moveSpeed * (float)delta * Scale.X;
+            if (step >= dist)
+            {
+                GlobalPosition = _flyDest;
+                isFlying       = false;
+                StopWalking();
+                PathEndReached();
+            }
+            else
+            {
+                if (Math.Abs(dir.X) >= Math.Abs(dir.Y))
+                    Facing = dir.X < 0 ? Direction.left : Direction.right;
+                else
+                    Facing = dir.Y < 0 ? Direction.up : Direction.down;
+                GlobalPosition += dir * step;
+            }
+            return;
+        }
+
         Vector2 target = navigationAgent2D.GetNextPathPosition();
 
         if (GlobalPosition.DistanceTo(target) <= navigationAgent2D.TargetDesiredDistance)
@@ -174,6 +211,7 @@ public partial class NPC : thing
         animationPlayer?.Stop();
         isWalking     = false;
         isFastWalking = false;
+        isFlying      = false;
     }
 
     // ---------------------------------------------------------------------------
