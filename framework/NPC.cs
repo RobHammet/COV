@@ -23,7 +23,7 @@ public partial class NPC : thing
     // Snapshot of the exported Facing value taken at end of _Ready.
     // Used by MainScene.CaptureThingState for change detection on scene exit.
     public Direction _defaultFacing;
-    [Export(PropertyHint.Range, "0,200,")] public float speed = 100.0f;
+    [Export(PropertyHint.Range, "0,400,")] public float speed = 100.0f;
 
     [Signal] public delegate void DestinationReachedEventHandler();
     [Signal] public delegate void FacingChangedEventHandler();
@@ -148,7 +148,7 @@ public partial class NPC : thing
             float   moveSpeed = isFastWalking ? fastwalk_speed : speed;
             Vector2 dir       = GlobalPosition.DirectionTo(_flyDest);
             float   dist      = GlobalPosition.DistanceTo(_flyDest);
-            float   step      = moveSpeed * (float)delta * Scale.X;
+            float   step      = moveSpeed * (float)delta * (isScaleFrozen ? 1f : Scale.X);
             if (step >= dist)
             {
                 GlobalPosition = _flyDest;
@@ -176,7 +176,7 @@ public partial class NPC : thing
         else
         {
             float   moveSpeed = isFastWalking ? fastwalk_speed : speed;
-            Vector2 velocity  = GlobalPosition.DirectionTo(target).Normalized() * moveSpeed * (float)delta * Scale.X;
+            Vector2 velocity  = GlobalPosition.DirectionTo(target).Normalized() * moveSpeed * (float)delta * (isScaleFrozen ? 1f : Scale.X);
 
             if (Math.Abs(velocity.Y) > Math.Abs(velocity.X))
                 Facing = velocity.Y < 0 ? Direction.up : Direction.down;

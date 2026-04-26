@@ -81,9 +81,10 @@ public partial class scene_script : Node2D
     public List<thing>   things     = new List<thing>();
     public EventSequence eventQueue;
     public MainScene               mainScene;
-    public bool HasOpenDialog => GetChildren().OfType<DialogBox>().Any();
+    public bool HasOpenDialog => _dialogLayer?.GetChildren().OfType<DialogBox>().Any() ?? false;
 
-    private PackedScene _dialogBoxScene;
+    private PackedScene  _dialogBoxScene;
+    private CanvasLayer  _dialogLayer;
 
     // Scene JSON data — loaded in _EnterTree (parent-first, before child _Ready()).
     // Used by exit area handling and thing interaction data lookup.
@@ -274,6 +275,12 @@ public partial class scene_script : Node2D
             catch { inventoryUI = null; }
         }
 
+        if (_dialogLayer == null)
+        {
+            _dialogLayer = new CanvasLayer { Layer = 4 };
+            AddChild(_dialogLayer);
+        }
+
         eventQueue = new EventSequence(this);
 
         // Load scene script — .covscript preferred, .json as fallback.
@@ -288,6 +295,8 @@ public partial class scene_script : Node2D
             _sceneData = CovScript.Parse(FileAccess.GetFileAsString(covPath));
         else if (FileAccess.FileExists(jsonPath))
             _sceneData = JsonNode.Parse(FileAccess.GetFileAsString(jsonPath))?.AsObject();
+
+        FlushDarkmapToThings();
     }
 
     // _Ready is empty so subclasses can override freely.
@@ -782,7 +791,7 @@ public partial class scene_script : Node2D
                 sb.AppendLine($"[b]SCENE[/b]  {Name}");
                 if (ego != null)
                 {
-                    sb.AppendLine($"x: {ego.Position.X,7:F1}  y: {ego.Position.Y,7:F1}");
+                    sb.AppendLine($"x: {ego.Position.X,7:F1}  y: {ego.Position.Y,7:F1}  scale: {ego.Scale.X:F2}");
                     sb.AppendLine($"facing: {ego.Facing,-5}  fastwalk: {ego.isFastWalking}");
                     sb.AppendLine($"mode: {mainScene.GetInteractMode()}  item: {mainScene.usingItem}");
                 }
@@ -1072,6 +1081,13 @@ public partial class scene_script : Node2D
         db.narrationStyle  = narrationStyle;
         if (tailStyle.HasValue) db.SpeechTailStyle = tailStyle.Value;
 
+        if (_dialogType == Globals.DialogTypes.choice)
+        {
+            db.dialogColor     = Colors.Yellow;
+            db.narrationStyle  = Globals.NarrationStyle.Jagged;
+            db.narrationCorner = Globals.NarrationCorner.BottomCenter;
+        }
+
         if (hasTail) db.tailPos = tailPos.Value;
 
         if (_dialogType == Globals.DialogTypes.choice || _dialogType == Globals.DialogTypes.thinking)
@@ -1082,7 +1098,7 @@ public partial class scene_script : Node2D
         else
             db.SetPhrase(string.Join("\n", _dialogChoices ?? new string[0]));
 
-        AddChild(db); // _Ready fires here — safe to access nodes after this point
+        _dialogLayer.AddChild(db); // _Ready fires here — safe to access nodes after this point
 
         if (_dialogType == Globals.DialogTypes.choice && _dialogChoices != null)
         {
@@ -1097,6 +1113,19 @@ public partial class scene_script : Node2D
     // ---------------------------------------------------------------------------
     // Darkmap sampling
     // ---------------------------------------------------------------------------
+
+    // Pre-applies darkmap to all things immediately on tree entry so there is no
+    // one-frame bright flash before _Process() runs its first darkness pass.
+    private void FlushDarkmapToThings()
+    {
+        if (_darkmapZones.Count == 0 || things == null) return;
+        foreach (var t in things)
+        {
+            var spr = t.GetNodeOrNull<Sprite2D>("Sprite2D");
+            if (spr?.Material is ShaderMaterial mat)
+                mat.SetShaderParameter("overall_dark", SampleDarkness(t.Position));
+        }
+    }
 
     // Returns overall_dark value for the shader: 1.0 = fully lit, 0.0 = fully dark.
     private float SampleDarkness(Vector2 worldPos)

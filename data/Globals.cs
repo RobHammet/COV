@@ -6,6 +6,23 @@ using Godot;
 // ---------------------------------------------------------------------------
 public partial class Globals : Node
 {
+    public enum FontSizePreset { Normal = 16, Large = 24 }
+
+    public static FontSizePreset FontSize { get; private set; } = FontSizePreset.Normal;
+
+    public static void SetFontSize(FontSizePreset preset)
+    {
+        FontSize = preset;
+        var theme = GD.Load<Theme>("res://fonts/comic_theme.tres");
+        theme.DefaultFontSize = (int)preset;
+    }
+
+    public override void _Ready()
+    {
+        SetFontSize(FontSize);
+    }
+
+
     // How the player interacts with the world.
     public enum InteractModes
     {
@@ -38,11 +55,12 @@ public partial class Globals : Node
     // Corner anchor for narration boxes.
     public enum NarrationCorner
     {
-        Auto        = 0,
-        TopLeft     = 1,
-        TopRight    = 2,
-        BottomLeft  = 3,
-        BottomRight = 4,
+        Auto         = 0,
+        TopLeft      = 1,
+        TopRight     = 2,
+        BottomLeft   = 3,
+        BottomRight  = 4,
+        BottomCenter = 5,
     }
 
     public enum NarrationStyle
@@ -59,17 +77,10 @@ public partial class Globals : Node
 
     // One saved flag per scene: tracks puzzle state across scene changes.
     // Saved as JSON by MainScene.Save() / Load().
-    public class SceneFlag
+    public class SceneFlag(string scene, string name, Variant value)
     {
-        public string         sceneName;
-        public string         Name;
-        public Godot.Variant  Value;
-
-        public SceneFlag(string scene, string name, Godot.Variant value)
-        {
-            sceneName = scene ?? "";
-            Name      = name;
-            Value     = value;
-        }
+        public string  sceneName = scene ?? "";
+        public string  Name      = name;
+        public Variant Value     = value;
     }
 }

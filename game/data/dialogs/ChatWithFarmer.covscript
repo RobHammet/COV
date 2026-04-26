@@ -52,10 +52,13 @@ node WORK:
   wait 0.7
   farmer says "HMMM... THERE IS A TREE I NEED FELLED."
   farmer -> fence
-  camera_pan house duration:1.2
   farmer says "BIG OAK. BEEN STANDING THERE SINCE BEFORE MY FATHER WORKED THIS LAND. ROOTS GO DOWN THIRTY FEET IF THEY GO AN INCH. BEEN BLOCKING MY VIEW OF THE VALLEY FOR TWENTY YEARS AND I AM DONE WITH IT." style:wavy
   farmer faces house
   narrate "HE GESTURES VAGUELY TOWARD THE TREELINE." corner:topleft
+  camera_pan ego duration:1.2
+  camera_zoom 1.7 target:house duration:1.2 strict
+  wait 1.0
+  return_camera strict
   ego thinks "A TREE. THAT'LL DO. FOR NOW."
   farmer -> ego
   farmer faces ego
@@ -143,4 +146,5 @@ node BYE:
   farmer faces ego
   farmer says "VERY WELL. SEE YA 'ROUND, [b]SKIP[/b]!" style:exclaim
   narrate "HE TURNS AND MAKES HIS WAY SLOWLY DOWN THE ROAD TOWARDS THE FARMHOUSE." corner:bottomleft
+  set farmerLeft = true
   finish_and_run farmer_exit

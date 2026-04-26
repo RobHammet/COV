@@ -1,6 +1,9 @@
 thing farmer:
   on talk:
-    converse ChatWithFarmer
+    if not farmerLeft:
+      converse ChatWithFarmer
+    else:
+      ego thinks "HE'S LEAVING."
 
   on use:
     ego thinks "I DON'T NEED TO TOUCH HIM."

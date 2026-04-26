@@ -1,30 +1,30 @@
 [gd_scene format=3 uid="uid://dhh0nbs4d6bck"]
 
 [ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="2"]
-[ext_resource type="Texture2D" uid="uid://7d1uboubm22j" path="res://game/scenes/sittingroom/sittingroom2_darkmap.png" id="2_rs8dn"]
-[ext_resource type="Texture2D" uid="uid://bt0cigc10ky81" path="res://game/scenes/sittingroom/sittingroom2.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://speufqqhcjp1" path="res://game/scenes/sittingroom/sittingroom_bg.png" id="2_uwgrk"]
+[ext_resource type="Material" uid="uid://vatugls1iglu" path="res://shaders/materials/light_and_shadows.tres" id="4_g4qdp"]
 [ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="7"]
 [ext_resource type="Texture2D" uid="uid://sjq1367wkxgi" path="res://game/scenes/sittingroom/keynormal.png" id="7_ad6xd"]
 [ext_resource type="Shader" uid="uid://cg7foqnlvsaou" path="res://shaders/light_and_shadows_shader.gdshader" id="7_eq2w1"]
 [ext_resource type="Texture2D" uid="uid://7sed04dnkjm2" path="res://game/scenes/sittingroom/key.png" id="8"]
-[ext_resource type="Texture2D" uid="uid://b5yifu5pmulyl" path="res://game/scenes/sittingroom/bearalpha.png" id="9"]
-[ext_resource type="Texture2D" uid="uid://c4xmqwnpumqpu" path="res://game/scenes/sittingroom/bearnormal2.png" id="9_rb0sk"]
+[ext_resource type="Texture2D" uid="uid://d3new2fh0cd3p" path="res://game/scenes/sittingroom/sittingroom_staircase.png" id="10_0oy85"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="10_g5oap"]
-[ext_resource type="Script" uid="uid://8o7uj2wy6a6a" path="res://game/scenes/sittingroom/shadertest.cs" id="13_hy0su"]
-[ext_resource type="Texture2D" uid="uid://d6kbec8y3rr" path="res://game/scenes/sittingroom/circle_normal3.png" id="14_n4ufk"]
-[ext_resource type="Texture2D" uid="uid://dxxx0vgehpigb" path="res://game/scenes/sittingroom/circle.png" id="15_4rv4h"]
+[ext_resource type="Script" uid="uid://0sbydwjrseum" path="res://framework/SceneZone.cs" id="10_xjibo"]
+[ext_resource type="Script" uid="uid://djlnl3nloie3m" path="res://framework/DarkmapZone.cs" id="12_xjibo"]
 [ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_wmpee"]
 shader = ExtResource("7_eq2w1")
 shader_parameter/sprite_texture = ExtResource("8")
 shader_parameter/normal_map = ExtResource("7_ad6xd")
-shader_parameter/dark_threshold = 0.01
-shader_parameter/hatch_threshold = 0.0
-shader_parameter/hatch_spacing = 8.0
+shader_parameter/enable_shadows = true
+shader_parameter/shadow_threshold = 0.35
 shader_parameter/hatch_thickness = 0.36
-shader_parameter/hatch_roughness = 0.5
+shader_parameter/hatch_spacing = 8.0
 shader_parameter/hatch_taper = 3.0
+shader_parameter/hatch_roughness = 0.5
+shader_parameter/hatch_min_ratio = 0.3
+shader_parameter/hatch_noise_strength = 0.4
 shader_parameter/light_pos_uv = Vector2(0.5, -2)
 shader_parameter/hframes = 1
 shader_parameter/vframes = 1
@@ -35,113 +35,85 @@ shader_parameter/overall_dark = 1.0
 shader_parameter/maintain_light = 0.0
 
 [sub_resource type="RectangleShape2D" id="2"]
-size = Vector2(107, 64)
+size = Vector2(267, 342)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_exit2"]
-size = Vector2(101, 72)
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_hukdb"]
-shader = ExtResource("7_eq2w1")
-shader_parameter/sprite_texture = ExtResource("9")
-shader_parameter/normal_map = ExtResource("9_rb0sk")
-shader_parameter/dark_threshold = 0.310000014725
-shader_parameter/hatch_threshold = 0.44800002128
-shader_parameter/hatch_spacing = 5.4370002107575
-shader_parameter/hatch_thickness = 0.7930000376675
-shader_parameter/hatch_roughness = 0.15200000722
-shader_parameter/hatch_taper = 6.0830002651925
-shader_parameter/light_pos_uv = Vector2(0.5, -2)
-shader_parameter/hframes = 1
-shader_parameter/vframes = 1
-shader_parameter/light_strength = 1.0
-shader_parameter/light_direction = Vector3(4.25, -3.735, 6.16)
-shader_parameter/is_flipped = false
-shader_parameter/overall_dark = 1.0
-shader_parameter/maintain_light = 0.58
-
-[sub_resource type="CanvasTexture" id="CanvasTexture_en2pt"]
-diffuse_texture = ExtResource("9")
-normal_texture = ExtResource("9_rb0sk")
-
-[sub_resource type="NavigationPolygon" id="1"]
-vertices = PackedVector2Array(627, 339, 638, 482, 3, 479, 13, 434, 53, 393, 545, 306, 538, 278, 194, 343, 78, 8, 158, 4, 241, 326, 375, 218, 345, 228, 307, 198, 266, 247, 267, 204, 243, 252)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4, 5), PackedInt32Array(6, 5, 4, 7), PackedInt32Array(8, 9, 7, 4), PackedInt32Array(6, 7, 10), PackedInt32Array(11, 6, 10, 12), PackedInt32Array(13, 12, 10, 14), PackedInt32Array(14, 15, 13), PackedInt32Array(16, 14, 10)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(266, 247, 267, 204, 307, 198, 345, 228, 375, 218, 538, 278, 545, 306, 627, 339, 638, 482, 3, 479, 13, 434, 53, 393, 78, 8, 158, 4, 194, 343, 241, 326, 243, 252)])
-source_geometry_group_name = &"navigation_polygon_source_group"
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_0hbfy"]
-shader = ExtResource("7_eq2w1")
-shader_parameter/sprite_texture = ExtResource("15_4rv4h")
-shader_parameter/normal_map = ExtResource("14_n4ufk")
-shader_parameter/dark_threshold = 0.490000023275
-shader_parameter/hatch_threshold = 0.7470000354825
-shader_parameter/hatch_spacing = 17.838000799805
-shader_parameter/hatch_thickness = 0.90800004313
-shader_parameter/hatch_roughness = 0.1590000075525
-shader_parameter/hatch_taper = 5.9870002606325
-shader_parameter/light_pos_uv = Vector2(0.5, -2)
-shader_parameter/hframes = 1
-shader_parameter/vframes = 1
-shader_parameter/light_strength = 0.530000025175
-shader_parameter/light_direction = Vector3(0, 0, 0)
-shader_parameter/is_flipped = false
-shader_parameter/overall_dark = 1.0
-shader_parameter/maintain_light = 0.0
+size = Vector2(427.5, 95)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_exit3"]
-size = Vector2(101, 72)
+size = Vector2(450.5, 301)
+
+[sub_resource type="NavigationPolygon" id="1"]
+vertices = PackedVector2Array(1630.3672, 495.29688, 2239.7031, 674.6797, 2303.9922, 1333.1797, -1645.2969, 1398.8281, -1319.75, 971.2031, -337.84375, 682.46875, -182.60938, 646.0078, -385.40625, 473.3672, -413.59375, 297.04688, -92.27344, 237.47656, -188.59375, 482.10156, -63.5625, 219.21094, -73.28906, 94.671875, 231.96875, 54.476563, 389.35156, 184.78906, -81.61719, 531.5469, -1657.7031, 1002.10156, -1166.8203, -826.9375, -641.1406, -824.0469, -526.84375, 452.25, -458.8203, 632.59375, 659.6797, 127.28125, 1638.3516, 397.4297)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4, 5, 6), PackedInt32Array(7, 8, 9, 10), PackedInt32Array(11, 12, 13, 14), PackedInt32Array(15, 10, 9, 11, 14), PackedInt32Array(3, 16, 4), PackedInt32Array(4, 17, 18, 19), PackedInt32Array(4, 19, 20), PackedInt32Array(21, 22, 0, 6, 15, 14), PackedInt32Array(4, 20, 5)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-84, 86, 235, 44, 392, 174, 660, 117, 1649, 390, 1641, 488, 2249, 667, 2315, 1343, -1655, 1409, -1668, 993, -1329, 962, -1176, -837, -632, -834, -517, 450, -451, 625, -337, 672, -188, 637, -98, 535, -191, 492, -394, 483, -425, 289, -96, 228, -74, 214)])
+source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_5fa15"]
-size = Vector2(1153, 648)
+size = Vector2(3815, 2130)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bd21s"]
-size = Vector2(23, 68)
+size = Vector2(129, 250)
 
 [node name="sittingroom" type="Node2D" unique_id=1314126505 node_paths=PackedStringArray("parallaxSprites")]
 z_as_relative = false
 y_sort_enabled = true
 script = ExtResource("2")
 displayName = "sittingroom"
-darkMap = ExtResource("2_rs8dn")
 parallaxSprites = []
 
 [node name="background" type="Sprite2D" parent="." unique_id=1933667512]
-texture = ExtResource("4")
+texture = ExtResource("2_uwgrk")
 offset = Vector2(320, 240)
 
 [node name="window" type="Node2D" parent="." unique_id=2121705020 groups=["things"]]
-position = Vector2(454, 213)
+position = Vector2(1184, -164)
 script = ExtResource("7")
 displayName = "window"
 lookClosely = true
 lookText = PackedStringArray("THESE GIANT WINDOWS ARE [b]GREAT[/b] FOR SUN... BUT THEY CAN BE TROUBLE IN [wave]STORMY[/wave] WEATHER.")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="window" unique_id=1997027260]
-polygon = PackedVector2Array(-39, -168, 49, -188, 50, 4, -40, -22)
+polygon = PackedVector2Array(-285, -468, 235, -561, 240, 354, -276, 224)
+
+[node name="InteractPoint" type="Node2D" parent="window" unique_id=781549369]
+position = Vector2(-230, 417)
+
+[node name="Sprite2D" type="Sprite2D" parent="window" unique_id=17630500]
+material = ExtResource("4_g4qdp")
 
 [node name="kitchen" type="Node2D" parent="." unique_id=819563220 groups=["things"]]
-position = Vector2(295, 228)
+position = Vector2(153, -136)
 script = ExtResource("7")
 displayName = "kitchen"
 lookText = PackedStringArray("IT\'S THE KITCHEN.", "I DON\'T KNOW WHAT ELSE TO SAY. IT\'S STILL THE KITCHEN.")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="kitchen" unique_id=1435082881]
-polygon = PackedVector2Array(-48, -151, 40, -145, 42, -7, -43, 7)
+polygon = PackedVector2Array(-254, -335, 255, -315, 251, 282, -240, 355)
+
+[node name="InteractPoint" type="Node2D" parent="kitchen" unique_id=1007874806]
+position = Vector2(-19, 273)
+
+[node name="Sprite2D" type="Sprite2D" parent="kitchen" unique_id=1390235899]
+material = ExtResource("4_g4qdp")
 
 [node name="painting" type="Node2D" parent="." unique_id=595015531 groups=["things"]]
-position = Vector2(560, 132)
+position = Vector2(1755, -340)
 script = ExtResource("7")
 displayName = "painting"
 lookText = PackedStringArray("WHAT A [b]BEAUTIFUL[/b] LANDSCAPE... IT SEEMS TO BE SOMEWHERE IN FRANCE.")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="painting" unique_id=684624849]
-polygon = PackedVector2Array(-25, -41, 27, -45, 29, 9, -22, 6)
+polygon = PackedVector2Array(-141, -91, 162, -106, 157, 119, -138, 116)
 
 [node name="InteractPoint" type="Node2D" parent="painting" unique_id=367680099]
-position = Vector2(-61, 149)
+position = Vector2(-212, 735)
+
+[node name="Sprite2D" type="Sprite2D" parent="painting" unique_id=486828329]
+material = ExtResource("4_g4qdp")
 
 [node name="key" type="Node2D" parent="." unique_id=739839407 groups=["things"]]
-position = Vector2(575, 231)
+position = Vector2(1825, 177)
 script = ExtResource("7")
 displayName = "key"
 inventoryItemType = 1
@@ -149,58 +121,38 @@ lookClosely = true
 lookText = PackedStringArray("IT\'S A BIG, BRASS KEY.")
 
 [node name="InteractPoint" type="Node2D" parent="key" unique_id=377968395]
-position = Vector2(-39, 71)
+position = Vector2(-219, 280)
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="key" unique_id=1701372169]
-polygon = PackedVector2Array(-1, -18, 16, -9, 12, -3, -13, -12)
+polygon = PackedVector2Array(-5, -26, 11, -17, 55, -8, 35, 2, 13, -10, -13, -12, -23, -19)
 
 [node name="Sprite2D" type="Sprite2D" parent="key" unique_id=702803362]
 material = SubResource("ShaderMaterial_wmpee")
-position = Vector2(3, -10)
+position = Vector2(13, -12)
+scale = Vector2(3.115, 3.115)
 texture = ExtResource("8")
 
 [node name="exit_to_entryway" type="CollisionShape2D" parent="." unique_id=993946602]
-position = Vector2(57.5, 447)
+position = Vector2(-1487.5, 1169)
 shape = SubResource("2")
 
 [node name="exit_to_kitchen" type="CollisionShape2D" parent="." unique_id=1528951924]
-position = Vector2(285, 191)
+position = Vector2(131.25, 95.5)
 shape = SubResource("RectangleShape2D_exit2")
 
-[node name="teddy" type="Node2D" parent="." unique_id=756987744]
-z_index = 1
-z_as_relative = false
-position = Vector2(315, 392)
-script = ExtResource("7")
-displayName = "teddy"
-castsShadow = true
-lookText = PackedStringArray("IT\'S A TEDDY BEAR.")
-startingScaleAsBaseline = false
-
-[node name="Sprite2D" type="Sprite2D" parent="teddy" unique_id=1514355466]
-modulate = Color(0.760784, 0.760784, 0.760784, 1)
-z_index = 1
-z_as_relative = false
-material = SubResource("ShaderMaterial_hukdb")
-position = Vector2(-3, -24)
-rotation = -0.155334
-scale = Vector2(0.08, 0.08)
-texture = SubResource("CanvasTexture_en2pt")
-
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="teddy" unique_id=103195525]
-polygon = PackedVector2Array(-28, -50, 10, -54, 22, -2, -24, 10)
-
-[node name="InteractPoint" type="Node2D" parent="teddy" unique_id=2022341265]
-position = Vector2(5, 21)
+[node name="exit_to_upstairs" type="CollisionShape2D" parent="." unique_id=133506745]
+position = Vector2(-953.25, -691.5)
+shape = SubResource("RectangleShape2D_exit3")
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=2110975513]
 navigation_polygon = SubResource("1")
 
 [node name="ScalerStick" type="Line2D" parent="." unique_id=1984176574]
-points = PackedVector2Array(179, 81, 364, 290, 544, 479)
+points = PackedVector2Array(-296, -259, 382, 174, 1831, 714)
 width = 4.0
 default_color = Color(1, 1, 1, 0)
 script = ExtResource("ScalerStick_cs")
+ScaleMultiplier = 3.04
 
 [node name="creepy_flashlight" type="PointLight2D" parent="." unique_id=1257881375]
 visible = false
@@ -210,62 +162,72 @@ texture = ExtResource("10_g5oap")
 texture_scale = 1.23
 height = 15.0
 
-[node name="FreezeScaleRegion" type="CollisionPolygon2D" parent="." unique_id=224741005]
-polygon = PackedVector2Array(69, 6, 164, -4, 198, 315, 45, 346)
+[node name="StairsRegion" type="CollisionPolygon2D" parent="." unique_id=224741005]
+polygon = PackedVector2Array(-1191, -843, -627, -840, -433, 623, -1329, 870)
+script = ExtResource("10_xjibo")
+FrozenScale = 6.0
+ZIndexBoost = 1
 
 [node name="PointLight2D" type="PointLight2D" parent="." unique_id=2052351627]
 visible = false
-position = Vector2(611, 114)
+position = Vector2(1735, -559)
 energy = 9.25
 texture = ExtResource("10_g5oap")
 texture_scale = 0.48
 
-[node name="shadertest" type="Node2D" parent="." unique_id=2065026236]
-z_index = 1
-z_as_relative = false
-position = Vector2(472, 337)
-script = ExtResource("13_hy0su")
-displayName = "ball"
-castsShadow = true
-
-[node name="Sprite2D" type="Sprite2D" parent="shadertest" unique_id=1546283627]
-z_index = 1
-z_as_relative = false
-material = SubResource("ShaderMaterial_0hbfy")
-position = Vector2(-1, -34)
-scale = Vector2(0.065, 0.065)
-texture = ExtResource("15_4rv4h")
-
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="shadertest" unique_id=1994081482]
-polygon = PackedVector2Array(27, -57, 29, -16, -2, -1, -27, -18, -28, -59, -2, -67)
-
-[node name="exit_to_upstairs" type="CollisionShape2D" parent="." unique_id=133506745]
-position = Vector2(118.5, 41)
-shape = SubResource("RectangleShape2D_exit3")
-
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1949262926]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
-position = Vector2(577, 324)
+position = Vector2(90, 198)
+zoom = Vector2(0.385, 0.385)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=133423570]
-position = Vector2(576, 324)
+position = Vector2(324.5, 238)
 shape = SubResource("RectangleShape2D_5fa15")
 
 [node name="exit_to_basement" type="CollisionShape2D" parent="." unique_id=970438126]
-position = Vector2(241.5, 284)
+position = Vector2(-394.5, 375)
 shape = SubResource("RectangleShape2D_bd21s")
 
 [node name="start_point" type="Node2D" parent="." unique_id=1390107403]
 position = Vector2(185, 442)
 
 [node name="drawers" type="Node2D" parent="." unique_id=987437930]
+position = Vector2(1885, 357)
 script = ExtResource("7")
 displayName = "chest of drawers"
 lookClosely = true
 
 [node name="InteractPoint" type="Node2D" parent="drawers" unique_id=534030031]
-position = Vector2(555, 323)
+position = Vector2(-82, 222)
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="drawers" unique_id=702492190]
-polygon = PackedVector2Array(551, 223, 581, 211, 637, 222, 639, 294, 615, 315, 553, 290)
+polygon = PackedVector2Array(-185, -189, -6, -253, 346, -188, 348, 101, 209, 235, -172, 122)
+
+[node name="Sprite2D" type="Sprite2D" parent="drawers" unique_id=1367030913]
+material = ExtResource("4_g4qdp")
+
+[node name="staircase" type="Node2D" parent="." unique_id=838904424]
+z_as_relative = false
+position = Vector2(-212, 611)
+script = ExtResource("7")
+displayName = "staircase"
+metadata/_custom_type_script = "uid://bn8qaeykfdn4m"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="staircase" unique_id=2061385726]
+polygon = PackedVector2Array(-1267, -704, -1363, -600, -1343, -539, -1363, 385, -1219, 334, -1133, 243, -188, 15, -133, 41, -34, 8, -16, -699, -105, -742, -224, -1461, -1100, -1451)
+
+[node name="InteractPoint" type="Node2D" parent="staircase" unique_id=772088625]
+
+[node name="Sprite2D" type="Sprite2D" parent="staircase" unique_id=1916778180]
+z_index = 1
+z_as_relative = false
+position = Vector2(-621, -528)
+texture = ExtResource("10_0oy85")
+
+[node name="Polygon2D" type="Polygon2D" parent="." unique_id=456300931]
+color = Color(0, 0, 0, 0.41415003)
+polygon = PackedVector2Array(-781, 732, -990, 711, -1084, 604, -1175, 525, -1136, 436, -1187, 430, -1165, 257, -1200, 206, -1186, 104, -1200, 49, -966, -395, -840, -464, -717, -591, -655, -447, -556, -383, -612, -886, -1203, -883, -1364, 850, -1165, 846)
+script = ExtResource("12_xjibo")
+Darkness = 0.753
+Falloff = 5.0

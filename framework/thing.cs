@@ -38,9 +38,10 @@ public partial class thing : Node2D
     public CollisionPolygon2D clickArea;
     public Vector2[]          clickPolygon;
     public scene_script       parentScene;
-    public ScalerStick        scalerStick;
-    public CollisionPolygon2D freezeScaleRegion;
-    public float              originalScale;
+    public ScalerStick  scalerStick;
+    private SceneZone[] _sceneZones   = Array.Empty<SceneZone>();
+    private int         _defaultZIndex;
+    public float        originalScale;
     public float              max_for_normal1;
     public float              max_for_normal2;
     // ScalerStick reference Y values in scene (parent) space.
@@ -137,8 +138,14 @@ public partial class thing : Node2D
         parentScene = (Owner as scene_script) ?? (GetParent() as scene_script);
         ego   = parentScene?.ego;
 
-        try { freezeScaleRegion = parentScene?.FindChild("FreezeScaleRegion") as CollisionPolygon2D; }
-        catch { freezeScaleRegion = null; }
+        _defaultZIndex = ZIndex;
+        if (parentScene != null)
+        {
+            var zones = new List<SceneZone>();
+            foreach (var child in parentScene.GetChildren())
+                if (child is SceneZone z) zones.Add(z);
+            _sceneZones = zones.ToArray();
+        }
 
         scalerStick = parentScene?.FindChild("ScalerStick") as ScalerStick;
         if (scalerStick != null)
@@ -216,7 +223,7 @@ public partial class thing : Node2D
             shadow.Offset          = sprite.Offset + shadowOffset;
             shadow.SelfModulate    = new Color(0, 0, 0, 1f);
             shadow.ZAsRelative     = true;
-            shadow.ZIndex          = 0;
+            shadow.ZIndex          = -1;
             shadow.Hframes         = sprite.Hframes;
             shadow.Vframes         = sprite.Vframes;
             shadow.Frame           = sprite.Frame;
@@ -273,9 +280,14 @@ public partial class thing : Node2D
 
         if (scalerStick != null)
         {
-            if (freezeScaleRegion != null)
-                isScaleFrozen = Geometry2D.IsPointInPolygon(Position, freezeScaleRegion.Polygon);
-            if (!isScaleFrozen)
+            SceneZone zone = null;
+            foreach (var z in _sceneZones)
+                if (Geometry2D.IsPointInPolygon(Position, z.Polygon)) { zone = z; break; }
+
+            ZIndex = _defaultZIndex + (zone?.ZIndexBoost ?? 0);
+
+            bool frozen = isScaleFrozen || (zone != null && (zone.FreezeScale || zone.FrozenScale > 0f));
+            if (!frozen)
             {
                 float s;
                 if (Position.Y <= _scalerY1)
@@ -286,6 +298,10 @@ public partial class thing : Node2D
                 if (!startingScaleAsBaseline)
                     s *= scalerStick.ScaleMultiplier;
                 Scale = new Vector2(s, s);
+            }
+            else if (zone?.FrozenScale > 0f)
+            {
+                Scale = new Vector2(zone.FrozenScale, zone.FrozenScale);
             }
         }
 

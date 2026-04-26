@@ -534,8 +534,6 @@ public class EventSequence
 
     // -------------------------------------------------------------------------
     // AddEvent* helpers — create an IEventStep and append it to the queue.
-    // Signatures are identical to the old Event-based helpers so call sites
-    // (thing overrides, scene scripts, PopulateEventQueue) need no changes.
     // -------------------------------------------------------------------------
 
     public void AddEventWait(float seconds) =>
@@ -602,21 +600,42 @@ public class EventSequence
                               bool _interruptable = false, bool strict = false,
                               DialogBox.TailStyle? tailStyle = null,
                               Globals.DialogTypes dialogType = Globals.DialogTypes.speaking,
-                              Color? color = null) =>
+                              Color? color = null, float? forSecs = null)
+    {
+        bool stepInterruptable = forSecs.HasValue ? false : _interruptable;
         _steps.Add(new SignalStep(
-            () => actor.parentScene.CreateDialog(
-                dialogType, phrase, color ?? actor.dialogColor, position,
-                actor.topPoint, actor.DialogFacing, strict: strict, tailStyle: tailStyle, actor: actor),
-            "DialogClosed", _interruptable, "speak"));
+            () => {
+                // strict: false — scene-mode dialogs are always clickable; strict controls step
+                // interruptability (IsInterruptable above), not whether the dialog can be dismissed.
+                var db = actor.parentScene.CreateDialog(
+                    dialogType, phrase, color ?? actor.dialogColor, position,
+                    actor.topPoint, actor.DialogFacing, strict: false, tailStyle: tailStyle, actor: actor);
+                if (forSecs.HasValue)
+                    _scene.GetTree().CreateTimer(forSecs.Value, true).Connect("timeout",
+                        Callable.From(() => { if (GodotObject.IsInstanceValid(db)) db.CloseThisDialog(); }));
+                return db;
+            },
+            "DialogClosed", stepInterruptable, "speak"));
+    }
 
     public void AddEventThink(thing actor, string phrase, Vector2? position = null,
                               bool _interruptable = false, bool strict = false,
-                              Color? color = null) =>
+                              Color? color = null, float? forSecs = null)
+    {
+        bool stepInterruptable = forSecs.HasValue ? false : _interruptable;
         _steps.Add(new SignalStep(
-            () => actor.parentScene.CreateDialog(
-                Globals.DialogTypes.thinking, phrase, color ?? actor.dialogColor, position,
-                new Vector2(actor.Position.X, actor.topPoint.Y), actor.DialogFacing, strict: strict),
-            "DialogClosed", _interruptable, "think"));
+            () => {
+                // strict: false — see AddEventSpeak note above.
+                var db = actor.parentScene.CreateDialog(
+                    Globals.DialogTypes.thinking, phrase, color ?? actor.dialogColor, position,
+                    new Vector2(actor.Position.X, actor.topPoint.Y), actor.DialogFacing, strict: false);
+                if (forSecs.HasValue)
+                    _scene.GetTree().CreateTimer(forSecs.Value, true).Connect("timeout",
+                        Callable.From(() => { if (GodotObject.IsInstanceValid(db)) db.CloseThisDialog(); }));
+                return db;
+            },
+            "DialogClosed", stepInterruptable, "think"));
+    }
 
     public void AddEventSpeakFromAnchor(DialogAnchor anchor, string phrase,
                                         bool _interruptable = false, bool strict = false,
@@ -625,7 +644,7 @@ public class EventSequence
         _steps.Add(new SignalStep(
             () => _scene.CreateDialog(
                 dialogType, phrase, anchor.dialogColor, null,
-                anchor.GlobalPosition, anchor.Facing, strict: strict, tailStyle: tailStyle),
+                anchor.GlobalPosition, anchor.Facing, strict: false, tailStyle: tailStyle),
             "DialogClosed", _interruptable, "speak(anchor)"));
 
     public void AddEventThinkFromAnchor(DialogAnchor anchor, string phrase,
@@ -633,7 +652,7 @@ public class EventSequence
         _steps.Add(new SignalStep(
             () => _scene.CreateDialog(
                 Globals.DialogTypes.thinking, phrase, anchor.dialogColor, null,
-                anchor.GlobalPosition, anchor.Facing, strict: strict),
+                anchor.GlobalPosition, anchor.Facing, strict: false),
             "DialogClosed", _interruptable, "think(anchor)"));
 
     public void AddEventNarrate(string phrase, Vector2? position = null,
@@ -643,7 +662,7 @@ public class EventSequence
                                 Color? color = null) =>
         _steps.Add(new SignalStep(
             () => _scene.CreateDialog(Globals.DialogTypes.narration, phrase,
-                                      color ?? Colors.White, position, strict: strict, corner: corner,
+                                      color ?? Colors.White, position, strict: false, corner: corner,
                                       narrationStyle: style),
             "DialogClosed", _interruptable, "narrate"));
 

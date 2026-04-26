@@ -12,12 +12,13 @@
 [ext_resource type="Texture2D" uid="uid://uubvo4xjhjaf" path="res://game/art/crow-Sheet.png" id="11_qsq5u"]
 [ext_resource type="Texture2D" uid="uid://cmos4ujtbps1a" path="res://game/scenes/theroad/theroad_fence.png" id="13_qsq5u"]
 [ext_resource type="Texture2D" uid="uid://b4wifyy25528i" path="res://game/scenes/theroad/theroad_fg.png" id="13_shv7v"]
-[ext_resource type="Texture2D" uid="uid://snrxlggvn6so" path="res://game/scenes/theroad/theroad_fence_front.png" id="14_shv7v"]
 [ext_resource type="Script" uid="uid://djlnl3nloie3m" path="res://framework/DarkmapZone.cs" id="15_jofrn"]
+[ext_resource type="Script" uid="uid://0sbydwjrseum" path="res://framework/SceneZone.cs" id="15_l6f63"]
+[ext_resource type="Texture2D" uid="uid://bxnpg54ekupov" path="res://game/scenes/theroad/theroad_hill.png" id="16_l6f63"]
 [ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="RectangleShape2D" id="2"]
-size = Vector2(24.75, 21.5)
+size = Vector2(48, 30)
 
 [sub_resource type="Animation" id="3"]
 length = 0.001
@@ -58,13 +59,14 @@ _data = {
 }
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_nayev"]
-vertices = PackedVector2Array(725.4375, 275.03906, 454.4297, 270.70313, 458.15625, 269, 729.6875, 269.9922, 280.6172, 450.03125, 344.5, 427.4297, 429.6328, 448.71094, 356.57813, 491, 304.0078, 512.90625, 1044.4531, 418.75, 1184.5938, 941.60156, 93.38281, 832.4219, 459.27344, 609.97656, 541.75, 571.40625, 768.02344, 296.32813, 826.03906, 295.28906, 69.9375, 627.1094, -417.92188, 621.1094, -435.95313, 436.21094, 297.59375, 552.71875, 308.8672, 574.0078, 345.89844, 611.03906, 715.5703, 368.60156, 909.03125, 345.6797, 566.4297, 511.7578)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 5, 6, 7, 8), PackedInt32Array(9, 10, 11, 12, 13), PackedInt32Array(14, 0, 3, 15), PackedInt32Array(16, 17, 18, 4, 8, 19), PackedInt32Array(16, 19, 20, 11), PackedInt32Array(11, 20, 21), PackedInt32Array(22, 14, 15, 23), PackedInt32Array(11, 21, 12), PackedInt32Array(22, 23, 9, 13, 24)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(410, 280, 456, 259, 731, 260, 830, 286, 914, 337, 1053, 412, 1198, 953, 84.35596, 841.56726, 61, 637, -427, 631, -447, 426, 279, 440, 344, 417, 456, 445, 361, 500, 313, 520, 308, 551, 317, 568, 350, 601, 457, 600, 534, 564, 558, 506, 708, 362, 753, 300, 723, 285)])
+vertices = PackedVector2Array(606.9922, 323.9922, 510.3125, 313.5703, 574.1328, 295.9922, 687.0625, 293, 685.9219, 319.95313, 534.9922, 279.9922, -81.49219, 263.1172, -53.796875, 251.00781, 519.9922, 276, 658, 272, 659.02344, 276, 279.15625, 441, 344.03906, 418.03906, 453.35156, 445.35938, 360.5, 499.1172, 312.10156, 519.28906, 1052.1328, 412.65625, 1196.6484, 951.85156, 85.25, 840.6406, 913.5, 337.8672, 829.6875, 286.97656, 349.89844, 602.3203, 404.60156, 561.7969, 726.90625, 279, 727.1875, 281.0078, 744.0781, 286.28906, 61.890625, 636.0078, -426.07813, 630.0078, -445.89063, 427.02344, 306.96094, 551.1719, 743.90625, 287.92188, 687.03906, 334.4297, 316.1875, 568.60156, 486.60938, 500.78906, 566.6406, 436.77344)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4), PackedInt32Array(5, 6, 7, 8), PackedInt32Array(5, 8, 9, 10), PackedInt32Array(11, 12, 13, 14, 15), PackedInt32Array(16, 17, 18, 19), PackedInt32Array(20, 19, 18, 21, 22), PackedInt32Array(10, 9, 23, 24), PackedInt32Array(24, 23, 20, 25), PackedInt32Array(26, 27, 28, 11, 15, 29), PackedInt32Array(30, 25, 20), PackedInt32Array(31, 4, 3, 30, 20), PackedInt32Array(26, 29, 32, 18), PackedInt32Array(18, 32, 21), PackedInt32Array(20, 22, 33), PackedInt32Array(20, 33, 34), PackedInt32Array(20, 34, 31)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-86, 264, -54, 250, 520, 275, 658, 271, 727, 278, 830, 286, 914, 337, 1053, 412, 1198, 953, 84.35596, 841.56726, 61, 637, -427, 631, -447, 426, 279, 440, 344, 417, 456, 445, 361, 500, 313, 520, 308, 551, 317, 568, 350, 601, 404, 561, 486, 500, 566, 436, 686, 334, 685, 321, 607, 325, 505, 314, 574, 295, 687, 292, 743, 287, 727, 282, 659, 277, 535, 281)])
 source_geometry_group_name = &"navigation_polygon_source_group"
+agent_radius = 1.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3bukr"]
-size = Vector2(1434, 1056)
+size = Vector2(1439, 1078)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3183a"]
 size = Vector2(99, 20)
@@ -165,22 +167,23 @@ texture_scale = 0.32
 height = 417.0
 
 [node name="pole" type="Node2D" parent="." unique_id=1138120928 groups=["things"]]
+position = Vector2(415, -273)
 script = ExtResource("7")
 displayName = "pole"
 lookText = PackedStringArray("THAT\'S A [b]TALL[/b] TELEPHONE POLE!")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="pole" unique_id=1671936322]
-polygon = PackedVector2Array(679, 4, 695, 6, 679, 336, 659, 327)
+polygon = PackedVector2Array(30, -26, 53, -25, 27, 537, 11, 543)
 
 [node name="InteractPoint" type="Node2D" parent="pole" unique_id=1550536379]
-position = Vector2(838, 466)
+position = Vector2(154, 583)
 
 [node name="Sprite2D" type="Sprite2D" parent="pole" unique_id=328210016]
 material = ExtResource("6_dq2ep")
 
 [node name="exit_to_housefront" type="CollisionShape2D" parent="." unique_id=319799139]
 z_index = 1
-position = Vector2(747.375, 283.75)
+position = Vector2(692, 274)
 shape = SubResource("2")
 
 [node name="Candle" type="Node2D" parent="." unique_id=1637498701]
@@ -214,21 +217,22 @@ position = Vector2(-36, 2)
 navigation_polygon = SubResource("NavigationPolygon_nayev")
 
 [node name="ScalerStick" type="Line2D" parent="." unique_id=1677862880]
-points = PackedVector2Array(718, 307, 533, 450, 218, 639)
+points = PackedVector2Array(729, 297, 533, 450, 218, 639)
 default_color = Color(1, 1, 1, 0)
 script = ExtResource("ScalerStick_cs")
 
 [node name="house" type="Node2D" parent="." unique_id=1059648493]
+position = Vector2(-123, 225)
 script = ExtResource("7")
 displayName = "house"
 lookClosely = true
 lookText = PackedStringArray("THERE IS AN OLD HOUSE IN THE DISTANCE..", "MAYBE I SHOULD GO TAKE A CLOSER LOOK.")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="house" unique_id=78556102]
-polygon = PackedVector2Array(401, 300, 403, 336, 332, 329, 336, 296)
+polygon = PackedVector2Array(44, -21, 45, 28, -47, 29, -50, -19, -38, -38, 31, -38)
 
 [node name="InteractPoint" type="Node2D" parent="house" unique_id=1984360920]
-position = Vector2(387, 460)
+position = Vector2(56, 222)
 
 [node name="Sprite2D" type="Sprite2D" parent="house" unique_id=2015836459]
 material = ExtResource("6_dq2ep")
@@ -239,7 +243,7 @@ self_modulate = Color(1, 0, 0, 1)
 position = Vector2(577, 324)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=213966145]
-position = Vector2(317, 248)
+position = Vector2(318.5, 242)
 shape = SubResource("RectangleShape2D_3bukr")
 
 [node name="towards_house" type="CollisionShape2D" parent="." unique_id=120527646]
@@ -250,33 +254,40 @@ shape = SubResource("RectangleShape2D_3183a")
 position = Vector2(777, 511)
 
 [node name="farmer" parent="." unique_id=682049652 instance=ExtResource("10_gjxlk")]
-position = Vector2(101, 466)
+position = Vector2(392, 461)
+Facing = 4
 castsShadow = true
+shadowOffset = Vector2(0, -115)
+
+[node name="InteractPoint" type="Node2D" parent="farmer" unique_id=1298129360]
+position = Vector2(-228, 24)
 
 [node name="crow_spot" type="Node2D" parent="." unique_id=1454945297]
-position = Vector2(13, 378)
+position = Vector2(362, 559)
 
 [node name="crow" type="Node2D" parent="." unique_id=1241300825]
-z_index = 3
 z_as_relative = false
-position = Vector2(-532, 191)
+position = Vector2(-499, 356)
+scale = Vector2(0.735, 0.735)
 script = ExtResource("10_3xnww")
 Facing = 4
-speed = 120.0
+speed = 250.0
 displayName = "crow"
 dialogColor = Color(1, 0.44585896, 0.35585743, 1)
 isScaleFrozen = true
 metadata/_custom_type_script = "uid://bm38qqc3nw3xg"
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="crow" unique_id=311133172]
-polygon = PackedVector2Array(-22, -46, -7, -72, 22, -80, 33, -46, 21, -27, 8, -15, -26, -27)
+polygon = PackedVector2Array(-2.7210693, -322.44897, 6.8027344, -342.85712, 25.850342, -365.98636, 42.17688, -380.95233, 61.224487, -370.068, 53.06122, -344.21765, 46.258484, -323.8095, 29.931946, -319.72784, 31.292542, -292.51697, 8.163269, -293.87753, 9.523804, -319.72784)
 
 [node name="InteractPoint" type="Node2D" parent="crow" unique_id=1219295536]
-position = Vector2(49, 0)
+position = Vector2(58.665974, -4.750969)
 
 [node name="Sprite2D" type="Sprite2D" parent="crow" unique_id=1080978092]
+z_index = 1
+z_as_relative = false
 material = SubResource("ShaderMaterial_dq2ep")
-position = Vector2(7, -48)
+position = Vector2(16.4891, -342.166)
 scale = Vector2(0.32, 0.32)
 texture = ExtResource("11_qsq5u")
 hframes = 4
@@ -288,7 +299,7 @@ libraries/ = SubResource("AnimationLibrary_ooikc")
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="crow" unique_id=708161295]
 
 [node name="TopPoint" type="Node2D" parent="crow" unique_id=977447561]
-position = Vector2(-70, -71)
+position = Vector2(-51.700665, -351.02042)
 
 [node name="fg" type="Sprite2D" parent="." unique_id=1497098085]
 z_index = 3
@@ -311,21 +322,29 @@ polygon = PackedVector2Array(0, -215, 310, -267, 312, -234, -18, -9)
 [node name="InteractPoint" type="Node2D" parent="fence" unique_id=2037921800]
 position = Vector2(32, -105)
 
-[node name="Sprite2D2" type="Sprite2D" parent="fence" unique_id=1037498424]
-z_index = 1
-z_as_relative = false
-position = Vector2(138, -165.5)
-texture = ExtResource("14_shv7v")
-
 [node name="Sprite2D" type="Sprite2D" parent="fence" unique_id=1737216561]
+z_index = 1
 z_as_relative = false
 position = Vector2(138, -165.5)
 texture = ExtResource("13_qsq5u")
 
-[node name="fence_shadow" type="Polygon2D" parent="." unique_id=660238320]
+[node name="field_shadow" type="Polygon2D" parent="." unique_id=660238320]
 z_as_relative = false
+position = Vector2(-321, 14)
 color = Color(0, 0, 0, 0.55)
-polygon = PackedVector2Array(578, 461, 630, 410, 578, 405, 586, 400, 638, 401, 651, 385, 612, 379, 619, 375, 654, 378, 660, 366, 634, 361, 662, 361, 670, 352, 652, 348, 672, 347, 677, 341, 663, 336, 678, 337, 683, 331, 673, 329, 706, 331, 690, 332, 690, 338, 708, 340, 708, 343, 690, 343, 688, 348, 708, 350, 704, 353, 687, 353, 682, 364, 704, 365, 704, 369, 678, 369, 676, 378, 709, 381, 711, 388, 675, 385, 656, 403, 722, 407, 712, 418, 652, 415, 609, 467, 690, 475, 689, 496, 589, 486, 538, 551, 632, 547, 594, 579, 373, 559, 375, 545, 499, 548, 571, 478, 493, 460, 504, 451)
+polygon = PackedVector2Array(679, 391, 747, 426, 689, 496, 610, 453, 368, 446, -104, 457, -85, 353, 371, 392, 572, 380)
 script = ExtResource("15_jofrn")
 Darkness = 1.0
 Falloff = 31.85
+
+[node name="InFrontOfFence" type="CollisionPolygon2D" parent="." unique_id=783080088]
+polygon = PackedVector2Array(682, 327, 371, 564, 341, 560, 301, 539, 246, 637, 330, 778, 1025, 775, 895, 313, 699, 316)
+script = ExtResource("15_l6f63")
+ZIndexBoost = 1
+
+[node name="hill" type="Sprite2D" parent="." unique_id=92232989]
+z_index = 1
+z_as_relative = false
+position = Vector2(702, 290)
+texture = ExtResource("16_l6f63")
+offset = Vector2(-89.345, -26.555)

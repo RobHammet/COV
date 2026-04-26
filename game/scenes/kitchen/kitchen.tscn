@@ -1,49 +1,52 @@
 [gd_scene format=3 uid="uid://cpx5qfyooxwqx"]
 
 [ext_resource type="Script" uid="uid://b0lqp0o0oq5q0" path="res://framework/scene_script.cs" id="1_b3wt6"]
-[ext_resource type="Texture2D" uid="uid://jgxafb2pg7yf" path="res://game/scenes/kitchen/kitchen5.png" id="3"]
+[ext_resource type="Texture2D" uid="uid://7akyv4t8agxm" path="res://game/scenes/kitchen/kitchen_bg.png" id="2_1doj8"]
 [ext_resource type="Texture2D" uid="uid://b74vrr0ul7s4t" path="res://game/art/light.png" id="5_271cd"]
-[ext_resource type="Texture2D" uid="uid://r2do7357dbx8" path="res://game/scenes/kitchen/counter.png" id="6_pyp1d"]
-[ext_resource type="Texture2D" uid="uid://dknikbba7etng" path="res://game/scenes/kitchen/kitchenwall.png" id="7_cfi6m"]
-[ext_resource type="Texture2D" uid="uid://dyw72dcm60p4w" path="res://game/scenes/kitchen/windowcounter.png" id="8_ihxgh"]
+[ext_resource type="Texture2D" uid="uid://d0mwbgr3rycw1" path="res://game/scenes/kitchen/kitchen_sidetable.png" id="5_ckkwy"]
+[ext_resource type="Texture2D" uid="uid://dv2e1pyk6yycf" path="res://game/scenes/kitchen/kitchen_wall.png" id="6_raqhf"]
+[ext_resource type="Texture2D" uid="uid://570vl5xenq4" path="res://game/scenes/kitchen/kitchen_fg.png" id="7_cju7v"]
+[ext_resource type="Texture2D" uid="uid://ccuhxa0wrlt10" path="res://game/scenes/kitchen/kitchen_pot.png" id="8_u3kon"]
+[ext_resource type="Material" uid="uid://vatugls1iglu" path="res://shaders/materials/light_and_shadows.tres" id="9_ckkwy"]
 [ext_resource type="Script" uid="uid://bn8qaeykfdn4m" path="res://framework/thing.cs" id="9_cwtmn"]
 [ext_resource type="Script" uid="uid://1nr7d4q4pexg" path="res://game/scenes/kitchen/fridge.cs" id="10_5p8vf"]
 [ext_resource type="Texture2D" uid="uid://bvyfykl06jnqp" path="res://game/scenes/kitchen/kitchen_windowlight.png" id="11_ninbp"]
 [ext_resource type="Script" uid="uid://ck8x70om6qd8n" path="res://framework/ScalerStick.cs" id="ScalerStick_cs"]
 
 [sub_resource type="NavigationPolygon" id="1"]
-vertices = PackedVector2Array(459, 354, 544, 440, 594, 540, 158, 490, 215, 368, 303, 272, 62, 416, 142, 371, 578, 267, 581, 300, 487, 291, 445, 269, 433, 298, 310, 264, 322, 252, 352, 241, 251, 265, 246, 257, 270, 244, 271, 259, 291, 257, 426, 243)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4, 5), PackedInt32Array(3, 6, 7, 4), PackedInt32Array(8, 9, 10, 11), PackedInt32Array(11, 10, 12), PackedInt32Array(12, 0, 5, 13, 14, 15), PackedInt32Array(16, 17, 18, 19), PackedInt32Array(19, 18, 14, 20), PackedInt32Array(13, 20, 14), PackedInt32Array(12, 15, 21, 11)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(270, 244, 322, 252, 352, 241, 426, 243, 445, 269, 578, 267, 581, 300, 487, 291, 433, 298, 459, 354, 544, 440, 594, 540, 158, 490, 62, 416, 142, 371, 215, 368, 303, 272, 310, 264, 291, 257, 271, 259, 251, 265, 246, 257)])
+vertices = PackedVector2Array(779.47656, 499.6328, 940.8125, 708.6172, -204.29688, 589.2969, -112.74219, 502.7422, 39.3125, 492.79688, 224.6875, 369.5625, 722.46094, 443.60938, 673.21094, 378.3203, 270, 316.70313, 257.60156, 268.64063, 185.1875, 273, 196.86719, 248.03125, 266.39063, 258.85938, 266.39063, 258.8672, 835.27344, 315.25, 830.8203, 374.6172, 700.0703, 356.5, 632.21094, 300.6797, 354.57813, 251.07813, 594.3828, 257.8672, 324.95313, 268.45313, 270, 290.34375)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3, 4), PackedInt32Array(0, 4, 5, 6), PackedInt32Array(7, 6, 5, 8), PackedInt32Array(9, 10, 11, 12, 13), PackedInt32Array(14, 15, 16, 17), PackedInt32Array(17, 16, 7, 8), PackedInt32Array(18, 19, 17, 8, 20), PackedInt32Array(20, 8, 21), PackedInt32Array(13, 20, 21, 9)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(268, 249, 323, 258, 352, 241, 599, 248, 637, 291, 846, 306, 840, 386, 703, 367, 687, 380, 730, 437, 787, 493, 963, 721, -227, 597, -117, 493, 36, 483, 218, 362, 260, 313, 260, 293, 252, 279, 169, 284, 191, 237)])
 source_geometry_group_name = &"navigation_polygon_source_group"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_stmn1"]
-size = Vector2(133, 45)
+size = Vector2(118, 123.375)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_s8kqb"]
-size = Vector2(1153, 648)
+size = Vector2(1648, 915)
 
 [node name="kitchen" type="Node2D" unique_id=717813220 node_paths=PackedStringArray("parallaxSprites")]
 z_index = 1
 y_sort_enabled = true
 script = ExtResource("1_b3wt6")
 displayName = "kitchen"
-parallaxSprites = []
+parallaxSprites = [NodePath("counter"), NodePath("pot")]
+parallaxFactors = Array[float]([0.05, 0.175])
 
 [node name="background" type="Sprite2D" parent="." unique_id=750092156]
 y_sort_enabled = true
 position = Vector2(321, 241)
-texture = ExtResource("3")
+texture = ExtResource("2_1doj8")
 
 [node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=1102922880]
 navigation_polygon = SubResource("1")
 
 [node name="ScalerStick" type="Line2D" parent="." unique_id=1790567804]
 z_index = 2
-points = PackedVector2Array(332, 84, 463, 300, 569, 468)
+points = PackedVector2Array(559, 105, 250, 320, -247, 646)
 default_color = Color(1, 1, 1, 0)
 script = ExtResource("ScalerStick_cs")
-ScaleMultiplier = 1.14
+ScaleMultiplier = 1.93
 
 [node name="PointLight2D" type="PointLight2D" parent="." unique_id=1191032244]
 visible = false
@@ -56,55 +59,57 @@ texture_scale = 0.17
 height = 395.0
 
 [node name="exit_to_sittingroom" type="CollisionShape2D" parent="." unique_id=991538453]
-position = Vector2(535.5, 286.5)
+position = Vector2(766, 320.6875)
 shape = SubResource("RectangleShape2D_stmn1")
 
 [node name="windowcounter" type="Sprite2D" parent="." unique_id=1989204280]
 z_index = 1
 y_sort_enabled = true
-position = Vector2(1, 270)
-texture = ExtResource("8_ihxgh")
+position = Vector2(28, 318)
+texture = ExtResource("5_ckkwy")
 centered = false
 offset = Vector2(0, -269)
 
-[node name="kitchenwall" type="Sprite2D" parent="." unique_id=134520419]
-z_index = 1
-y_sort_enabled = true
-position = Vector2(1, 310)
-texture = ExtResource("7_cfi6m")
-centered = false
-offset = Vector2(0, -310)
-
 [node name="counter" type="Sprite2D" parent="." unique_id=520241017]
-z_index = 1
+z_index = 2
 y_sort_enabled = true
-position = Vector2(321, 675)
-texture = ExtResource("6_pyp1d")
-offset = Vector2(0, -434)
+position = Vector2(320, 239)
+texture = ExtResource("7_cju7v")
+
+[node name="pot" type="Sprite2D" parent="." unique_id=1759934915]
+z_index = 2
+position = Vector2(737, 524)
+texture = ExtResource("8_u3kon")
 
 [node name="window" type="Node2D" parent="." unique_id=1502555519]
 z_index = 1
 y_sort_enabled = true
+position = Vector2(16, -185)
 script = ExtResource("9_cwtmn")
 displayName = "window"
 lookClosely = true
 lookText = PackedStringArray("WHAT\'S GOING ON OUT THERE?")
 
 [node name="InteractPoint" type="Node2D" parent="window" unique_id=219087374]
-position = Vector2(282, 254)
+position = Vector2(179, 447)
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="window" unique_id=1053816598]
-polygon = PackedVector2Array(209, 21, 248, 49, 247, 179, 208, 182)
+polygon = PackedVector2Array(21, 11, 113, 60, 114, 307, 20, 316)
+
+[node name="Sprite2D" type="Sprite2D" parent="window" unique_id=771282907]
+material = ExtResource("9_ckkwy")
 
 [node name="fridge" type="Node2D" parent="." unique_id=357654267]
 z_index = 1
 y_sort_enabled = true
+position = Vector2(-347, -50)
 script = ExtResource("10_5p8vf")
 displayName = "fridge"
 lookText = PackedStringArray("ONE OF THOSE FANCY LOCKABLE FRIDGES...")
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="fridge" unique_id=439234950]
-polygon = PackedVector2Array(3, 70, 48, 58, 131, 86, 134, 336, 2, 308)
+position = Vector2(-463, -154)
+polygon = PackedVector2Array(292, 112, 430, 90, 644, 145, 642, 626, 305, 571)
 
 [node name="InteractPoint" type="Node2D" parent="fridge" unique_id=804840389]
 position = Vector2(193, 395)
@@ -119,11 +124,29 @@ texture = ExtResource("11_ninbp")
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1635794295]
 modulate = Color(1, 0, 0, 1)
 self_modulate = Color(1, 0, 0, 1)
-position = Vector2(577, 324)
+position = Vector2(385, 251)
+zoom = Vector2(0.855, 0.855)
 
 [node name="CameraClamp" type="CollisionShape2D" parent="." unique_id=1088566937]
-position = Vector2(576, 324)
+position = Vector2(318, 247.5)
 shape = SubResource("RectangleShape2D_s8kqb")
 
 [node name="start_point" type="Node2D" parent="." unique_id=216677850]
 position = Vector2(417, 288)
+
+[node name="kitchen_wall" type="Node2D" parent="." unique_id=1928445314]
+z_as_relative = false
+position = Vector2(711, 385)
+script = ExtResource("9_cwtmn")
+displayName = "wall"
+metadata/_custom_type_script = "uid://bn8qaeykfdn4m"
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="kitchen_wall" unique_id=2029563172]
+
+[node name="InteractPoint" type="Node2D" parent="kitchen_wall" unique_id=2085702845]
+
+[node name="Sprite2D" type="Sprite2D" parent="kitchen_wall" unique_id=1512181142]
+z_index = 2
+z_as_relative = false
+position = Vector2(218, -144)
+texture = ExtResource("6_raqhf")

@@ -1,4 +1,5 @@
 Polygon2D
+CollisionPolygon2D
 Sprite2D
 thing
 Node2D
@@ -9,6 +10,5 @@ CollisionShape2D
 PointLight2D
 Camera2D
 ColorRect
-CollisionPolygon2D
 SubViewport
 SubViewportContainer

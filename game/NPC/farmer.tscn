@@ -131,8 +131,5 @@ target_desired_distance = 5.0
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="." unique_id=612834835]
 polygon = PackedVector2Array(-6, -187, 19, -184, 27, -141, 32, -4, 4.71579, -0.855813, -24, -6, -14, -139)
 
-[node name="InteractPoint" type="Node2D" parent="." unique_id=1854553687]
-position = Vector2(-126, -4)
-
 [node name="TopPoint" type="Node2D" parent="." unique_id=2037139324]
 position = Vector2(-25, -168)

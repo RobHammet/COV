@@ -1,5 +1,7 @@
-res://framework/
 res://game/scenes/theroad/
+res://framework/
+res://game/scenes/sittingroom/
+res://game/scenes/kitchen/
 res://game/art/
 res://shaders/
 /home/rob/Documents/dev/Godot/

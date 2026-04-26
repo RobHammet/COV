@@ -30,6 +30,8 @@ on arrive_from scenename:
 
 border_style: thick
 border_width: 6
+
+# this is a comment
 ```
 
 **`thing`** — interaction handlers for a named node. Verbs: `use`, `look`, `talk`, `walk`. Combine with `, `: `on use, look:`. Item use: `on use_item keyname:`.
@@ -41,6 +43,10 @@ border_width: 6
 **`on entry`** — runs once when the scene becomes active (after transition completes).
 
 **`on arrive_from`** — runs when arriving specifically from the named scene.
+
+**`border_style`** / **`border_width`** — optional scene-level overrides for the panel border (e.g. `border_style: thick`, `border_width: 6`).
+
+Lines beginning with `#` are comments and are ignored by the parser.
 
 ---
 
@@ -98,7 +104,7 @@ narrate "TEXT" style:jagged
 
 **`strict`** — when combined with `for N`: locks input (hourglass cursor) for the duration. When used alone on `says`/`thinks` in a scene sequence: prevents player interruption.
 
-Actor can be any thing/NPC name, or `ego`.
+Actor can be any thing/NPC name, or `ego`. Use `\n` inside quoted text for a line break: `ego says "LINE ONE\nLINE TWO"`.
 
 ---
 
@@ -129,9 +135,10 @@ actor faces right
 actor faces up
 actor faces down
 actor faces otherthing
+actor looks_at otherthing
 ```
 
-Directions are `left`, `right`, `up`, `down`. Any other name is treated as a look-at target (thing or NPC).
+Directions are `left`, `right`, `up`, `down`. Any other name is treated as a look-at target (thing or NPC). `looks_at` is an explicit alias for the same look-at behaviour.
 
 ---
 
@@ -177,9 +184,12 @@ else:
 
 if not flagname:
   ...actions...
+
+if global.flagname is true:
+  ...actions...
 ```
 
-Conditional blocks. The optional `else:` branch runs if the condition is not met. Supports `global.flagname` syntax.
+Conditional blocks. The optional `else:` branch runs if the condition is not met. The `global.` prefix works in `if` conditions exactly as it does in `set`. `if` blocks are valid inside dialog nodes as well as scene action blocks.
 
 ---
 

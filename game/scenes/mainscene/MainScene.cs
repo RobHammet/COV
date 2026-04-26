@@ -139,6 +139,10 @@ public partial class MainScene : Node2D
     private const float PANEL_GUTTER_H = 4f;           // thin horizontal gap between columns
     private const float PANEL_GUTTER_V = 12f;          // vertical gap between rows
     private const float PAGE_SCALE_OUT = 0.88f;
+    // Rect overhang fraction: the TextureRect for each page curl is extended
+    // leftward by overW = origWidth * CurlOverhang / (1 - CurlOverhang), giving
+    // the curl band room to rest outside the original page frame.
+    private const float CurlOverhang = 0.25f;
 
     // Placeholder fill colors for unseen panels.
     private static readonly Color[] _panelColors =
@@ -317,6 +321,12 @@ public partial class MainScene : Node2D
                     break;
                 case Key.F3:
                     _debugMenu.Toggle();
+                    GetViewport().SetInputAsHandled();
+                    break;
+                case Key.F:
+                    Globals.SetFontSize(Globals.FontSize == Globals.FontSizePreset.Normal
+                        ? Globals.FontSizePreset.Large
+                        : Globals.FontSizePreset.Normal);
                     GetViewport().SetInputAsHandled();
                     break;
             }
@@ -586,18 +596,18 @@ public partial class MainScene : Node2D
         var curlOverlay = new CanvasLayer { Layer = 100 };
         AddChild(curlOverlay);
 
-        var rect = new TextureRect
-        {
+        var (curlSize1, curlPos1) = CurlRectBounds(pageSize2, pageOff2);
+        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
+        mat.SetShaderParameter("progress",      0.0f);
+        mat.SetShaderParameter("left_overhang", CurlOverhang);
+        var rect = new TextureRect {
             Texture     = pageTex,
             StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = pageSize2,
-            Position    = pageOff2,
+            Size        = curlSize1,
+            Position    = curlPos1,
+            Material    = mat,
         };
         curlOverlay.AddChild(rect);
-
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress", 0.0f);
-        rect.Material = mat;
 
         PlayFlip(_pageFlipPlayer);
         Tween curl = CreateTween();
@@ -773,17 +783,19 @@ public partial class MainScene : Node2D
 
         var curlLayer = new CanvasLayer { Layer = 100 };
         AddChild(curlLayer);
-        curlLayer.AddChild(new TextureRect
-        {
+        var (curlSz2, curlPt2) = CurlRectBounds(
+            new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
+            new Vector2(coverRectI.Position.X, coverRectI.Position.Y));
+        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
+        mat.SetShaderParameter("progress",      1.0f);
+        mat.SetShaderParameter("left_overhang", CurlOverhang);
+        curlLayer.AddChild(new TextureRect {
             Texture     = coverTex,
-            StretchMode = TextureRect.StretchModeEnum.Keep,
-            Size        = new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
-            Position    = new Vector2(coverRectI.Position.X, coverRectI.Position.Y),
-            Material    = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") },
+            StretchMode = TextureRect.StretchModeEnum.Scale,
+            Size        = curlSz2,
+            Position    = curlPt2,
+            Material    = mat,
         });
-        var curlRect = curlLayer.GetChild<TextureRect>(0);
-        var mat      = curlRect.Material as ShaderMaterial;
-        mat.SetShaderParameter("progress", 1.0f);
 
         // ── 6. Animate cover closing (progress 1 → 0) ─────────────────────────
         PlayFlip(_coverFlipPlayer);
@@ -924,18 +936,20 @@ public partial class MainScene : Node2D
         var curlOverlay = new CanvasLayer { Layer = 100 };
         AddChild(curlOverlay);
 
-        var curlRect = new TextureRect
-        {
+        var (curlSz3, curlPt3) = CurlRectBounds(
+            new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
+            new Vector2(coverRectI.Position.X, coverRectI.Position.Y));
+        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
+        mat.SetShaderParameter("progress",      0.0f);
+        mat.SetShaderParameter("left_overhang", CurlOverhang);
+        var curlRect = new TextureRect {
             Texture     = pageTex,
-            StretchMode = TextureRect.StretchModeEnum.Keep,
-            Size        = new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
-            Position    = new Vector2(coverRectI.Position.X, coverRectI.Position.Y),
+            StretchMode = TextureRect.StretchModeEnum.Scale,
+            Size        = curlSz3,
+            Position    = curlPt3,
+            Material    = mat,
         };
         curlOverlay.AddChild(curlRect);
-
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress", 0.0f);
-        curlRect.Material = mat;
 
         PlayFlip(_pageFlipPlayer);
         Tween curl = CreateTween();
@@ -1451,6 +1465,15 @@ public partial class MainScene : Node2D
     // ---------------------------------------------------------------------------
     // Organic timing helpers.
     // ---------------------------------------------------------------------------
+
+    // Expands a curl rect leftward by CurlOverhang so the curl band escapes the frame.
+    // Returns the widened size and shifted position; pass these to the TextureRect.
+    private static (Vector2 size, Vector2 pos) CurlRectBounds(Vector2 origSize, Vector2 origPos)
+    {
+        float overW = origSize.X * CurlOverhang / (1f - CurlOverhang);
+        return (new Vector2(origSize.X + overW, origSize.Y),
+                new Vector2(origPos.X - overW, origPos.Y));
+    }
 
     private static float RandomisedDuration(float baseDuration, float jitter = -1f)
     {
@@ -2106,19 +2129,19 @@ public partial class MainScene : Node2D
         firstReveal.Position = coverPagePos;
 
         // ── 8. Layer 100: cover curl ──────────────────────────────────────────
+        var (curlSzOB, curlPtOB) = CurlRectBounds(coverRect.Size, coverRect.Position);
         var curlOverlay = new CanvasLayer { Layer = 100 };
         AddChild(curlOverlay);
-        var curlRect = new TextureRect
-        {
+        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
+        mat.SetShaderParameter("progress",      0.0f);
+        mat.SetShaderParameter("left_overhang", CurlOverhang);
+        curlOverlay.AddChild(new TextureRect {
             Texture     = coverTex,
             StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = coverRect.Size,
-            Position    = coverRect.Position,
-        };
-        curlOverlay.AddChild(curlRect);
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress", 0.0f);
-        curlRect.Material = mat;
+            Size        = curlSzOB,
+            Position    = curlPtOB,
+            Material    = mat,
+        });
 
         PlayFlip(_coverFlipPlayer);
         Tween curl = CreateTween();
@@ -2161,17 +2184,16 @@ public partial class MainScene : Node2D
                 // so the viewer sees multiple curl bands sweeping simultaneously.
                 var flipLayer = new CanvasLayer { Layer = 100 + (fakeCount - 1 - fp) };
                 AddChild(flipLayer);
-                var flipRect = new TextureRect
-                {
+                var flipMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
+                flipMat.SetShaderParameter("progress",      0.0f);
+                flipMat.SetShaderParameter("left_overhang", CurlOverhang);
+                flipLayer.AddChild(new TextureRect {
                     Texture     = fakeTex,
                     StretchMode = TextureRect.StretchModeEnum.Scale,
-                    Size        = coverRect.Size,
-                    Position    = coverRect.Position,
-                    Material    = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") },
-                };
-                flipLayer.AddChild(flipRect);
-                var flipMat = flipRect.Material as ShaderMaterial;
-                flipMat.SetShaderParameter("progress", 0.0f);
+                    Size        = curlSzOB,
+                    Position    = curlPtOB,
+                    Material    = flipMat,
+                });
 
                 PlayFlip(_coverFlipPlayer);
                 Tween ct = CreateTween();

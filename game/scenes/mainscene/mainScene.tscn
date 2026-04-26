@@ -10,15 +10,15 @@
 [ext_resource type="Shader" uid="uid://de8n5ojo75oa3" path="res://shaders/blackwhiteshader.gdshader" id="6_0empv"]
 [ext_resource type="Script" uid="uid://cf7f7l4e3gopb" path="res://ui/Cursor.cs" id="8_apspx"]
 [ext_resource type="Texture2D" uid="uid://obw8hjgtwuym" path="res://game/art/items.png" id="9_wyabt"]
-[ext_resource type="Texture2D" uid="uid://dqsp5vydy7rwe" path="res://game/scenes/housefront/frontyard_bg.png" id="11_w3gyr"]
+[ext_resource type="Texture2D" uid="uid://cswnhb7ep62al" path="res://game/scenes/theroad/theroad_bg.png" id="11_w3gyr"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2dqqq"]
 shader = ExtResource("2_iv7us")
 shader_parameter/noise_scale = 8.6050003612375
-shader_parameter/dirt_strength = 0.4650000220875
+shader_parameter/dirt_strength = 0.2010000095475
 shader_parameter/dirt_scale = 38.3150017724625
-shader_parameter/black_bleed_range = 4.0
-shader_parameter/black_bleed_strength = 0.15
+shader_parameter/black_bleed_range = 1.0
+shader_parameter/black_bleed_strength = 0.0
 shader_parameter/angle_c = 0.2618
 shader_parameter/angle_m = 1.309
 shader_parameter/angle_y = 1.5708

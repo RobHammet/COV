@@ -55,20 +55,27 @@ public static class ScriptParser
                 case "speak": {
                     string actorName = obj["actor"].GetValue<string>();
                     (Globals.DialogTypes dialogType, DialogBox.TailStyle? tailStyle) = ParseSpeakStyle(obj["style"]?.GetValue<string>());
-                    Color? sColor = ParseColor(obj["color"]?.GetValue<string>());
+                    Color?  sColor  = ParseColor(obj["color"]?.GetValue<string>());
+                    bool    strict  = obj["strict"]?.GetValue<bool>() ?? false;
+                    float?  forSecs = obj.ContainsKey("for") ? obj["for"].GetValue<float>() : null;
                     if (ResolveThing(actorName, scene, self) is thing sa2)
-                        queue.AddEventSpeak(sa2, obj["text"].GetValue<string>(), Vector2.Zero, tailStyle: tailStyle, dialogType: dialogType, color: sColor);
+                        queue.AddEventSpeak(sa2, obj["text"].GetValue<string>(), Vector2.Zero,
+                            strict: strict, tailStyle: tailStyle, dialogType: dialogType, color: sColor, forSecs: forSecs);
                     else if (scene.FindChild(actorName, true, false) is DialogAnchor sa)
-                        queue.AddEventSpeakFromAnchor(sa, obj["text"].GetValue<string>(), tailStyle: tailStyle, dialogType: dialogType);
+                        queue.AddEventSpeakFromAnchor(sa, obj["text"].GetValue<string>(),
+                            strict: strict, tailStyle: tailStyle, dialogType: dialogType);
                     break;
                 }
                 case "think": {
                     string actorName = obj["actor"].GetValue<string>();
-                    Color? tColor = ParseColor(obj["color"]?.GetValue<string>());
+                    Color?  tColor  = ParseColor(obj["color"]?.GetValue<string>());
+                    bool    strict  = obj["strict"]?.GetValue<bool>() ?? false;
+                    float?  forSecs = obj.ContainsKey("for") ? obj["for"].GetValue<float>() : null;
                     if (ResolveThing(actorName, scene, self) is thing ta2)
-                        queue.AddEventThink(ta2, obj["text"].GetValue<string>(), Vector2.Zero, color: tColor);
+                        queue.AddEventThink(ta2, obj["text"].GetValue<string>(), Vector2.Zero,
+                            strict: strict, color: tColor, forSecs: forSecs);
                     else if (scene.FindChild(actorName, true, false) is DialogAnchor ta)
-                        queue.AddEventThinkFromAnchor(ta, obj["text"].GetValue<string>());
+                        queue.AddEventThinkFromAnchor(ta, obj["text"].GetValue<string>(), strict: strict);
                     break;
                 }
                 case "set_flag": {

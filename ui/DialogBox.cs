@@ -31,7 +31,7 @@ public partial class DialogBox : Control
     public scene_script parentScene;
     public thing trackActor;
     public Vector2 tailPos = new Vector2(0,0);
-    private Vector2 _actorWorldTailPos;
+    private Vector2 _actorScreenTailPos;
 
     public float offsetForFacing = 0f;
 
@@ -97,6 +97,13 @@ public partial class DialogBox : Control
 
     public override void _Ready()
     {
+        // DialogBox is now in a CanvasLayer (screen space). Full-Rect anchors would
+        // make the control resize against the viewport, producing a negative height
+        // (and malformed _Draw calls) when Position.Y is near the bottom of the screen.
+        // Reset to TopLeft so Position is unconditionally free.
+        AnchorLeft = AnchorRight = AnchorTop = AnchorBottom = 0f;
+        OffsetLeft = OffsetTop = OffsetRight = OffsetBottom = 0f;
+
         dbText            = GetNode<RichTextLabel>("DB_Text");
         dbSpeechBubble    = dbText.GetNode<NinePatchRect>("DB_SpeechBubble");
         dbNarrationBubble = dbText.GetNode<NinePatchRect>("DB_NarrationBubble");
@@ -112,17 +119,17 @@ public partial class DialogBox : Control
     {
         if (trackActor != null)
         {
-            Vector2 newTailPos = trackActor.topPoint;
-            Vector2 actorDelta = newTailPos - _actorWorldTailPos;
-            if (actorDelta != Vector2.Zero)
+            Vector2 newScreenTailPos = WorldToScreen(trackActor.topPoint);
+            if (newScreenTailPos != _actorScreenTailPos)
             {
-                Position += actorDelta;
-                _actorWorldTailPos = newTailPos;
+                Position           += newScreenTailPos - _actorScreenTailPos;
+                _actorScreenTailPos = newScreenTailPos;
+                UpdateTailToActor(newScreenTailPos);
                 QueueRedraw();
             }
         }
 
-        if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice)
+        if (dialogType == Globals.DialogTypes.thinking)
         {
             _cloudTime += (float)delta;
             QueueRedraw();
@@ -140,10 +147,10 @@ public partial class DialogBox : Control
             QueueRedraw();
         }
 
-        if (dialogType == Globals.DialogTypes.narration)
+        if (dialogType == Globals.DialogTypes.narration || dialogType == Globals.DialogTypes.choice)
         {
             _narrationTime += (float)delta;
-            // Re-pin to the cel border corner each frame so camera movement doesn't drift the box.
+            // Re-pin to the cel border corner each frame so any viewport resize is corrected.
             if (narrationCorner != Globals.NarrationCorner.Auto)
                 Position = GetSpotForNarrationCorner(drawRect);
             QueueRedraw();
@@ -210,11 +217,11 @@ public partial class DialogBox : Control
             if (isExclaim) DrawExclaimBubble(Vector2.Zero, dialogColor, 4f);
             else           DrawSpeechBubble(Vector2.Zero, dialogColor, 2.5f);
             if (SpeechTailStyle != TailStyle.NoTail) DrawTail();
-        } else if (dialogType == Globals.DialogTypes.narration) {
+        } else if (dialogType == Globals.DialogTypes.narration || dialogType == Globals.DialogTypes.choice) {
             if (ShadowEnabled)
                 DrawNarrationBubble(ShadowOffset, ShadowColor, 0f);
             DrawNarrationBubble(Vector2.Zero, dialogColor, 2.5f);
-        } else if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice) {
+        } else if (dialogType == Globals.DialogTypes.thinking) {
             if (ShadowEnabled) {
                 DrawCloudShape(ShadowOffset, ShadowColor, 0f);
                 if (SpeechTailStyle != TailStyle.NoTail) DrawThoughtTrail(ShadowOffset, ShadowColor);
@@ -453,9 +460,13 @@ public partial class DialogBox : Control
         var pts = ShearPolygon(_narrationBasePts, shear, _narrationCenterY);
         for (int i = 0; i < pts.Length; i++) pts[i] += offset;
 
-        DrawPolygon(pts, new[] { fill });
+        Vector2 fanCenter = Vector2.Zero;
+        foreach (var p in pts) fanCenter += p;
+        fanCenter /= pts.Length;
+        var c3 = new[] { fill, fill, fill };
+        for (int i = 0; i < pts.Length; i++)
+            DrawPrimitive(new[] { fanCenter, pts[i], pts[(i + 1) % pts.Length] }, c3, null);
         if (outlineW > 0f) {
-            // Closed polyline correctly handles the concave notch outline.
             var closed = new Vector2[pts.Length + 1];
             Array.Copy(pts, closed, pts.Length);
             closed[pts.Length] = pts[0];
@@ -777,58 +788,58 @@ public partial class DialogBox : Control
         else              this.EmitSignal("DialogClosed", choice);
     }
 
-    // Converts a screen-pixel position from CelBorderInnerRect into world space,
-    // accounting for camera position, zoom, and offset.
-    private Vector2 ScreenToWorld(Vector2 screenPt, Camera2D cam2d)
+    // Projects a world-space position onto screen pixels, matching the inverse of
+    // the old ScreenToWorld formula. Used to anchor dialog boxes (CanvasLayer,
+    // screen-space) to world-space NPC positions.
+    private Vector2 WorldToScreen(Vector2 worldPos)
     {
+        var cam = parentScene?.camera;
+        if (cam == null) return worldPos;
         Vector2 vpHalf = GetViewport().GetVisibleRect().Size / 2f;
-        return cam2d.Position + cam2d.Offset + (screenPt - vpHalf) / cam2d.Zoom;
+        return vpHalf + (worldPos - cam.Position - cam.Offset) * cam.Zoom;
     }
 
     private Vector2 GetSpotForNarrationCorner(Rect2 rect) {
-        var cam2d  = GetViewport().GetCamera2D();
         Rect2 inner = parentScene.mainScene.CelBorderInnerRect;
         const float spikeW = 6f;
         const float gap    = 10f;
-        Vector2 tl = ScreenToWorld(inner.Position, cam2d) + new Vector2(spikeW + gap, gap);
-        Vector2 br = ScreenToWorld(inner.End,      cam2d) - rect.Size - new Vector2(spikeW + gap, gap);
+        Vector2 tl = inner.Position + new Vector2(spikeW + gap, gap);
+        Vector2 br = inner.End - rect.Size - new Vector2(spikeW + gap, gap);
         return narrationCorner switch {
-            Globals.NarrationCorner.TopLeft     => new Vector2(tl.X, tl.Y),
-            Globals.NarrationCorner.TopRight    => new Vector2(br.X, tl.Y),
-            Globals.NarrationCorner.BottomLeft  => new Vector2(tl.X, br.Y),
-            Globals.NarrationCorner.BottomRight => new Vector2(br.X, br.Y),
-            _                                   => GetSpotForDialog(rect),
+            Globals.NarrationCorner.TopLeft      => new Vector2(tl.X, tl.Y),
+            Globals.NarrationCorner.TopRight     => new Vector2(br.X, tl.Y),
+            Globals.NarrationCorner.BottomLeft   => new Vector2(tl.X, br.Y),
+            Globals.NarrationCorner.BottomRight  => new Vector2(br.X, br.Y),
+            Globals.NarrationCorner.BottomCenter => new Vector2((tl.X + br.X) / 2f, br.Y),
+            _                                    => GetSpotForDialog(rect),
         };
     }
 
     public Vector2 GetSpotForDialog(Rect2 rect) {
-        var cam2d  = GetViewport().GetCamera2D();
         Rect2 inner = parentScene.mainScene.CelBorderInnerRect;
-        Vector2 worldTL = ScreenToWorld(inner.Position, cam2d);
-        Vector2 worldBR = ScreenToWorld(inner.End,      cam2d);
-        float minX = worldTL.X;
-        float minY = worldTL.Y;
-        float maxX = worldBR.X - rect.Size.X - marginSize * 2;
-        float maxY = worldBR.Y - rect.Size.Y - marginSize * 2;
+        float minX = inner.Position.X;
+        float minY = inner.Position.Y;
+        float maxX = inner.End.X - rect.Size.X - marginSize * 2;
+        float maxY = inner.End.Y - rect.Size.Y - marginSize * 2;
 
+        float camZoomY  = parentScene?.camera?.Zoom.Y ?? 1f;
         float clearance = trackActor != null
-            ? trackActor.Position.DistanceTo(trackActor.topPoint) * 0.5f
+            ? trackActor.Position.DistanceTo(trackActor.topPoint) * 0.5f * camZoomY
             : marginSize * 8f;
         float sideGap   = marginSize * 2f;
         float xCentered = Mathf.Clamp(tailPos.X - rect.Size.X / 2f + offsetForFacing, minX, maxX);
         float yMid      = Mathf.Clamp(tailPos.Y - rect.Size.Y / 2f, minY, maxY);
 
-        bool  isThought = dialogType == Globals.DialogTypes.thinking
-                       || dialogType == Globals.DialogTypes.choice;
+        bool  isThought = dialogType == Globals.DialogTypes.thinking;
         float yAbove = tailPos.Y - clearance - rect.Size.Y;
         if (isThought) yAbove = Mathf.Max(yAbove, minY);
 
-        // Collect other NPC head positions to avoid covering them.
+        // Collect other NPC head positions (screen space) to avoid covering them.
         var otherHeads = new System.Collections.Generic.List<Vector2>();
         foreach (var node in parentScene.FindChildren("*", "NPC", true, false))
         {
             if (node is NPC npc && npc != trackActor)
-                otherHeads.Add(npc.topPoint);
+                otherHeads.Add(WorldToScreen(npc.topPoint));
         }
 
         bool OverlapsNPC(Vector2 pos) {
@@ -867,6 +878,47 @@ public partial class DialogBox : Control
 
         _placement = PlacementSide.Below;
         return candidates[3].pos;
+    }
+
+    // ── Live tail tracking ────────────────────────────────────────────────────────
+
+    // Called each frame when trackActor moves or the camera pans. The dialog box
+    // stays in place; only the tail tip is repositioned so it always points at the
+    // actor's topPoint. Tail geometry is recomputed from the new tip.
+    private void UpdateTailToActor(Vector2 screenTailPos)
+    {
+        Vector2 rawLocal = screenTailPos - Position;
+
+        if (dialogType == Globals.DialogTypes.speaking)
+        {
+            if (tailPolygon != null)
+            {
+                tailPolygon[1] = rawLocal * 0.75f + anchorAvg * 0.25f;
+                ComputeTailBezier();
+            }
+        }
+        else if (dialogType == Globals.DialogTypes.exclaim)
+        {
+            Vector2 toActor    = rawLocal - _exclaimCenter;
+            Vector2 dir        = toActor.Length() > 0.1f ? toActor.Normalized() : Vector2.Down;
+            float   angle      = Mathf.Atan2(dir.Y, dir.X);
+            Vector2 perp       = new Vector2(-dir.Y, dir.X);
+            Vector2 baseCenter = _exclaimCenter + new Vector2(
+                Mathf.Cos(angle) * _exclaimRxValley * 0.85f,
+                Mathf.Sin(angle) * _exclaimRyValley * 0.85f);
+            float spread = Mathf.Max(_exclaimRxValley, _exclaimRyValley) * 0.20f;
+            tailPolygon = [
+                baseCenter - perp * spread,
+                rawLocal * 0.75f + baseCenter * 0.25f,
+                baseCenter + perp * spread,
+            ];
+            ComputeTailBezier();
+        }
+        else if (dialogType == Globals.DialogTypes.thinking)
+        {
+            tailPos = rawLocal * 0.75f + anchorAvg * 0.25f;
+            ComputeThoughtDots();
+        }
     }
 
     // ── Tail / thought-trail geometry ─────────────────────────────────────────────
@@ -1065,33 +1117,31 @@ public partial class DialogBox : Control
     private Rect2         _cloudInnerRect;
     private float         _cloudTime;
 
-    private void ComputeCloudBubble() {
-        Vector2 contentPos, contentSize;
-        if (dialogType == Globals.DialogTypes.choice) {
-            // Measure each choice label as a single line (wrap not needed for short options).
-            float w = 0f, h = 0f;
-            foreach (var child in dialogChoices.choices) {
-                child.CustomMinimumSize = Vector2.Zero;
-                child.AutowrapMode     = TextServer.AutowrapMode.Off;
-                child.Size             = new Vector2(9999f, 9999f);
-                var ms = child.GetMinimumSize();
-                w  = Mathf.Max(w, ms.X);
-                h += ms.Y;
-            }
-            int sep = dialogChoices.GetThemeConstant("separation");
-            h += Mathf.Max(0, dialogChoices.choices.Count - 1) * sep;
-            contentPos  = dbText.Position + dialogChoices.Position;
-            contentSize = new Vector2(Mathf.Max(w, 80f), Mathf.Max(h, 20f));
-            dialogChoices.Size = contentSize;
-            // Ensure dbText is tall enough to contain the VBox, so Godot's GUI
-            // traversal doesn't clip the last choice out of mouse-event reach.
-            dbText.Size = new Vector2(
-                Mathf.Max(dbText.Size.X, contentSize.X),
-                Mathf.Max(dbText.Size.Y, dialogChoices.Position.Y + contentSize.Y));
-        } else {
-            contentPos  = dbText.Position;
-            contentSize = dbText.Size;
+    // Measures choice labels and resizes dbText to contain them. Called before ComputeNarrationBubble.
+    private void MeasureChoiceContent() {
+        float w = 0f, h = 0f;
+        foreach (var child in dialogChoices.choices) {
+            child.CustomMinimumSize = Vector2.Zero;
+            child.AutowrapMode     = TextServer.AutowrapMode.Off;
+            child.Size             = new Vector2(9999f, 9999f);
+            var ms = child.GetMinimumSize();
+            w  = Mathf.Max(w, ms.X);
+            h += ms.Y;
         }
+        int sep = dialogChoices.GetThemeConstant("separation");
+        h += Mathf.Max(0, dialogChoices.choices.Count - 1) * sep;
+        var contentSize = new Vector2(Mathf.Max(w, 80f), Mathf.Max(h, 20f));
+        dialogChoices.Size = contentSize;
+        // Ensure dbText is tall enough to contain the VBox so Godot's GUI
+        // traversal doesn't clip the last choice out of mouse-event reach.
+        dbText.Size = new Vector2(
+            Mathf.Max(dbText.Size.X, contentSize.X),
+            Mathf.Max(dbText.Size.Y, dialogChoices.Position.Y + contentSize.Y));
+    }
+
+    private void ComputeCloudBubble() {
+        Vector2 contentPos  = dbText.Position;
+        Vector2 contentSize = dbText.Size;
 
         float pad = marginSize * 0.6f;
         _cloudInnerRect = new Rect2(contentPos - Vector2.One * pad,
@@ -1216,6 +1266,11 @@ public partial class DialogBox : Control
         dbText.AddThemeColorOverride("default_color", new Color(0.08f, 0.08f, 0.08f));
         dbTimer.WaitTime  = 1f / textSpeed;
 
+        // DialogBox lives in a CanvasLayer (screen space). Convert world-space tailPos
+        // to screen pixels so all subsequent placement math is in the same coordinate space.
+        if (tailPos != Vector2.Zero)
+            tailPos = WorldToScreen(tailPos);
+
         if (phrase == null) phrase = "error: phrase missing";
         phrase = phrase.Trim();
         _strippedPhraseLength = GetPhraseWithoutBbcode().Length;
@@ -1227,7 +1282,7 @@ public partial class DialogBox : Control
         // For narration, fill the full cel border width minus margins so long captions
         // span the readable area edge-to-edge. Other dialog types respect maxWidth.
         int effectiveMaxWidth = maxWidth;
-        if (dialogType == Globals.DialogTypes.narration && parentScene?.mainScene != null)
+        if ((dialogType == Globals.DialogTypes.narration || dialogType == Globals.DialogTypes.choice) && parentScene?.mainScene != null)
         {
             Rect2 inner = parentScene.mainScene.CelBorderInnerRect;
             effectiveMaxWidth = Mathf.Max(100, (int)(inner.Size.X - (marginSize + 16f) * 2f));
@@ -1261,6 +1316,12 @@ public partial class DialogBox : Control
         } else if (dialogType == Globals.DialogTypes.exclaim) {
             ComputeExclaimBubble();
             drawRect = _bubbleRect;
+        } else if (dialogType == Globals.DialogTypes.choice) {
+            dbText.Position = new Vector2(marginSize, marginSize);
+            MeasureChoiceContent();
+            drawRect = new Rect2(0f, 0f,
+                dbText.Size.X + marginSize * 2f,
+                dbText.Size.Y + marginSize * 2f);
         } else {
             dbText.Position = new Vector2(marginSize, marginSize);
             drawRect = new Rect2(0f, 0f,
@@ -1269,10 +1330,11 @@ public partial class DialogBox : Control
         }
 
         if (pos == Vector2.Zero) {
-            pos = (dialogType == Globals.DialogTypes.narration &&
-                   narrationCorner != Globals.NarrationCorner.Auto)
-                ? GetSpotForNarrationCorner(drawRect)
-                : GetSpotForDialog(drawRect);
+            if ((dialogType == Globals.DialogTypes.narration || dialogType == Globals.DialogTypes.choice) &&
+                narrationCorner != Globals.NarrationCorner.Auto)
+                pos = GetSpotForNarrationCorner(drawRect);
+            else
+                pos = GetSpotForDialog(drawRect);
         }
 
         this.Position = pos;  // _placement already set by GetSpotForDialog above
@@ -1286,7 +1348,7 @@ public partial class DialogBox : Control
             dialogChoices.Hide();
         }
 
-        _actorWorldTailPos = tailPos;
+        _actorScreenTailPos = tailPos;
 
         if (dialogType == Globals.DialogTypes.speaking) {
             float   bcx    = _bubbleRect.Size.X / 2f;
@@ -1334,7 +1396,7 @@ public partial class DialogBox : Control
             anchorAvg    = center;
             _tailIsBelow = dir.Y > 0f;
 
-        } else if (dialogType == Globals.DialogTypes.thinking || dialogType == Globals.DialogTypes.choice) {
+        } else if (dialogType == Globals.DialogTypes.thinking) {
             ComputeCloudBubble();
             // Anchor on whichever cloud face is nearest to the character, matching speech bubble logic.
             float ccx = _cloudInnerRect.GetCenter().X;
@@ -1346,10 +1408,9 @@ public partial class DialogBox : Control
                 _                   => new Vector2(ccx, _cloudInnerRect.End.Y  + CloudBumpRadius * 0.6f),
             };
             tailPos = (tailPos - Position) * 0.75f + anchorAvg * 0.25f;
-            if (dialogType == Globals.DialogTypes.thinking)
-                ComputeThoughtDots();
+            ComputeThoughtDots();
 
-        } else if (dialogType == Globals.DialogTypes.narration) {
+        } else if (dialogType == Globals.DialogTypes.narration || dialogType == Globals.DialogTypes.choice) {
             ComputeNarrationBubble();
         }
     }
