@@ -8,6 +8,7 @@
 //         add_to_inventory). Pass null when not applicable.
 
 using Godot;
+using System;
 using System.Text.Json.Nodes;
 
 public static class ScriptParser
@@ -108,6 +109,20 @@ public static class ScriptParser
                 }
                 case "add_to_inventory": {
                     if (self != null) queue.AddEventAddToInventory(self);
+                    break;
+                }
+                case "add_inv_item": {
+                    string itemName = obj["item"]?.GetValue<string>() ?? "";
+                    if (Enum.TryParse<InventoryItem.ItemType>(itemName, true, out var addType) &&
+                        addType != InventoryItem.ItemType.none)
+                        queue.AddEventAddInventoryItem(addType);
+                    break;
+                }
+                case "remove_inv_item": {
+                    string itemName = obj["item"]?.GetValue<string>() ?? "";
+                    if (Enum.TryParse<InventoryItem.ItemType>(itemName, true, out var remType) &&
+                        remType != InventoryItem.ItemType.none)
+                        queue.AddEventRemoveFromInventory(remType);
                     break;
                 }
                 case "toggle_exist": {

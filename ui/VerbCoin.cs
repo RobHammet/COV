@@ -1,8 +1,15 @@
+using System;
 using Godot;
 
 public partial class VerbCoin : Control
 {
     public scene_script parentScene;
+
+    // Set before AddChild when spawning from inventory context.
+    public bool                           showInventoryButton = true;
+    public InventoryItem.ItemType         targetSlotType      = InventoryItem.ItemType.none;
+    public Action<Globals.InteractModes>  OnCommit;
+    public Action                         OnClose;
 
     private Node2D        _node2d;
     private TextureButton _lookButton;
@@ -23,13 +30,15 @@ public partial class VerbCoin : Control
     private const float ConfirmDelay     = 0.5f;
     private const float HighlightScale   = 1.2f;
 
-    private bool _confirming    = false;
-    private bool _closing       = false;
-    private int  _highlightedIdx = -1;
+    private bool _confirming              = false;
+    private bool _closing                = false;
+    private bool _requirePressBeforeCommit = false;
+    private int  _highlightedIdx          = -1;
 
     public override void _Ready()
     {
-        parentScene = GetParent<scene_script>();
+        parentScene ??= GetParentOrNull<scene_script>();
+        _requirePressBeforeCommit = OnCommit != null;
         _node2d = GetNode<Node2D>("VerbCoin_Node2D");
 
         _lookButton      = _node2d.GetNode<TextureButton>("LookButton");
@@ -38,7 +47,10 @@ public partial class VerbCoin : Control
         _itemButton      = _node2d.GetNode<TextureButton>("ItemButton");
         _inventoryButton = _node2d.GetNode<TextureButton>("InventoryButton");
 
-        _buttons = [_lookButton, _talkButton, _useButton, _itemButton, _inventoryButton];
+        if (!showInventoryButton) _inventoryButton.Hide();
+        _buttons = showInventoryButton
+            ? [_lookButton, _talkButton, _useButton, _itemButton, _inventoryButton]
+            : [_lookButton, _talkButton, _useButton, _itemButton];
 
         // Cache natural center and half-size; set pivot to center for highlight scaling
         _buttonCenters   = new Vector2[_buttons.Length];
@@ -63,10 +75,15 @@ public partial class VerbCoin : Control
 
         ZIndex = _node2d.ZIndex;
 
-        // Sync item button texture with whatever is currently selected
+        // Sync item button; show default (none) icon for self-use
+        var defaultItemTex = _itemButton.TextureNormal;
         var verbPanel = parentScene.mainScene.overlayScene?.verbPanel;
         if (verbPanel != null)
             _itemButton.TextureNormal = verbPanel.itemButton.TextureNormal;
+        bool selfUse = targetSlotType != InventoryItem.ItemType.none
+                       && targetSlotType == parentScene.mainScene.usingItem;
+        if (selfUse) _itemButton.TextureNormal = defaultItemTex;
+        _itemButton.TextureHover = _itemButton.TextureNormal;
 
         // Start collapsed + rotated, animate open with clockwise sweep
         _node2d.Scale          = Vector2.Zero;
@@ -140,12 +157,19 @@ public partial class VerbCoin : Control
                 GetViewport().SetInputAsHandled();
                 if (IsRealRelease(@event))
                 {
-                    Vector2 screenPos = @event is InputEventScreenTouch t2
-                        ? t2.Position
-                        : GetViewport().GetMousePosition();
-                    Vector2 localPos = parentScene.ToLocal(
-                        GetViewport().GetCanvasTransform().AffineInverse() * screenPos);
-                    parentScene.InterruptVerbCoin(localPos);
+                    if (OnCommit != null)
+                    {
+                        StartClose();
+                    }
+                    else
+                    {
+                        Vector2 screenPos = @event is InputEventScreenTouch t2
+                            ? t2.Position
+                            : GetViewport().GetMousePosition();
+                        Vector2 localPos = parentScene.ToLocal(
+                            GetViewport().GetCanvasTransform().AffineInverse() * screenPos);
+                        parentScene.InterruptVerbCoin(localPos);
+                    }
                 }
             }
             else
@@ -161,8 +185,8 @@ public partial class VerbCoin : Control
             UpdateModeFromPos(GetViewport().GetCanvasTransform().AffineInverse() * drag.Position);
         else if (IsAnyRelease(@event))
         {
-            // Swallow both real and emulated releases; only commit on the real one.
             GetViewport().SetInputAsHandled();
+            if (_requirePressBeforeCommit) { _requirePressBeforeCommit = false; return; }
             if (IsRealRelease(@event)) CommitSelection();
         }
     }
@@ -178,8 +202,10 @@ public partial class VerbCoin : Control
 
         _confirming = true;
 
-        // Fire the action immediately on whatever is at the press position
-        parentScene.TriggerInteractAtPressPos();
+        if (OnCommit != null)
+            OnCommit(parentScene.mainScene.GetInteractMode());
+        else
+            parentScene.TriggerInteractAtPressPos();
 
         // Hide buttons and show selected mode icon at hub
         SetHighlight(-1);
@@ -208,13 +234,14 @@ public partial class VerbCoin : Control
 
     private void StartClose()
     {
+        if (_closing) return;
         _closing = true;
         var tween = CreateTween().SetParallel(true);
         tween.TweenProperty(_node2d, "scale", Vector2.Zero, CloseDuration)
              .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
         tween.TweenProperty(_node2d, "rotation_degrees", -45f, CloseDuration)
              .SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
-        tween.Chain().TweenCallback(Callable.From(parentScene.OnVerbCoinRelease));
+        tween.Chain().TweenCallback(Callable.From(OnClose ?? parentScene.OnVerbCoinRelease));
     }
 
     private void ClampButtonsToInnerRect()
@@ -294,7 +321,11 @@ public partial class VerbCoin : Control
         _highlightedIdx = idx;
     }
 
-    public void UpdateItemButton(Texture2D tex) => _itemButton.TextureNormal = tex;
+    public void UpdateItemButton(Texture2D tex)
+    {
+        _itemButton.TextureNormal = tex;
+        _itemButton.TextureHover  = tex;
+    }
 
     private void UpdateModeFromPos(Vector2 canvasPos)
     {

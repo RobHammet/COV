@@ -137,9 +137,6 @@ public partial class scene_script : Node2D
     // Cached scene light — resolved once in _EnterTree() to avoid GetNode every frame.
     private PointLight2D _sceneLight;
 
-    // Inventory panel loaded in _EnterTree(); shown/hidden by ToggleInventory().
-    private Inventory inventoryUI = null;
-
     // ---------------------------------------------------------------------------
     // Pause — stops _Process() logic without pausing the Godot scene tree.
     // Used by ToggleInventory() and can be used by MainScene during transitions.
@@ -260,24 +257,9 @@ public partial class scene_script : Node2D
             GD.Print($"  thing: {t.displayName}");
         }
 
-        // Load inventory panel. Guard against re-running when the node is
-        // reparented (thumbnail capture moves it to a SubViewport and back),
-        // and against crashes when instantiated in a SubViewport context.
-        if (inventoryUI == null)
-        {
-            try
-            {
-                var packedInv = GD.Load<PackedScene>("res://ui/Inventory.tscn");
-                inventoryUI = packedInv.Instantiate() as Inventory;
-                AddChild(inventoryUI);
-                inventoryUI.Hide();
-            }
-            catch { inventoryUI = null; }
-        }
-
         if (_dialogLayer == null)
         {
-            _dialogLayer = new CanvasLayer { Layer = 4 };
+            _dialogLayer = new CanvasLayer { Layer = 13 };
             AddChild(_dialogLayer);
         }
 
@@ -490,6 +472,7 @@ public partial class scene_script : Node2D
 
     // Active VerbCoin control, or null when not shown.
     public Control verbCoinControl;
+    private CanvasLayer _invCoinLayer;
 
     // ---------------------------------------------------------------------------
     // _UnhandledInput — raw input collection only; actions taken in _Process().
@@ -497,7 +480,7 @@ public partial class scene_script : Node2D
     public override void _UnhandledInput(InputEvent @event)
     {
         // Block while suspended, paused, dialog open, or inventory visible.
-        if (IsPaused() || isSceneInputSuspended || HasOpenDialog || (inventoryUI?.Visible ?? false))
+        if (IsPaused() || isSceneInputSuspended || HasOpenDialog || (mainScene?.inventoryScene?.Visible ?? false))
             return;
 
         if (@event is InputEventMouseButton mouse)
@@ -599,6 +582,34 @@ public partial class scene_script : Node2D
         AddChild(verbCoinControl);
     }
 
+    public void ShowInventoryVerbCoin(Vector2 screenPos, InventoryItem.ItemType targetSlotType, Action<Globals.InteractModes> onCommit, Action onCleanup = null)
+    {
+        if (verbCoinControl != null) return;
+
+        if (_invCoinLayer == null)
+        {
+            _invCoinLayer = new CanvasLayer { Layer = 14 };
+            AddChild(_invCoinLayer);
+        }
+
+        var packed = GD.Load<PackedScene>("res://ui/VerbCoin.tscn");
+        var coin = packed.Instantiate<VerbCoin>();
+        coin.parentScene         = this;
+        coin.showInventoryButton = false;
+        coin.targetSlotType      = targetSlotType;
+        coin.OnCommit = onCommit;
+        coin.OnClose  = () => {
+            verbCoinControl = null;
+            mousePosOnPress = new Vector2(-1, -1);
+            mainScene.SetInteractMode(ego != null ? Globals.InteractModes.walk : Globals.InteractModes.look);
+            onCleanup?.Invoke();
+            coin.QueueFree();
+        };
+        coin.Position   = screenPos;   // CanvasLayer children use screen space directly
+        verbCoinControl = coin;
+        _invCoinLayer.AddChild(coin);
+    }
+
     public void HideVerbCoin()
     {
         var coin = verbCoinControl as VerbCoin;
@@ -633,18 +644,16 @@ public partial class scene_script : Node2D
 
     public void ToggleInventory()
     {
-        if (inventoryUI == null) return;
-        if (!inventoryUI.Visible)
+        var inv = mainScene?.inventoryScene;
+        if (inv == null) return;
+        if (!inv.Visible)
         {
-            Pause();
             if (ego != null) ego.StopWalking();
-            inventoryUI.Show();
-            inventoryUI.InventoryOpened(mainScene.GetInteractMode());
+            inv.Open();
         }
         else
         {
-            inventoryUI.Hide();
-            Resume();
+            inv.Close();
         }
     }
 
@@ -933,7 +942,8 @@ public partial class scene_script : Node2D
                 if (ego != null) ego.StopWalking();
                 ShowVerbCoin();
             }
-            else if (!isMouseLeftButtonHeld && verbCoinControl != null)
+            else if (!isMouseLeftButtonHeld && verbCoinControl != null
+                     && verbCoinControl is not VerbCoin { OnCommit: not null })
             {
                 HideVerbCoin();
             }

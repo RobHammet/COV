@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dtxh3ncvqp2b7"]
+
+[ext_resource type="Script" path="res://ui/IntroCards.cs" id="1"]
+
+[node name="IntroCards" type="Node"]
+script = ExtResource("1")

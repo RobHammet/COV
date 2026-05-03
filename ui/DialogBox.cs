@@ -183,18 +183,18 @@ public partial class DialogBox : Control
             GetViewport().SetInputAsHandled();
             if (dialogType == Globals.DialogTypes.choice && dialogChoices != null)
             {
-                // Hit-test directly so the first tap selects immediately (no hover pre-req).
-                Vector2 canvasPos = GetViewport().GetCanvasTransform().AffineInverse() * touchEvent.Position;
+                // GetGlobalMousePosition() is in the same space as GetGlobalRect() for Controls
+                // inside a CanvasLayer — unlike GetCanvasTransform() which is for the world canvas.
+                Vector2 mousePos = GetGlobalMousePosition();
                 for (int i = 0; i < dialogChoices.choices.Count; i++)
                 {
-                    if (dialogChoices.choices[i].GetGlobalRect().HasPoint(canvasPos))
+                    if (dialogChoices.choices[i].GetGlobalRect().HasPoint(mousePos))
                     {
                         dialogChoices.currentChoice = i;
                         CloseThisDialog(i);
                         return;
                     }
                 }
-                // Touch missed all choices — swallowed but no selection.
                 return;
             }
             DealWithClick();
@@ -1330,8 +1330,7 @@ public partial class DialogBox : Control
         }
 
         if (pos == Vector2.Zero) {
-            if ((dialogType == Globals.DialogTypes.narration || dialogType == Globals.DialogTypes.choice) &&
-                narrationCorner != Globals.NarrationCorner.Auto)
+            if (narrationCorner != Globals.NarrationCorner.Auto)
                 pos = GetSpotForNarrationCorner(drawRect);
             else
                 pos = GetSpotForDialog(drawRect);

@@ -60,8 +60,9 @@ public partial class MainScene : Node2D
     public Node2D       nextSceneHolder;
     public scene_script currentScene;
     public scene_script nextScene;
-    public OverlayScene overlayScene;
-    public Cursor       cursor;
+    public OverlayScene   overlayScene;
+    public InventoryScene inventoryScene;
+    public Cursor         cursor;
     private CanvasLayer _comicPageLayer;  // ComicPageLayer CanvasLayer (hidden during transitions)
 
     public bool isInTransition = false;
@@ -291,6 +292,17 @@ public partial class MainScene : Node2D
 
         if (currentInputMode == Globals.InputModes.verbcoin)
             overlayScene?.GetNode<Control>("VerbPanel")?.Hide();
+
+        inventoryScene = new InventoryScene();
+        AddChild(inventoryScene);
+    }
+
+    public void SetItemButtonIcon(Texture2D tex)
+    {
+        if (overlayScene?.verbPanel != null)
+            overlayScene.verbPanel.itemButton.TextureNormal = tex;
+        if (currentScene?.verbCoinControl is VerbCoin coin)
+            coin.UpdateItemButton(tex);
     }
 
     public override void _Process(double delta)
@@ -751,12 +763,24 @@ public partial class MainScene : Node2D
         PrepareNextScene(_coverPath);
         float   coverTargetZoom   = 1f;
         Vector2 coverTargetCenter = vp / 2f;
-        var nextCoverArea = nextScene?.GetNodeOrNull<CollisionShape2D>("CoverArea");
-        if (nextCoverArea?.Shape is RectangleShape2D nextCoverShape && _stagingViewport != null)
+        // Use Cover's own camera settings so the thumbnail matches the live scene exactly.
+        if (nextScene is Cover nextCoverScene && nextCoverScene.camera != null)
         {
-            coverTargetZoom   = Mathf.Min(vp.X / (nextCoverShape.Size.X * 1.15f),
-                                          vp.Y / (nextCoverShape.Size.Y * 1.15f));
-            coverTargetCenter = nextCoverArea.GlobalPosition;
+            coverTargetZoom   = nextCoverScene.camera.Zoom.X;
+            coverTargetCenter = nextCoverScene.camera.Position;
+        }
+        else
+        {
+            var nextCoverArea = nextScene?.GetNodeOrNull<CollisionShape2D>("CoverArea");
+            if (nextCoverArea?.Shape is RectangleShape2D nextCoverShape)
+            {
+                coverTargetZoom   = Mathf.Min(vp.X / (nextCoverShape.Size.X * 1.15f),
+                                              vp.Y / (nextCoverShape.Size.Y * 1.15f));
+                coverTargetCenter = nextCoverArea.GlobalPosition;
+            }
+        }
+        if (_stagingViewport != null)
+        {
             _stagingViewport.CanvasTransform = new Transform2D(
                 new Vector2(coverTargetZoom, 0f), new Vector2(0f, coverTargetZoom),
                 vp / 2f - coverTargetCenter * coverTargetZoom);
@@ -843,33 +867,44 @@ public partial class MainScene : Node2D
         Vector2 vp        = GetViewportRect().Size;
         Rect2   coverRect = new Rect2(Vector2.Zero, vp);  // fallback: full viewport
 
-        // ── 1. Zoom cover camera to show the full CoverArea + background margin ──
-        var coverArea = currentScene.GetNodeOrNull<CollisionShape2D>("CoverArea");
-        if (coverArea?.Shape is RectangleShape2D coverShape)
+        // ── 1. Frame the cover ────────────────────────────────────────────────────
+        if (currentScene is Cover coverScene && coverScene.CoverScreenRect.Size != Vector2.Zero)
         {
-            var coverCam = currentScene.camera;
-            if (coverCam != null)
+            // The Cover scene's pages are already sized and positioned to the cover
+            // polygon at the current camera zoom. Skip the zoom animation so the
+            // transition page matches exactly what the player was looking at.
+            coverRect  = coverScene.CoverScreenRect;
+            _coverRect = coverRect;
+        }
+        else
+        {
+            // Zoom the cover camera to show the full CoverArea + background margin.
+            var coverArea = currentScene.GetNodeOrNull<CollisionShape2D>("CoverArea");
+            if (coverArea?.Shape is RectangleShape2D coverShape)
             {
-                coverCam.Enabled = true;
-                coverCam.MakeCurrent();
-                coverCam.Offset  = Vector2.Zero;  // cover scene must not inherit the cel-border offset
+                var coverCam = currentScene.camera;
+                if (coverCam != null)
+                {
+                    coverCam.Enabled = true;
+                    coverCam.MakeCurrent();
+                    coverCam.Offset  = Vector2.Zero;
 
-                Vector2 coverCenter = coverArea.GlobalPosition;
-                float   targetZoom  = Mathf.Min(
-                    vp.X / (coverShape.Size.X * 1.15f),
-                    vp.Y / (coverShape.Size.Y * 1.15f));
+                    Vector2 coverCenter = coverArea.GlobalPosition;
+                    float   targetZoom  = Mathf.Min(
+                        vp.X / (coverShape.Size.X * 1.15f),
+                        vp.Y / (coverShape.Size.Y * 1.15f));
 
-                Tween zoomOut = CreateTween().SetParallel(true);
-                zoomOut.TweenProperty(coverCam, "zoom",     new Vector2(targetZoom, targetZoom), 0.55f)
-                       .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-                zoomOut.TweenProperty(coverCam, "position", coverCenter, 0.55f)
-                       .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-                await ToSignal(zoomOut, Tween.SignalName.Finished);
+                    Tween zoomOut = CreateTween().SetParallel(true);
+                    zoomOut.TweenProperty(coverCam, "zoom",     new Vector2(targetZoom, targetZoom), 0.55f)
+                           .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+                    zoomOut.TweenProperty(coverCam, "position", coverCenter, 0.55f)
+                           .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+                    await ToSignal(zoomOut, Tween.SignalName.Finished);
 
-                // Compute coverRect directly from the known final camera state.
-                Vector2 screenHalf = coverShape.Size / 2f * targetZoom;
-                coverRect = new Rect2(vp / 2f - screenHalf, screenHalf * 2f);
-                _coverRect = coverRect;
+                    Vector2 screenHalf = coverShape.Size / 2f * targetZoom;
+                    coverRect  = new Rect2(vp / 2f - screenHalf, screenHalf * 2f);
+                    _coverRect = coverRect;
+                }
             }
         }
 
@@ -1575,7 +1610,7 @@ public partial class MainScene : Node2D
 
         container.AddChild(new ColorRect
         {
-            Color    = Colors.White,
+            Color    = Globals.PageBgColor,
             Size     = pageSize,
             Position = pageOff,
         });
@@ -1996,37 +2031,50 @@ public partial class MainScene : Node2D
 
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
 
-        // ── 1. Zoom cover camera (same as CoverTurnTransitionImpl) ────────────
-        var coverArea = currentScene.GetNodeOrNull<CollisionShape2D>("CoverArea");
-        if (coverArea?.Shape is RectangleShape2D coverShape)
+        // ── 1. Zoom cover camera if not a Cover scene ────────────────────────
+        if (currentScene is not Cover)
         {
-            var coverCam = currentScene.camera;
-            if (coverCam != null)
+            var coverArea = currentScene.GetNodeOrNull<CollisionShape2D>("CoverArea");
+            if (coverArea?.Shape is RectangleShape2D coverShape)
             {
-                coverCam.Enabled = true;
-                coverCam.MakeCurrent();
-                coverCam.Offset  = Vector2.Zero;
+                var coverCam = currentScene.camera;
+                if (coverCam != null)
+                {
+                    coverCam.Enabled = true;
+                    coverCam.MakeCurrent();
+                    coverCam.Offset  = Vector2.Zero;
 
-                Vector2 coverCenter = coverArea.GlobalPosition;
-                float   targetZoom  = Mathf.Min(
-                    vp.X / (coverShape.Size.X * 1.15f),
-                    vp.Y / (coverShape.Size.Y * 1.15f));
+                    Vector2 coverCenter = coverArea.GlobalPosition;
+                    float   targetZoom  = Mathf.Min(
+                        vp.X / (coverShape.Size.X * 1.15f),
+                        vp.Y / (coverShape.Size.Y * 1.15f));
 
-                Tween zoomOut = CreateTween().SetParallel(true);
-                zoomOut.TweenProperty(coverCam, "zoom",     new Vector2(targetZoom, targetZoom), 0.55f)
-                       .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-                zoomOut.TweenProperty(coverCam, "position", coverCenter, 0.55f)
-                       .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-                await ToSignal(zoomOut, Tween.SignalName.Finished);
+                    Tween zoomOut = CreateTween().SetParallel(true);
+                    zoomOut.TweenProperty(coverCam, "zoom",     new Vector2(targetZoom, targetZoom), 0.55f)
+                           .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+                    zoomOut.TweenProperty(coverCam, "position", coverCenter, 0.55f)
+                           .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+                    await ToSignal(zoomOut, Tween.SignalName.Finished);
 
-                Vector2 screenHalf = coverShape.Size / 2f * targetZoom;
-                coverRect = new Rect2(vp / 2f - screenHalf, screenHalf * 2f);
-                _coverRect = coverRect;
+                    Vector2 screenHalf = coverShape.Size / 2f * targetZoom;
+                    coverRect  = new Rect2(vp / 2f - screenHalf, screenHalf * 2f);
+                    _coverRect = coverRect;
+                }
             }
         }
 
         // ── 2. Capture cover viewport ─────────────────────────────────────────
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        // For Cover scenes, compute rect now that canvas transform is valid post-render.
+        if (currentScene is Cover postFrameCover)
+        {
+            postFrameCover.SetupPages();
+            if (postFrameCover.CoverScreenRect.Size != Vector2.Zero)
+            {
+                coverRect  = postFrameCover.CoverScreenRect;
+                _coverRect = coverRect;
+            }
+        }
         Image rawImg = GetViewport().GetTexture().GetImage();
         _coverBgTexture = ImageTexture.CreateFromImage(rawImg);
         Vector2I vpI   = rawImg.GetSize();

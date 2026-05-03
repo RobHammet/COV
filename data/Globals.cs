@@ -6,6 +6,9 @@ using Godot;
 // ---------------------------------------------------------------------------
 public partial class Globals : Node
 {
+    // Off-white paper colour shared by all page backgrounds (menu pages, comic page transitions).
+    public static readonly Color PageBgColor = new(0.97f, 0.95f, 0.91f);
+
     public enum FontSizePreset { Normal = 16, Large = 24 }
 
     public static FontSizePreset FontSize { get; private set; } = FontSizePreset.Normal;

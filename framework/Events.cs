@@ -571,10 +571,21 @@ public class EventSequence
     public void AddEventRemoveFromInventory(InventoryItem.ItemType itemType) =>
         _steps.Add(new InstantStep(() =>
         {
-            var inv = _scene.mainScene.inventory;
+            var ms  = _scene.mainScene;
+            var inv = ms.inventory;
             for (int i = 0; i < inv.Count; i++)
                 if (inv[i].Type == itemType) { inv.RemoveAt(i); break; }
+            if (ms.usingItem == itemType)
+            {
+                ms.usingItem = InventoryItem.ItemType.none;
+                ms.SetInteractMode(Globals.InteractModes.walk);
+                ms.SetItemButtonIcon(null);
+            }
         }));
+
+    public void AddEventAddInventoryItem(InventoryItem.ItemType itemType) =>
+        _steps.Add(new InstantStep(() =>
+            _scene.mainScene.inventory.Add(new InventoryItem(itemType))));
 
     public void AddEventAddFlag(Globals.SceneFlag flag) =>
         _steps.Add(new InstantStep(() => _scene.AddFlag(flag.Name, flag.Value)));
@@ -646,6 +657,15 @@ public class EventSequence
                 dialogType, phrase, anchor.dialogColor, null,
                 anchor.GlobalPosition, anchor.Facing, strict: false, tailStyle: tailStyle),
             "DialogClosed", _interruptable, "speak(anchor)"));
+
+    public void AddEventSpeakInCorner(string phrase, Globals.DialogTypes dialogType,
+                                      Globals.NarrationCorner corner, Color? color = null,
+                                      bool _interruptable = true) =>
+        _steps.Add(new SignalStep(
+            () => _scene.CreateDialog(
+                dialogType, phrase, color ?? Colors.White,
+                tailStyle: DialogBox.TailStyle.NoTail, corner: corner),
+            "DialogClosed", _interruptable, "speak(corner)"));
 
     public void AddEventThinkFromAnchor(DialogAnchor anchor, string phrase,
                                         bool _interruptable = false, bool strict = false) =>

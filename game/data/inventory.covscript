@@ -1,0 +1,36 @@
+# inventory.covscript
+# Defines look / use / talk / use_item interactions for all inventory items.
+# Parsed by InventoryScene when the inventory is opened.
+# Same syntax as scene scripts: thing name: / on verb: / actions.
+# "remove itemname" removes the item from inventory.
+# "obtain itemname" adds the named item type to inventory.
+
+thing key:
+  on look:
+    ego thinks "AN OLD RUSTY KEY."
+  on use:
+    ego thinks "I SHOULD HOLD ON TO THIS."
+
+thing candle:
+  on look:
+    ego thinks "A WAX CANDLE. HALF BURNED DOWN."
+  on use:
+    ego thinks "I NEED SOMETHING TO LIGHT IT WITH."
+
+thing bell:
+  on look:
+    ego thinks "A SMALL BRASS BELL."
+  on use:
+    ego thinks "NOW ISN'T THE TIME FOR THAT."
+
+thing book:
+  on look:
+    ego thinks "A HEAVY LEATHER-BOUND BOOK."
+  on use:
+    ego thinks "I'VE ALREADY READ IT ENOUGH."
+
+thing axe:
+  on look:
+    ego thinks "A WOOD AXE. WELL BALANCED."
+  on use:
+    ego thinks "I NEED A GOOD REASON TO USE THIS."
