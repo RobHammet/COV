@@ -10,11 +10,16 @@ public partial class IntroCards : Node
     private const float  ViewW         = 1280f;
     private const float  ViewH         = 720f;
 
-    private CanvasLayer _layer;
-    private Control     _card;
-    private Tween       _activeTween;
-    private int         _cardIndex = 0;
-    private bool        _finishing = false;
+    // MainScene reads this to resume BGM from the right position.
+    public static (string Path, float Position) BgmHandoff;
+
+    private CanvasLayer        _layer;
+    private Control            _card;
+    private Tween              _activeTween;
+    private AudioStreamPlayer  _bgmPlayer;
+    private string             _menuBgm = "";
+    private int                _cardIndex = 0;
+    private bool               _finishing = false;
 
     private readonly struct CardDef(string tex = null, string title = null, string sub = null)
     {
@@ -25,8 +30,8 @@ public partial class IntroCards : Node
 
     private static readonly CardDef[] Cards =
     [
-        new(tex: "res://game/art/creepovision_logo.png"),
         new(title: "COV", sub: "A Creepovision Game"),
+        new(tex: "res://game/art/creepovision_logo.png"),
     ];
 
     public override void _Ready()
@@ -37,7 +42,18 @@ public partial class IntroCards : Node
         var bg = new ColorRect { Color = Colors.Black, Size = new Vector2(ViewW, ViewH) };
         _layer.AddChild(bg);
 
-        if (OS.IsDebugBuild()) { Finish(); return; }
+        if (ReadConfig(out _menuBgm)) { Finish(); return; }
+
+        if (!string.IsNullOrEmpty(_menuBgm))
+        {
+            _bgmPlayer = new AudioStreamPlayer
+            {
+                Stream = ResourceLoader.Load<AudioStream>(_menuBgm),
+            };
+            AddChild(_bgmPlayer);
+            _bgmPlayer.Play();
+        }
+
         ShowCard(0);
     }
 
@@ -81,7 +97,22 @@ public partial class IntroCards : Node
     private void Finish()
     {
         _finishing = true;
+        if (_bgmPlayer != null && _bgmPlayer.Playing)
+            BgmHandoff = (_menuBgm, _bgmPlayer.GetPlaybackPosition());
         GetTree().CallDeferred(SceneTree.MethodName.ChangeSceneToFile, MainScenePath);
+    }
+
+    private static bool ReadConfig(out string menuBgm)
+    {
+        menuBgm = "";
+        using var f = FileAccess.Open("res://game/game_config.json", FileAccess.ModeFlags.Read);
+        if (f == null) return false;
+        var json = new Json();
+        json.Parse(f.GetAsText());
+        var config = json.Data.AsGodotDictionary();
+        if (config.TryGetValue("menu_bgm", out var bgmVal))
+            menuBgm = bgmVal.AsString();
+        return config.TryGetValue("skip_intro", out var val) && val.AsBool();
     }
 
     private Control BuildCard(in CardDef def)

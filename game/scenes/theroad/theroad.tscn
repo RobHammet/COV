@@ -149,6 +149,7 @@ _data = {
 y_sort_enabled = true
 script = ExtResource("2")
 displayName = "theroad"
+bgmFile = "uid://cc52582c6rps7"
 parallaxSprites = [NodePath("fg")]
 
 [node name="background" type="Sprite2D" parent="." unique_id=260995694]

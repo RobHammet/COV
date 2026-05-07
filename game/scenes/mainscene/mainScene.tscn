@@ -134,7 +134,6 @@ shader_parameter/white_cutoff = 0.775
 
 [node name="MainScene" type="Node2D" unique_id=1285218856]
 script = ExtResource("1_2l4hu")
-showDebugTools = true
 
 [node name="EventManager" type="Node" parent="." unique_id=1527263301]
 
@@ -182,7 +181,7 @@ color = Color(0, 0, 0, 1)
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="CurrentSceneHolder" unique_id=1854494979]
 stream = ExtResource("5_meruv")
-volume_db = -32.907
+volume_db = -80.0
 max_polyphony = 4
 
 [node name="NextSceneHolder" type="Node2D" parent="." unique_id=1793793240]

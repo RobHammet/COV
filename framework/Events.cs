@@ -607,6 +607,15 @@ public class EventSequence
         _steps.Add(new InstantStep(() =>
             ScriptParser.ExecuteRemapFloor(navRegionNodeName, guidePolygonNodeName, _scene)));
 
+    public void AddEventPlaySound(string filePath) =>
+        _steps.Add(new InstantStep(() => _scene.mainScene.PlaySfx(filePath)));
+
+    public void AddEventPlayBgm(string filePath) =>
+        _steps.Add(new InstantStep(() => _scene.mainScene.PlayBgm(filePath)));
+
+    public void AddEventStopBgm() =>
+        _steps.Add(new InstantStep(_scene.mainScene.StopBgm));
+
     public void AddEventSpeak(thing actor, string phrase, Vector2? position = null,
                               bool _interruptable = false, bool strict = false,
                               DialogBox.TailStyle? tailStyle = null,

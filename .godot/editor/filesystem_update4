@@ -1,6 +1,8 @@
 res://default_env.tres
-res://ui/Cover.cs
+res://framework/scene_script.cs
+res://game/scenes/mainscene/MainScene.cs
 res://ui/VerbCoin.cs
+res://ui/Cover.cs
 res://ui/DialogChoices.cs
 res://ui/DB_SpeechBubbleTail.cs
 res://ui/DialogBox.cs
@@ -12,10 +14,14 @@ res://game/scenes/kitchen/fridge.cs
 res://framework/SceneZone.cs
 res://framework/ScalerStick.cs
 res://framework/thing.cs
-res://framework/scene_script.cs
 res://ui/Cursor.cs
 res://ui/title_splash.cs
 res://ui/VerbPanel.cs
 res://ui/OverlayScene.cs
-res://game/scenes/mainscene/MainScene.cs
 res://data/Globals.cs
+res://game/scenes/theroad/theroad.tscn
+res://shaders/light_and_shadows_shader.gdshader
+res://fonts/KOMIKA_NORMAL.tres
+res://fonts/comic_theme.tres
+res://game/scenes/mainscene/mainScene.tscn
+res://ui/IntroCards.cs

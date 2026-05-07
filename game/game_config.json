@@ -1,5 +1,7 @@
 {
   "title": "COV",
   "cover_scene": "res://ui/Cover.tscn",
-  "start_scene": "res://game/scenes/theroad/theroad.tscn"
+  "start_scene": "res://game/scenes/theroad/theroad.tscn",
+  "menu_bgm": "res://game/audio/Hahahahahaha_creep.mp3",
+  "skip_intro": false
 }

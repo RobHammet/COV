@@ -121,6 +121,13 @@ public partial class MainScene : Node2D
     private readonly Dictionary<string, Dictionary<string, ThingState>> _thingStates = new();
     private AudioStreamPlayer _pageFlipPlayer;
     private AudioStreamPlayer _coverFlipPlayer;
+    private AudioStreamPlayer _bgmPlayer;
+    private AudioStreamPlayer _sfxPlayer;
+    private Tween             _bgmFadeTween;
+    private string            _currentBgmPath = "";
+    private string            _menuBgmPath    = "";
+    public  float             MusicVolume     = 1.0f;
+    public  float             SfxVolume       = 1.0f;
     private string            _coverPath = "";
 
     private Rect2        _coverRect       = new Rect2();  // screen-space bounds of the cover page, cached from CoverTurnTransitionImpl
@@ -183,7 +190,8 @@ public partial class MainScene : Node2D
         string coverPath  = config["cover_scene"]?.GetValue<string>() ?? "";
         string startPath  = config["start_scene"].GetValue<string>();
         string initialPath = !string.IsNullOrEmpty(coverPath) ? coverPath : startPath;
-        _coverPath = coverPath;
+        _coverPath    = coverPath;
+        _menuBgmPath  = config["menu_bgm"]?.GetValue<string>() ?? "";
         currentScene      = ResourceLoader.Load<PackedScene>(initialPath).Instantiate() as scene_script;
         currentSceneHolder.AddChild(currentScene);
 
@@ -282,6 +290,25 @@ public partial class MainScene : Node2D
             VolumeDb = 0f,
         };
         AddChild(_coverFlipPlayer);
+
+        _bgmPlayer = new AudioStreamPlayer { VolumeDb = 0f };
+        AddChild(_bgmPlayer);
+
+        _sfxPlayer = new AudioStreamPlayer { VolumeDb = 0f };
+        AddChild(_sfxPlayer);
+
+        var (handoffPath, handoffPos) = IntroCards.BgmHandoff;
+        IntroCards.BgmHandoff = default;
+        if (!string.IsNullOrEmpty(handoffPath) && handoffPath == _menuBgmPath)
+        {
+            _bgmPlayer.Stream = GD.Load<AudioStream>(_menuBgmPath);
+            _bgmPlayer.Play(handoffPos);
+            _currentBgmPath   = _menuBgmPath;
+        }
+        else if (currentScene is Cover)
+            PlayMenuBgm();
+        else
+            UpdateBgm(currentScene);
 
         cursor.Frame = 0;
 
@@ -605,31 +632,7 @@ public partial class MainScene : Node2D
         // 7. Curl the old page (Layer 100) away on the portrait rect only.
         pageOverlay.QueueFree();
 
-        var curlOverlay = new CanvasLayer { Layer = 100 };
-        AddChild(curlOverlay);
-
-        var (curlSize1, curlPos1) = CurlRectBounds(pageSize2, pageOff2);
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress",      0.0f);
-        mat.SetShaderParameter("left_overhang", CurlOverhang);
-        var rect = new TextureRect {
-            Texture     = pageTex,
-            StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = curlSize1,
-            Position    = curlPos1,
-            Material    = mat,
-        };
-        curlOverlay.AddChild(rect);
-
-        PlayFlip(_pageFlipPlayer);
-        Tween curl = CreateTween();
-        curl.TweenMethod(
-            Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
-            0.0f, 1.0f, 0.85
-        ).SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-        await ToSignal(curl, Tween.SignalName.Finished);
-
-        curlOverlay.QueueFree();
+        await RunCurlAnimation(pageTex, new Rect2(pageOff2, pageSize2), flipPlayer: _pageFlipPlayer);
 
         // 8. Pause so the player can read the new page layout.
         Tween postPagePause = CreateTween();
@@ -697,6 +700,7 @@ public partial class MainScene : Node2D
     {
         if (isInTransition || string.IsNullOrEmpty(_coverPath)) return;
         if (currentScene?.SceneFilePath == _coverPath) return;
+        PlayMenuBgm();
         isInTransition = true;
         RunTransition("CloseCoverTransition", CloseCoverTransitionImpl);
     }
@@ -804,31 +808,10 @@ public partial class MainScene : Node2D
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
 
         // ── 5. Curl layer (100): cover closes over the page ───────────────────
-
-        var curlLayer = new CanvasLayer { Layer = 100 };
-        AddChild(curlLayer);
-        var (curlSz2, curlPt2) = CurlRectBounds(
-            new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
-            new Vector2(coverRectI.Position.X, coverRectI.Position.Y));
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress",      1.0f);
-        mat.SetShaderParameter("left_overhang", CurlOverhang);
-        curlLayer.AddChild(new TextureRect {
-            Texture     = coverTex,
-            StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = curlSz2,
-            Position    = curlPt2,
-            Material    = mat,
-        });
-
         // ── 6. Animate cover closing (progress 1 → 0) ─────────────────────────
-        PlayFlip(_coverFlipPlayer);
-        Tween curl = CreateTween();
-        curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
-            1.0f, 0.0f, 0.85f)
-            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-        await ToSignal(curl, Tween.SignalName.Finished);
-        curlLayer.QueueFree();
+        await RunCurlAnimation(coverTex,
+            new Rect2(coverRectI.Position.X, coverRectI.Position.Y, coverRectI.Size.X, coverRectI.Size.Y),
+            reverse: true, flipPlayer: _coverFlipPlayer);
 
         // ── 7. Finalise ───────────────────────────────────────────────────────
         // Save resume state before currentScene is swapped out.
@@ -859,6 +842,7 @@ public partial class MainScene : Node2D
         isInTransition = false;
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
         (currentScene as Cover)?.RefreshButtonStates();
+        _coverBgTexture = null;
     }
 
     private async Task CoverTurnTransitionImpl(string roomPath, scene_script.ArrivalData arrival,
@@ -910,9 +894,14 @@ public partial class MainScene : Node2D
 
         // ── 2. Capture the viewport (cover scene, no comicPageLayer interference) ─
         if (_comicPageLayer != null) _comicPageLayer.Visible = false;
+        // First capture: room background only — used as backdrop for all later transitions.
+        (currentScene as Cover)?.HideForBgCapture();
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        _coverBgTexture = ImageTexture.CreateFromImage(GetViewport().GetTexture().GetImage());
+        // Second capture: restore active page so the curl shows menu peeling away.
+        (currentScene as Cover)?.RestoreForCurl();
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
         Image rawImg = GetViewport().GetTexture().GetImage();
-        _coverBgTexture = ImageTexture.CreateFromImage(rawImg);
 
         // Snap coverRect to integer pixel boundaries so the crop and TextureRect
         // use identical dimensions — no float/int gap, no sub-pixel scale slip.
@@ -968,31 +957,9 @@ public partial class MainScene : Node2D
 
         // ── 5. Curl Layer (100): CoverArea portrait only ─────────────────────────
         // Transparent shader pixels reveal Layer 99's panel layout underneath.
-        var curlOverlay = new CanvasLayer { Layer = 100 };
-        AddChild(curlOverlay);
-
-        var (curlSz3, curlPt3) = CurlRectBounds(
-            new Vector2(coverRectI.Size.X, coverRectI.Size.Y),
-            new Vector2(coverRectI.Position.X, coverRectI.Position.Y));
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress",      0.0f);
-        mat.SetShaderParameter("left_overhang", CurlOverhang);
-        var curlRect = new TextureRect {
-            Texture     = pageTex,
-            StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = curlSz3,
-            Position    = curlPt3,
-            Material    = mat,
-        };
-        curlOverlay.AddChild(curlRect);
-
-        PlayFlip(_pageFlipPlayer);
-        Tween curl = CreateTween();
-        curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
-            0.0f, 1.0f, 0.85)
-            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-        await ToSignal(curl, Tween.SignalName.Finished);
-        curlOverlay.QueueFree();
+        await RunCurlAnimation(pageTex,
+            new Rect2(coverRectI.Position.X, coverRectI.Position.Y, coverRectI.Size.X, coverRectI.Size.Y),
+            flipPlayer: _pageFlipPlayer);
 
         // ── 6. Pause on the full panel page ──────────────────────────────────────
         await ToSignal(CreateTween().TweenInterval(RandomisedDuration(0.50f, 0.10f)),
@@ -1260,6 +1227,8 @@ public partial class MainScene : Node2D
         currentScene = nextScene;
         nextScene    = null;
 
+        UpdateBgm(currentScene);
+
         // Re-show overlay in case it was hidden by the cover page.
         overlayScene?.Show();
 
@@ -1292,6 +1261,82 @@ public partial class MainScene : Node2D
 
     private static string SceneBaseName(scene_script s) =>
         System.IO.Path.GetFileNameWithoutExtension(s?.SceneFilePath ?? "");
+
+    // ---------------------------------------------------------------------------
+    // BGM / SFX
+    // ---------------------------------------------------------------------------
+
+    // Called on every scene switch. If the incoming scene declares a bgmFile that
+    // differs from what's already playing, the new track starts from the beginning.
+    private void UpdateBgm(scene_script scene)
+    {
+        if (string.IsNullOrEmpty(scene?.bgmFile)) { FadeOutBgm(3.0f); return; }
+        PlayBgm(scene.bgmFile);
+    }
+
+    private void FadeOutBgm(float duration)
+    {
+        if (!_bgmPlayer.Playing) return;
+        _bgmFadeTween?.Kill();
+        _bgmFadeTween = CreateTween();
+        _bgmFadeTween.TweenProperty(_bgmPlayer, "volume_db", -80f, duration)
+                     .SetTrans(Tween.TransitionType.Linear);
+        _bgmFadeTween.TweenCallback(Callable.From(StopBgm));
+    }
+
+    public void PlayMenuBgm()
+    {
+        if (!string.IsNullOrEmpty(_menuBgmPath))
+            PlayBgm(_menuBgmPath);
+    }
+
+    public void SetMusicVolume(float v)
+    {
+        MusicVolume         = Mathf.Clamp(v, 0f, 1f);
+        _bgmPlayer.VolumeDb = VolToDb(MusicVolume);
+    }
+
+    public void SetSfxVolume(float v)
+    {
+        SfxVolume                 = Mathf.Clamp(v, 0f, 1f);
+        float db                  = VolToDb(SfxVolume);
+        _sfxPlayer.VolumeDb       = db;
+        _pageFlipPlayer.VolumeDb  = db;
+        _coverFlipPlayer.VolumeDb = db;
+    }
+
+    private static float VolToDb(float v) => v <= 0f ? -80f : Mathf.LinearToDb(v);
+
+    public void PlayBgm(string filePath)
+    {
+        string path = filePath.Contains("://") ? filePath : $"res://{filePath}";
+        if (_currentBgmPath == path && _bgmPlayer.Playing) return;
+        var stream = ResourceLoader.Load<AudioStream>(path);
+        if (stream == null) { GD.PushWarning($"[BGM] file not found: {path}"); return; }
+        _bgmFadeTween?.Kill();
+        _bgmPlayer.VolumeDb  = VolToDb(MusicVolume);
+        _bgmPlayer.Stream    = stream;
+        _bgmPlayer.Autoplay  = false;
+        _currentBgmPath      = path;
+        _bgmPlayer.Play();
+    }
+
+    public void StopBgm()
+    {
+        _bgmFadeTween?.Kill();
+        _bgmPlayer.VolumeDb = VolToDb(MusicVolume);
+        _bgmPlayer.Stop();
+        _currentBgmPath = "";
+    }
+
+    public void PlaySfx(string filePath)
+    {
+        string path = filePath.StartsWith("res://") ? filePath : $"res://{filePath}";
+        var stream = ResourceLoader.Load<AudioStream>(path);
+        if (stream == null) { GD.PushWarning($"[SFX] file not found: {path}"); return; }
+        _sfxPlayer.Stream = stream;
+        _sfxPlayer.Play();
+    }
 
     private static void PlayFlip(AudioStreamPlayer player)
     {
@@ -1508,6 +1553,48 @@ public partial class MainScene : Node2D
         float overW = origSize.X * CurlOverhang / (1f - CurlOverhang);
         return (new Vector2(origSize.X + overW, origSize.Y),
                 new Vector2(origPos.X - overW, origPos.Y));
+    }
+
+    // Plays the page-curl shader animation and awaits its completion.
+    // backward: right-to-left curl (shader uniform). reverse: progress runs 1→0 (cover closes).
+    public async Task RunCurlAnimation(
+        Texture2D texture,
+        Rect2 pageRect,
+        bool backward = false,
+        bool reverse = false,
+        float duration = 0.85f,
+        AudioStreamPlayer flipPlayer = null)
+    {
+        float overW    = pageRect.Size.X * CurlOverhang / (1f - CurlOverhang);
+        var   curlSize = new Vector2(pageRect.Size.X + overW, pageRect.Size.Y);
+        var   curlPos  = backward
+            ? new Vector2(pageRect.Position.X,         pageRect.Position.Y)
+            : new Vector2(pageRect.Position.X - overW, pageRect.Position.Y);
+
+        var curlLayer = new CanvasLayer { Layer = 100 };
+        AddChild(curlLayer);
+
+        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
+        mat.SetShaderParameter("progress",      reverse ? 1.0f : 0.0f);
+        mat.SetShaderParameter("left_overhang", CurlOverhang);
+        mat.SetShaderParameter("backward",      backward ? 1 : 0);
+        curlLayer.AddChild(new TextureRect {
+            Texture     = texture,
+            StretchMode = TextureRect.StretchModeEnum.Scale,
+            Size        = curlSize,
+            Position    = curlPos,
+            Material    = mat,
+        });
+
+        PlayFlip(flipPlayer);
+        Tween curl = CreateTween();
+        curl.TweenMethod(
+            Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
+            reverse ? 1.0f : 0.0f, reverse ? 0.0f : 1.0f, duration)
+            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
+        await ToSignal(curl, Tween.SignalName.Finished);
+
+        curlLayer.QueueFree();
     }
 
     private static float RandomisedDuration(float baseDuration, float jitter = -1f)
@@ -1973,6 +2060,7 @@ public partial class MainScene : Node2D
             }
         }
 
+        StopBgm();
         _skipNextCapture = true;
         isInTransition   = true;
         LoadReplayTransition(scenePath, default, pageNumber, panelIndex, pageSceneNames);
@@ -1981,6 +2069,7 @@ public partial class MainScene : Node2D
     public void NewGame(string startScene)
     {
         if (isInTransition || string.IsNullOrEmpty(startScene)) return;
+        StopBgm();
         sceneFlags.Clear();
         inventory.Clear();
         _thingStates.Clear();
@@ -1997,6 +2086,7 @@ public partial class MainScene : Node2D
     public void ResumeGame()
     {
         if (isInTransition || string.IsNullOrEmpty(_resumeScenePath)) return;
+        StopBgm();
         isInTransition       = true;
         _pendingLoadPosition = _resumeEgoPos;
         _pendingLoadFacing   = _resumeEgoFacing;
@@ -2064,8 +2154,14 @@ public partial class MainScene : Node2D
         }
 
         // ── 2. Capture cover viewport ─────────────────────────────────────────
+        // First: hide everything to capture the room background only.
+        (currentScene as Cover)?.HideForBgCapture();
         await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-        // For Cover scenes, compute rect now that canvas transform is valid post-render.
+        _coverBgTexture = ImageTexture.CreateFromImage(GetViewport().GetTexture().GetImage());
+        // Second: show cover art to capture the texture that curls away.
+        (currentScene as Cover)?.PrepareForCapture();
+        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        // Canvas transform is now valid — compute the cover rect.
         if (currentScene is Cover postFrameCover)
         {
             postFrameCover.SetupPages();
@@ -2076,7 +2172,6 @@ public partial class MainScene : Node2D
             }
         }
         Image rawImg = GetViewport().GetTexture().GetImage();
-        _coverBgTexture = ImageTexture.CreateFromImage(rawImg);
         Vector2I vpI   = rawImg.GetSize();
         Rect2I   cropI = new Rect2I((int)coverRect.Position.X, (int)coverRect.Position.Y,
                                      (int)coverRect.Size.X,     (int)coverRect.Size.Y)
@@ -2084,6 +2179,12 @@ public partial class MainScene : Node2D
         if (cropI.Size.X <= 0 || cropI.Size.Y <= 0)
             cropI = new Rect2I(Vector2I.Zero, vpI);
         ImageTexture coverTex = ImageTexture.CreateFromImage(rawImg.GetRegion(cropI));
+
+        // Cover the live Cover scene immediately so any camera shift during thumbnail
+        // captures can't expose it behind the transition layers.
+        var behindLayer = new CanvasLayer { Layer = 99 };
+        AddChild(behindLayer);
+        behindLayer.AddChild(MakeTransitionBg(vp));
 
         // ── 3. Reset panel arrays; build fake page containers ─────────────────
         // Fakes built before real textures so they get placeholder colours.
@@ -2166,10 +2267,6 @@ public partial class MainScene : Node2D
         float   zoomIn         = ZoomInScale(panelSize, vp);
         Vector2 fullPos        = ContainerPosForFullPage(vp);
 
-        var behindLayer = new CanvasLayer { Layer = 99 };
-        AddChild(behindLayer);
-        behindLayer.AddChild(MakeTransitionBg(vp));
-
         // First fake (if any) or the real page shows through the curl.
         Control firstReveal = fakeCount > 0 ? fakePages[0] : realPage;
         behindLayer.AddChild(firstReveal);
@@ -2178,26 +2275,7 @@ public partial class MainScene : Node2D
 
         // ── 8. Layer 100: cover curl ──────────────────────────────────────────
         var (curlSzOB, curlPtOB) = CurlRectBounds(coverRect.Size, coverRect.Position);
-        var curlOverlay = new CanvasLayer { Layer = 100 };
-        AddChild(curlOverlay);
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress",      0.0f);
-        mat.SetShaderParameter("left_overhang", CurlOverhang);
-        curlOverlay.AddChild(new TextureRect {
-            Texture     = coverTex,
-            StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = curlSzOB,
-            Position    = curlPtOB,
-            Material    = mat,
-        });
-
-        PlayFlip(_coverFlipPlayer);
-        Tween curl = CreateTween();
-        curl.TweenMethod(Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
-            0.0f, 1.0f, 0.85)
-            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-        await ToSignal(curl, Tween.SignalName.Finished);
-        curlOverlay.QueueFree();
+        await RunCurlAnimation(coverTex, coverRect, flipPlayer: _coverFlipPlayer);
 
         // ── 9. Post-curl: flip through pages then expand to full-page view ──────────
         // All page curls stay at coverRect size/position — same as the cover curl,

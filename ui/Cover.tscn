@@ -9,7 +9,7 @@
 size = Vector2(4372, 3008)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_g230x"]
-size = Vector2(1012, 1457)
+size = Vector2(1600, 2200)
 
 [node name="cover" type="Node2D" unique_id=334363859 node_paths=PackedStringArray("parallaxSprites")]
 z_index = 6
@@ -72,10 +72,10 @@ offset_top = 53.0
 offset_right = 312.0
 offset_bottom = 103.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "NEW GAME"
 flat = true
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
 [node name="LoadGameButton" type="Button" parent="MenuPage" unique_id=2016692494]
 offset_left = 12.0
@@ -83,10 +83,10 @@ offset_top = 115.0
 offset_right = 312.0
 offset_bottom = 165.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "LOAD"
 flat = true
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
 [node name="SaveGameButton" type="Button" parent="MenuPage" unique_id=1234567890]
 offset_left = 12.0
@@ -94,10 +94,10 @@ offset_top = 177.0
 offset_right = 312.0
 offset_bottom = 227.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "SAVE"
 flat = true
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
 [node name="ResumeGameButton" type="Button" parent="MenuPage" unique_id=84866003]
 offset_left = 12.0
@@ -105,10 +105,10 @@ offset_top = 239.0
 offset_right = 312.0
 offset_bottom = 289.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "RESUME"
 flat = true
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
 [node name="SettingsButton" type="Button" parent="MenuPage" unique_id=100000003]
 offset_left = 12.0
@@ -116,10 +116,10 @@ offset_top = 301.0
 offset_right = 312.0
 offset_bottom = 351.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "SETTINGS"
 flat = true
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
 [node name="ExitGameButton" type="Button" parent="MenuPage" unique_id=15846902]
 offset_left = 12.0
@@ -127,10 +127,10 @@ offset_top = 363.0
 offset_right = 312.0
 offset_bottom = 413.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "EXIT"
 flat = true
-theme_override_colors/font_color = Color(0, 0, 0, 1)
 
 [node name="SettingsPage" type="CanvasLayer" parent="." unique_id=100000004]
 layer = 5
@@ -154,22 +154,44 @@ horizontal_alignment = 1
 
 [node name="FontSizeButton" type="Button" parent="SettingsPage" unique_id=100000007]
 offset_left = 12.0
-offset_top = 160.0
+offset_top = 115.0
 offset_right = 312.0
-offset_bottom = 210.0
+offset_bottom = 165.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "FONT SIZE: NORMAL"
 flat = true
+
+[node name="MusicVolumeButton" type="Button" parent="SettingsPage" unique_id=100000009]
+offset_left = 12.0
+offset_top = 175.0
+offset_right = 312.0
+offset_bottom = 225.0
+theme = ExtResource("3_g230x")
 theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 28
+text = "MUSIC: 100%"
+flat = true
+
+[node name="SfxVolumeButton" type="Button" parent="SettingsPage" unique_id=100000010]
+offset_left = 12.0
+offset_top = 235.0
+offset_right = 312.0
+offset_bottom = 285.0
+theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 28
+text = "SFX: 100%"
+flat = true
 
 [node name="BackButton" type="Button" parent="SettingsPage" unique_id=100000008]
 offset_left = 12.0
-offset_top = 250.0
+offset_top = 320.0
 offset_right = 312.0
-offset_bottom = 300.0
+offset_bottom = 370.0
 theme = ExtResource("3_g230x")
+theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_font_sizes/font_size = 28
 text = "BACK"
 flat = true
-theme_override_colors/font_color = Color(0, 0, 0, 1)

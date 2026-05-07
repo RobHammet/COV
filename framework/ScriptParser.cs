@@ -3,7 +3,8 @@
 // Supports: move, look_at, change_facing, narrate, speak, think,
 //           set_flag, wait, play_animation, add_to_inventory, toggle_exist,
 //           toggle_hide, remap_floor, if_flag, exit, run_sequence, conversation,
-//           camera_pan, camera_zoom, return_camera.
+//           camera_pan, camera_zoom, return_camera,
+//           play_sound, play_bgm, stop_bgm.
 // self — the thing being interacted with (for "self" actor references and
 //         add_to_inventory). Pass null when not applicable.
 
@@ -204,6 +205,20 @@ public static class ScriptParser
                     float duration = obj["duration"]?.GetValue<float>() ?? 0.5f;
                     bool strict = obj["strict"]?.GetValue<bool>() ?? false;
                     queue.AddEventReturnCamera(duration, strict);
+                    break;
+                }
+                case "play_sound": {
+                    string file = obj["file"]?.GetValue<string>() ?? "";
+                    if (!string.IsNullOrEmpty(file)) queue.AddEventPlaySound(file);
+                    break;
+                }
+                case "play_bgm": {
+                    string file = obj["file"]?.GetValue<string>() ?? "";
+                    if (!string.IsNullOrEmpty(file)) queue.AddEventPlayBgm(file);
+                    break;
+                }
+                case "stop_bgm": {
+                    queue.AddEventStopBgm();
                     break;
                 }
             }

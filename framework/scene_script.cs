@@ -37,6 +37,9 @@ public partial class scene_script : Node2D
     // Set in the Godot editor. Leave empty if the scene needs no entry sequences.
     [Export] public string entryScriptFile;
 
+    // Same file as currently playing → seamless continuation; different file → switches; empty → fade out.
+    [Export(PropertyHint.File, "*.mp3,*.ogg,*.wav")] public string bgmFile;
+
     // Mark this scene as an insert (close-up / puzzle / interstitial).
     // Insert scenes have no ego: walking is disabled and the ego is not spawned.
     [Export] public bool isInsert = false;

@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Text.Json.Nodes;
 
 public partial class Cover : scene_script
@@ -32,12 +33,14 @@ public partial class Cover : scene_script
     private Button _exitGameBtn;
 
     private Button _fontSizeBtn;
+    private Button _musicVolumeBtn;
+    private Button _sfxVolumeBtn;
     private Button _backBtn;
     private Label  _settingsTitleLabel;
 
-    public Rect2 CoverScreenRect => _coverScreenRect;
+    private static readonly float[] VolumeSteps = { 1.0f, 0.75f, 0.5f, 0.25f, 0f };
 
-    private const float CurlOverhang = 0.25f;
+    public Rect2 CoverScreenRect => _coverScreenRect;
 
     public override void _EnterTree()
     {
@@ -141,8 +144,10 @@ public partial class Cover : scene_script
             b.OffsetBottom = refTop * sy + bHeight;
             b.AddThemeFontSizeOverride("font_size", bFont);
         }
-        ScaleBtn(_fontSizeBtn, 160f);
-        ScaleBtn(_backBtn,     250f);
+        ScaleBtn(_fontSizeBtn,    115f);
+        ScaleBtn(_musicVolumeBtn, 175f);
+        ScaleBtn(_sfxVolumeBtn,   235f);
+        ScaleBtn(_backBtn,        320f);
 
         if (_settingsTitleLabel != null)
         {
@@ -169,12 +174,12 @@ public partial class Cover : scene_script
         _settingsBtn   = _menuPage.GetNodeOrNull<Button>("SettingsButton");
         _exitGameBtn   = _menuPage.GetNodeOrNull<Button>("ExitGameButton");
 
-        if (_newGameBtn    != null) _newGameBtn.Pressed    += () => mainScene.NewGame(_startScene);
-        if (_saveGameBtn   != null) _saveGameBtn.Pressed   += () => { if (mainScene.HasResumeState) mainScene.Save(); };
-        if (_loadGameBtn   != null) _loadGameBtn.Pressed   += mainScene.Load;
-        if (_resumeGameBtn != null) _resumeGameBtn.Pressed += () => { if (mainScene.HasResumeState) mainScene.ResumeGame(); };
-        if (_settingsBtn   != null) _settingsBtn.Pressed   += () => FlipPage(CoverPage.Settings);
-        if (_exitGameBtn   != null) _exitGameBtn.Pressed   += () => GetTree().Quit();
+        if (_newGameBtn    != null) { _newGameBtn.Pressed    += () => mainScene.NewGame(_startScene);                           StyleButton(_newGameBtn);    }
+        if (_saveGameBtn   != null) { _saveGameBtn.Pressed   += () => { if (mainScene.HasResumeState) mainScene.Save(); };      StyleButton(_saveGameBtn);   }
+        if (_loadGameBtn   != null) { _loadGameBtn.Pressed   += mainScene.Load;                                                 StyleButton(_loadGameBtn);   }
+        if (_resumeGameBtn != null) { _resumeGameBtn.Pressed += () => { if (mainScene.HasResumeState) mainScene.ResumeGame(); }; StyleButton(_resumeGameBtn); }
+        if (_settingsBtn   != null) { _settingsBtn.Pressed   += () => FlipPage(CoverPage.Settings);                            StyleButton(_settingsBtn);   }
+        if (_exitGameBtn   != null) { _exitGameBtn.Pressed   += () => GetTree().Quit();                                         StyleButton(_exitGameBtn);   }
 
         RefreshButtonStates();
     }
@@ -189,13 +194,18 @@ public partial class Cover : scene_script
 
         _settingsTitleLabel = _settingsPage.GetNodeOrNull<Label>("TitleLabel");
         _fontSizeBtn        = _settingsPage.GetNodeOrNull<Button>("FontSizeButton");
+        _musicVolumeBtn     = _settingsPage.GetNodeOrNull<Button>("MusicVolumeButton");
+        _sfxVolumeBtn       = _settingsPage.GetNodeOrNull<Button>("SfxVolumeButton");
         _backBtn            = _settingsPage.GetNodeOrNull<Button>("BackButton");
 
         _settingsTitleLabel?.AddThemeColorOverride("font_color", Colors.Black);
-        if (_fontSizeBtn != null) _fontSizeBtn.Pressed += ToggleFontSize;
-        if (_backBtn     != null) _backBtn.Pressed     += () => FlipPage(CoverPage.Menu);
+        if (_fontSizeBtn    != null) { _fontSizeBtn.Pressed    += ToggleFontSize;                    StyleButton(_fontSizeBtn);    }
+        if (_musicVolumeBtn != null) { _musicVolumeBtn.Pressed += ToggleMusicVolume;                 StyleButton(_musicVolumeBtn); }
+        if (_sfxVolumeBtn   != null) { _sfxVolumeBtn.Pressed   += ToggleSfxVolume;                  StyleButton(_sfxVolumeBtn);   }
+        if (_backBtn        != null) { _backBtn.Pressed        += () => FlipPage(CoverPage.Menu);    StyleButton(_backBtn);        }
 
         SyncFontSizeLabel();
+        SyncVolumeBtnLabels();
     }
 
     private void ToggleFontSize()
@@ -212,6 +222,48 @@ public partial class Cover : scene_script
         _fontSizeBtn.Text = Globals.FontSize == Globals.FontSizePreset.Normal
             ? "FONT SIZE: NORMAL"
             : "FONT SIZE: LARGE";
+    }
+
+    private void ToggleMusicVolume()
+    {
+        float cur  = mainScene?.MusicVolume ?? 1.0f;
+        int   idx  = Array.IndexOf(VolumeSteps, cur);
+        if (idx < 0) idx = 0;
+        mainScene?.SetMusicVolume(VolumeSteps[(idx + 1) % VolumeSteps.Length]);
+        SyncVolumeBtnLabels();
+    }
+
+    private void ToggleSfxVolume()
+    {
+        float cur  = mainScene?.SfxVolume ?? 1.0f;
+        int   idx  = Array.IndexOf(VolumeSteps, cur);
+        if (idx < 0) idx = 0;
+        mainScene?.SetSfxVolume(VolumeSteps[(idx + 1) % VolumeSteps.Length]);
+        SyncVolumeBtnLabels();
+    }
+
+    private void SyncVolumeBtnLabels()
+    {
+        if (_musicVolumeBtn != null)
+        {
+            float v = mainScene?.MusicVolume ?? 1.0f;
+            _musicVolumeBtn.Text = v <= 0f ? "MUSIC: OFF" : $"MUSIC: {(int)(v * 100)}%";
+        }
+        if (_sfxVolumeBtn != null)
+        {
+            float v = mainScene?.SfxVolume ?? 1.0f;
+            _sfxVolumeBtn.Text = v <= 0f ? "SFX: OFF" : $"SFX: {(int)(v * 100)}%";
+        }
+    }
+
+    private static void StyleButton(Button b)
+    {
+        if (b == null) return;
+        var red = new Color(0.55f, 0.05f, 0.05f);
+        b.AddThemeColorOverride("font_hover_color",         red);
+        b.AddThemeColorOverride("font_pressed_color",       red);
+        b.AddThemeColorOverride("font_focus_color",         red);
+        b.AddThemeColorOverride("font_hover_pressed_color", red);
     }
 
     private void AnimateCoverIn()
@@ -260,6 +312,35 @@ public partial class Cover : scene_script
 
         GetTree().CreateTimer(standDur + 0.15f).Connect("timeout",
             Callable.From(() => _coverClickable = true));
+    }
+
+    // Hide everything — captures just the room background for use as transition backdrop.
+    public void HideForBgCapture()
+    {
+        if (_coverPoly    != null) _coverPoly.Visible    = false;
+        if (_pagesShape   != null) _pagesShape.Visible   = false;
+        if (_menuPage     != null) _menuPage.Visible     = false;
+        if (_settingsPage != null) _settingsPage.Visible = false;
+    }
+
+    // Show cover art and hide menu overlays — for a clean background capture.
+    public void PrepareForCapture()
+    {
+        if (_coverPoly    != null) _coverPoly.Visible    = true;
+        if (_pagesShape   != null) _pagesShape.Visible   = true;
+        if (_menuPage     != null) _menuPage.Visible     = false;
+        if (_settingsPage != null) _settingsPage.Visible = false;
+    }
+
+    // Restore whatever page was active — called after PrepareForCapture so the
+    // curl animation shows what the player was looking at.
+    public void RestoreForCurl()
+    {
+        bool showCover = _activePage == CoverPage.Cover;
+        if (_coverPoly    != null) _coverPoly.Visible    = showCover;
+        if (_pagesShape   != null) _pagesShape.Visible   = showCover;
+        if (_menuPage     != null) _menuPage.Visible     = _activePage == CoverPage.Menu;
+        if (_settingsPage != null) _settingsPage.Visible = _activePage == CoverPage.Settings;
     }
 
     public void RefreshButtonStates()
@@ -319,50 +400,37 @@ public partial class Cover : scene_script
         if (to == CoverPage.Menu && _activePage == CoverPage.Cover)
             _menuOpened = true;
 
-        await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-
-        // Re-run after FramePostDraw: canvas transform is valid here, so cover rect is correct.
-        SetupPages();
-
-        var rawImg  = GetViewport().GetTexture().GetImage();
-        var rectI   = new Rect2I(
-            (int)_coverScreenRect.Position.X, (int)_coverScreenRect.Position.Y,
-            (int)_coverScreenRect.Size.X,     (int)_coverScreenRect.Size.Y);
-        var pageTex = ImageTexture.CreateFromImage(rawImg.GetRegion(rectI));
-
-        ShowPage(to);
-
-        float coverW = _coverScreenRect.Size.X;
-        float coverH = _coverScreenRect.Size.Y;
-        float ow     = coverW * CurlOverhang / (1f - CurlOverhang);
-
-        var curlLayer = new CanvasLayer { Layer = 100 };
-        AddChild(curlLayer);
-
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/page_turn.gdshader") };
-        mat.SetShaderParameter("progress",      0.0f);
-        mat.SetShaderParameter("left_overhang", CurlOverhang);
-        mat.SetShaderParameter("backward",      backward ? 1 : 0);
-
-        curlLayer.AddChild(new TextureRect
+        if (backward)
         {
-            Texture     = pageTex,
-            StretchMode = TextureRect.StretchModeEnum.Scale,
-            Size        = new Vector2(coverW + ow, coverH),
-            Position    = backward
-                ? new Vector2(_coverScreenRect.Position.X,      _coverScreenRect.Position.Y)
-                : new Vector2(_coverScreenRect.Position.X - ow, _coverScreenRect.Position.Y),
-            Material    = mat,
-        });
+            // Capture the DESTINATION (Menu) and settle it in via a reverse animation so
+            // the fold geometry matches the forward case instead of being mirrored.
+            if (_menuPage     != null) _menuPage.Visible     = true;
+            if (_settingsPage != null) _settingsPage.Visible = false;
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            SetupPages();
+            var rawImg  = GetViewport().GetTexture().GetImage();
+            var rectI   = new Rect2I(
+                (int)_coverScreenRect.Position.X, (int)_coverScreenRect.Position.Y,
+                (int)_coverScreenRect.Size.X,     (int)_coverScreenRect.Size.Y);
+            var destTex = ImageTexture.CreateFromImage(rawImg.GetRegion(rectI));
+            if (_menuPage     != null) _menuPage.Visible     = false;
+            if (_settingsPage != null) _settingsPage.Visible = true;
+            await mainScene.RunCurlAnimation(destTex, _coverScreenRect, reverse: true);
+            ShowPage(to);
+        }
+        else
+        {
+            await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            SetupPages();
+            var rawImg  = GetViewport().GetTexture().GetImage();
+            var rectI   = new Rect2I(
+                (int)_coverScreenRect.Position.X, (int)_coverScreenRect.Position.Y,
+                (int)_coverScreenRect.Size.X,     (int)_coverScreenRect.Size.Y);
+            var pageTex = ImageTexture.CreateFromImage(rawImg.GetRegion(rectI));
+            ShowPage(to);
+            await mainScene.RunCurlAnimation(pageTex, _coverScreenRect);
+        }
 
-        var tween = CreateTween();
-        tween.TweenMethod(
-            Callable.From<float>(p => mat.SetShaderParameter("progress", p)),
-            0.0f, 1.0f, 0.85f)
-            .SetEase(Tween.EaseType.InOut).SetTrans(Tween.TransitionType.Cubic);
-        await ToSignal(tween, Tween.SignalName.Finished);
-
-        curlLayer.QueueFree();
         _flipping = false;
     }
 }
